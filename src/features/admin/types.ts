@@ -41,6 +41,15 @@ export interface AdminProblemImport {
   error_codes: string[] | null;
 }
 
+/** A failed import attempt with no import row: parse failure or unexpected error. */
+export interface AdminImportIncident {
+  id: string;
+  kind: 'workout' | 'body_weight' | null;
+  error_code: string;
+  created_at: string;
+  coach_label: string;
+}
+
 export interface AdminReport {
   id: string;
   status: string;

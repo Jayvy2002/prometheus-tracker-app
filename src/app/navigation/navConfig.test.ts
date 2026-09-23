@@ -96,10 +96,23 @@ test('coached desktop train lists program, progress, stats and calendar', () => 
 test('desktop coaching lists copilot and marketplace as secondary sections', () => {
   const sections = desktopSections('coaching', trackingOn);
   const ids = sections.map(section => section.id);
-  assert.deepEqual(ids, ['primary', 'copilot', 'activity', 'account']);
+  assert.deepEqual(ids, ['primary', 'copilot', 'offer', 'import', 'account']);
   assert.equal(sections.find(section => section.id === 'copilot')?.items[0]?.path, '/prometheus');
-  assert.equal(sections.find(section => section.id === 'activity')?.tone, 'muted');
+  assert.equal(sections.find(section => section.id === 'offer')?.tone, 'muted');
+  // My offer is what the coach publishes and receives; finding a coach is personal.
+  const offer = sections.find(section => section.id === 'offer')?.items.map(item => item.path);
+  assert.deepEqual(offer, ['/coach/profile', '/coaching-requests']);
+  const all = sections.flatMap(section => section.items.map(item => item.path));
+  assert.equal(all.includes('/coaches'), false);
+  assert.equal(all.includes('/coaches/match'), false);
   assert.ok(sections.find(section => section.id === 'account')?.items.some(item => item.path === '/profile'));
+});
+
+test('finding a coach is a personal, solo-only desktop entry', () => {
+  const solo = desktopSections('solo', trackingOn).flatMap(section => section.items.map(item => item.path));
+  assert.equal(solo.includes('/coaches'), true);
+  const coached = desktopSections('coached', trackingOn).flatMap(section => section.items.map(item => item.path));
+  assert.equal(coached.includes('/coaches'), false);
 });
 
 test('a coach in the personal workspace uses the solo map', () => {

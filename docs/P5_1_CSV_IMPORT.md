@@ -75,3 +75,12 @@ Route CoachOnly `/coach/import` (desktop muted + réglages + dashboard + clients
 ## Migration
 
 Appliqué : `20260922014500_p5_coach_csv_import` (même timestamp Git, 97 statements, `created_by` null). Lock production **135**. Pending vide. Ne pas restamper `20260921024426` ni `20260922014500`.
+
+## Passage d’audit (PR #221, pending)
+
+Migrations `20260923082313_p5_audit_fixes` puis `20260923120000_p5_audit_followup`. Preuves : `supabase/tests/p5_audit_fixes.sql`.
+
+- Un fichier déjà rattaché par un dossier provisoire compte comme déjà importé : un commit direct des mêmes octets pour le même athlète renvoie `already_imported` (lecture de `coach_import_subject_sources`).
+- Un nouvel aperçu d’un aperçu annulé repasse par `preview_quota`.
+- Le parseur SQL est linéaire : un fichier de 2 000 lignes s’analyse en moins d’une seconde. `trim` suit celui du navigateur (espaces insécables et espaces Unicode compris). Une cellule trop longue échoue `cell_too_long` pendant la lecture.
+- Incidents : seuls un échec d’analyse et une erreur inattendue sont enregistrés (`record_coach_import_incident`). Le code doit être un identifiant court (`^[a-z][a-z0-9_]{0,59}$`), sinon `invalid_target`. Au-delà de 50 par Coach et par jour, l’appel renvoie `dropped` sans écrire. Aucun contenu de fichier n’est gardé.

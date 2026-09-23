@@ -32,7 +32,7 @@ Prometheus dispose déjà d’un socle important :
 
 Le travail restant n’est pas une reconstruction. Le principal enjeu est désormais de **faire converger les contrats métier et l’architecture vers la Vision de référence**.
 
-> **CURRENT IMPLEMENTATION GATE — P5 CLOSED.** Production/lock **138**. Dernière migration `20260923021000_p5_minimal_admin` (79 statements, `created_by` null, timestamp Git conservé). Pending vide. P6 n’est pas commencé. Job `coach-import-preview-purge` actif (`15 * * * *`). Watch n’applique pas.
+> **CURRENT IMPLEMENTATION GATE — P5 CLOSED, passage d’audit P5 en revue.** Production/lock **138**. Dernière migration appliquée `20260923021000_p5_minimal_admin` (79 statements, `created_by` null, timestamp Git conservé). PR `#221` (`cursor/p5-audit-fixes-1135`) porte deux migrations **pending** : `20260923082313_p5_audit_fixes` et `20260923120000_p5_audit_followup`. Elle attend revue et feu vert avant merge et application. P6 n’est pas commencé. Job `coach-import-preview-purge` actif (`15 * * * *`). Watch n’applique pas.
 >
 > Watch reste une surface d’observation, d’explicabilité, de correction de contexte et de décision humaine. Accepter, modifier ou refuser depuis Watch n’applique pas automatiquement une cible ou un programme. `commit_solo_weekly_review_decision` et `apply_intervention` restent les chemins d’effet durable. Aucune auto-application. Aucune réécriture des mesures sources. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
 
@@ -64,7 +64,7 @@ Le template `.github/pull_request_template.md` fait partie de la Definition of D
 | **P2** | Cerveau Prometheus | **P2.1–P2.5 + Hotfix B actifs en production** (128 migrations) | Unifier revue hebdo + signaux + mémoire + décisions |
 | **P3** | Planification avancée | **P3.1–P3.3 + hardening clos (130)** | Clos |
 | **P4** | Marketplace complète | **P4.1–P4.4 clos (134)** | Qualifications, matching, prospect, signalement |
-| **P5** | Adoption Coach | **P5.1–P5.4 clos (138)** | Imports, dossier provisoire, bibliothèque, admin |
+| **P5** | Adoption Coach | **P5.1–P5.4 clos (138)** ; passage d’audit en revue (`#221`, 2 pending) | Imports, dossier provisoire, bibliothèque, admin |
 | **P6** | Bêta économique | À faire après entitlements P1 | Entitlements, essais, grâce, mesure coûts |
 | **P7** | Intégrations et polish | Dernier | Health/wearables, offline secondaire, E2E final |
 
@@ -839,8 +839,22 @@ Console opérateur pour :
 - imports problématiques ;
 - signalements.
 
-Ne pas construire un back-office générique sans besoin réel. Abonnements, santé système et télémétrie de coût restent hors scope (P6). L’accord et la révocation d’opérateur partagent le mutex `20014508`. L’autorité est revérifiée sous ce verrou ; une course ne peut pas laisser zéro opérateur actif ni appliquer un grant devenu obsolète.
+Ne pas construire un back-office générique sans besoin réel. La console lit aussi les échecs d’import sans import (`admin_list_import_incidents`, PR `#221`). Abonnements, santé système et télémétrie de coût restent hors scope (P6). L’accord et la révocation d’opérateur partagent le mutex `20014508`. L’autorité est revérifiée sous ce verrou ; une course ne peut pas laisser zéro opérateur actif ni appliquer un grant devenu obsolète.
 
+
+## P5 — Passage d’audit (PR `#221`, en revue)
+
+Contre-expertise F01–F42 et audit parcours. Deux migrations pending, append-only. Preuves SQL : `supabase/tests/p5_audit_fixes.sql` (étape CI dédiée) et `scripts/test-p5-provisional-claim-lock.sh`. Contrats mis à jour dans `P5_1` à `P5_4`.
+
+Fermé par ce passage :
+
+- suppression de compte : contrôle préalable sans effet, trigger `account_deletion_guard`, opérateur révoqué supprimable, dernier opérateur protégé ;
+- rattachement : révision d’aperçu obligatoire, aucun accès Coach aux lignes après rattachement sans suivi actif, octets rattachés refusés en import direct ;
+- catalogue : renommage sans perte d’identité, `catalog_exercise_id` conservé à la sauvegarde d’un programme, propositions modifiées détectées ;
+- imports : quota à la réouverture, parseur linéaire, incidents bornés et visibles des opérateurs ;
+- parcours : revue hebdo Solo rétablie sur Aujourd’hui, reprise de séance limitée à aujourd’hui/hier, séance vide supprimée, charges en lbs et à virgule justes, fiche client avec onglets Programme et Nutrition, unités du Coach dans ses vues, records comparables (charge × répétitions) et records du jour, navigation Coach « Mon offre » / « Import », « Trouver un coach » dans l’espace personnel Solo.
+
+Hors de ce passage : remplacement global des couleurs par les tokens (refactor visuel sans bénéfice fonctionnel), `start_workout_from_template` qui ne lit pas encore `catalog_exercise_id`.
 ---
 
 # P6 — Architecture économique de bêta

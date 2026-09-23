@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, ScanLine, ChefHat, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ScanLine, ChefHat, Plus, Sparkles } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
@@ -42,6 +42,7 @@ export default function NutritionPage() {
   const createRecipe = useRecipeStore(s => s.createRecipe);
   const [showAdd, setShowAdd] = useState(false);
   const [showAddMenu, setShowAddMenu] = useState(false);
+  const [askOpen, setAskOpen] = useState(false);
   const [addCategory, setAddCategory] = useState<string>('breakfast');
   const [editingLog, setEditingLog] = useState<NutritionLog | null>(null);
   const [reuseOpen, setReuseOpen] = useState(false);
@@ -207,7 +208,19 @@ export default function NutritionPage() {
         <div>
           <h1 className="text-2xl font-semibold text-white">{t('nutrition.title')}</h1>
         </div>
-        <div className="relative">
+        <div className="relative flex items-center gap-2">
+          {solo && user && (
+            <button
+              type="button"
+              onClick={() => setAskOpen(o => !o)}
+              aria-label={t('soloAsk.label')}
+              aria-expanded={askOpen}
+              title={t('soloAsk.label')}
+              className={`min-h-11 min-w-11 flex items-center justify-center rounded-xl ${askOpen ? 'bg-blue-600/20 text-blue-300' : 'bg-neutral-900 text-neutral-400'}`}
+            >
+              <Sparkles size={16} aria-hidden="true" />
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setShowAddMenu(o => !o)}
@@ -217,7 +230,7 @@ export default function NutritionPage() {
             {t('nutrition.add')}
           </button>
           {showAddMenu && (
-            <div className="absolute right-0 mt-2 w-48 rounded-xl border border-neutral-800 bg-neutral-950 p-1 z-20">
+            <div className="absolute right-0 top-full mt-2 w-48 rounded-xl border border-neutral-800 bg-neutral-950 p-1 z-20">
               <button type="button" className="w-full text-left min-h-11 px-3 rounded-lg text-sm text-white hover:bg-neutral-800" onClick={() => { setShowAddMenu(false); handleQuickAdd(); }}>
                 {t('nutrition.addFood')}
               </button>
@@ -235,7 +248,7 @@ export default function NutritionPage() {
         </div>
       </div>
 
-      {solo && user && (
+      {askOpen && solo && user && (
         <SoloAskBar
           context={askContext}
           onApplyOnce={async (proposal) => {

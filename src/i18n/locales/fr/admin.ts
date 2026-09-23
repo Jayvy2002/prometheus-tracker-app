@@ -115,6 +115,16 @@ const admin = {
       errors_one: '{{count}} erreur',
       errors_other: '{{count}} erreurs',
     },
+    incidents: {
+      title: 'Échecs sans import',
+      hint: 'Analyses de fichier échouées ou erreurs inattendues côté coach. Aucune donnée du fichier n’est conservée.',
+      empty: 'Aucun échec récent.',
+      more: 'Voir plus',
+      kind: {
+        workout: 'Séances',
+        body_weight: 'Poids',
+      },
+    },
     report: {
       acknowledge: 'Prendre en compte',
       dismiss: 'Classer sans suite',

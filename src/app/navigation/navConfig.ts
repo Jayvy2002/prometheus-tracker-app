@@ -142,7 +142,10 @@ export function desktopSections(persona: NavPersona, tracking: NavTracking): Nav
     return nonempty([
       { id: 'primary', items: [today, clients, messages, programs] },
       { id: 'copilot', labelKey: 'nav.sectionCopilot', items: [copilot] },
-      { id: 'activity', labelKey: 'nav.sectionActivity', tone: 'muted', items: [coachOffer, requests, directory, coachMatch, coachImport, coachDossiers] },
+      // « Mon offre » (ce que le coach publie et reçoit) ≠ « Trouver un coach »
+      // (démarche personnelle, dans l'espace personnel). L'import reste à part.
+      { id: 'offer', labelKey: 'nav.sectionOffer', tone: 'muted', items: [coachOffer, requests] },
+      { id: 'import', labelKey: 'nav.sectionImport', tone: 'muted', items: [coachImport, coachDossiers] },
       { id: 'account', items: [profile] },
     ]);
   }
@@ -200,6 +203,8 @@ export function desktopSections(persona: NavPersona, tracking: NavTracking): Nav
       labelKey: 'nav.sectionUnderstand',
       items: [progress, stats, calendar],
     },
+    // Solo sans coach : « Trouver un coach » vit dans l'espace personnel.
+    { id: 'findCoach', labelKey: 'nav.sectionFindCoach', tone: 'muted', items: [directory, coachMatch] },
     { id: 'account', items: [profile] },
   ]);
 }

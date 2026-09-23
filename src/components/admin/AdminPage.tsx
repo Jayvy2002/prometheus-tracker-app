@@ -21,6 +21,7 @@ import type {
   AdminExerciseDuplicate,
   AdminExerciseProposal,
   AdminOperator,
+  AdminImportIncident,
   AdminProblemImport,
   AdminQualification,
   AdminReport,
@@ -157,7 +158,12 @@ export default function AdminPage() {
             <div role="tabpanel" id={`admin-panel-${tab}`} aria-labelledby={`admin-tab-${tab}`} className="space-y-4">
               {tab === 'qualifications' && <QualificationQueue />}
               {tab === 'exercises' && <ExerciseQueue />}
-              {tab === 'imports' && <ImportQueue />}
+              {tab === 'imports' && (
+                <>
+                  <ImportQueue />
+                  <ImportIncidents />
+                </>
+              )}
               {tab === 'reports' && <ReportQueue />}
             </div>
             <OperatorPanel selfId={userId} />
@@ -738,6 +744,87 @@ function ImportQueue() {
         </Card>
       ))}
     </div>
+  );
+}
+
+const INCIDENT_PAGE = 30;
+
+function ImportIncidents() {
+  const { t, i18n } = useTranslation();
+  const [state, setState] = useState<LoadState>('loading');
+  const [rows, setRows] = useState<AdminImportIncident[]>([]);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [retry, setRetry] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    setState('loading');
+    supabase.rpc('admin_list_import_incidents', { p_limit: INCIDENT_PAGE }).then(({ data, error }) => {
+      if (cancelled) return;
+      if (error) setState('error');
+      else {
+        const page = rowsOf<AdminImportIncident>(data);
+        setRows(page);
+        setHasMore(page.length === INCIDENT_PAGE);
+        setState('ready');
+      }
+    });
+    return () => { cancelled = true; };
+  }, [retry]);
+
+  async function loadMore() {
+    const last = rows[rows.length - 1];
+    if (!last || loadingMore) return;
+    setLoadingMore(true);
+    const { data, error } = await supabase.rpc('admin_list_import_incidents', {
+      p_before: last.created_at,
+      p_before_id: last.id,
+      p_limit: INCIDENT_PAGE,
+    });
+    setLoadingMore(false);
+    if (error) {
+      setState('error');
+      return;
+    }
+    const page = rowsOf<AdminImportIncident>(data);
+    setRows(prev => [...prev, ...page]);
+    setHasMore(page.length === INCIDENT_PAGE);
+  }
+
+  return (
+    <section className="space-y-3" aria-labelledby="admin-import-incidents">
+      <h2 id="admin-import-incidents" className="text-sm font-semibold text-ink">{t('admin.incidents.title')}</h2>
+      <p className="text-xs text-ink-secondary">{t('admin.incidents.hint')}</p>
+      {state !== 'ready' ? (
+        <QueueStatus state={state} onRetry={() => setRetry(n => n + 1)} />
+      ) : rows.length === 0 ? (
+        <p className="text-sm text-ink-secondary">{t('admin.incidents.empty')}</p>
+      ) : (
+        <>
+          <ul className="divide-y divide-line rounded-xl border border-line">
+            {rows.map(row => (
+              <li key={row.id} className="px-3 py-2 text-sm">
+                <p className="text-ink">
+                  {t(importErrorI18nKey(row.error_code))}
+                  <span className="text-ink-disabled"> · {row.error_code}</span>
+                </p>
+                <p className="text-xs text-ink-secondary">
+                  {row.coach_label || t('admin.import.account')}
+                  {row.kind ? ` · ${t(`admin.incidents.kind.${row.kind}`)}` : ''}
+                  {' · '}{formatWhen(row.created_at, i18n.language)}
+                </p>
+              </li>
+            ))}
+          </ul>
+          {hasMore && (
+            <Button variant="secondary" onClick={() => { void loadMore(); }} loading={loadingMore} disabled={loadingMore}>
+              {t('admin.incidents.more')}
+            </Button>
+          )}
+        </>
+      )}
+    </section>
   );
 }
 

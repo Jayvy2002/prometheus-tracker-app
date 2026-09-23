@@ -115,6 +115,16 @@ const admin = {
       errors_one: '{{count}} error',
       errors_other: '{{count}} errors',
     },
+    incidents: {
+      title: 'Failures without an import',
+      hint: 'File analyses that failed or unexpected errors on the coach side. No file data is kept.',
+      empty: 'No recent failure.',
+      more: 'Show more',
+      kind: {
+        workout: 'Workouts',
+        body_weight: 'Body weight',
+      },
+    },
     report: {
       acknowledge: 'Acknowledge',
       dismiss: 'Dismiss',

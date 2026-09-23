@@ -139,6 +139,8 @@ function QueueClientRow({
         title={group.clientName}
         subtitle={sinceLabel ? <>{headline} · {sinceLabel}</> : headline}
         onClick={() => onOpen(href)}
+        onDismiss={() => onSkip([item.id])}
+        dismissLabel={t('coaching.queue.skipFor', { name: group.clientName })}
       />
     );
   }

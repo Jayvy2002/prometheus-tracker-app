@@ -400,6 +400,7 @@ const coaching = {
       openSession: 'See session',
       openRecovery: 'See recovery',
       skip: 'Skip',
+      skipFor: 'Skip {{name}}',
       skipped: 'Signal dismissed',
       sinceToday: 'today',
       sinceDays: 'for {{n}}d',
