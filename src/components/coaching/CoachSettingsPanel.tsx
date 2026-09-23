@@ -104,6 +104,11 @@ export default function CoachSettingsPanel() {
                 className="accent-blue-500"
               />
               {t(`coaching.tabs360.${tab}`)}
+              {tab === 'training' || tab === 'progress' ? (
+                <span className="text-xs text-neutral-500">
+                  {t('coaching.settings.tabWith', { tab: t(`coaching.tabs360.${tab === 'training' ? 'program' : 'nutrition'}`) })}
+                </span>
+              ) : null}
             </label>
           ))}
         </div>

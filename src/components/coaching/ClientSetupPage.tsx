@@ -6,7 +6,8 @@ import { Sparkles, X } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { useProgramStore } from '../../stores/programStore';
-import { issnTargetsFromProfile, todayStr } from '../../lib/utils';
+import { formatWeight, issnTargetsFromProfile, todayStr } from '../../lib/utils';
+import { useProfileStore } from '../../stores/profileStore';
 import { clientFileHref } from '../../lib/coachSituation';
 import {
   initialSetupTargetChoice,
@@ -75,6 +76,7 @@ function ReviewRow({ label, value }: { label: string; value: string }) {
 export default function ClientSetupPage() {
   const canCoach = useAccountContext().capabilities.coach;
   const { t } = useTranslation();
+  const unit = useProfileStore(s => s.profile?.unit_weight === 'lbs' ? 'lbs' : 'kg');
   const { id } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -387,7 +389,7 @@ export default function ClientSetupPage() {
             label={t('coaching.setup.fields.allergies')}
             value={(profile.food_allergies ?? []).map(a => optionLabel(t, 'allergies', a, labelOf(FOOD_ALLERGIES, a))).join(', ') || t('coaching.setup.none')}
           />
-          <ReviewRow label={t('coaching.setup.fields.weight')} value={`${profile.weight_kg} → ${profile.target_weight_kg} kg`} />
+          <ReviewRow label={t('coaching.setup.fields.weight')} value={`${formatWeight(profile.weight_kg, unit)} → ${formatWeight(profile.target_weight_kg, unit)}`} />
           <ReviewRow label={t('coaching.setup.fields.sleep')} value={`${profile.sleep_hours_average} h`} />
         </Card>
       )}

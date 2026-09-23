@@ -248,7 +248,7 @@ export default function ProfilePage() {
         {!inCoaching && (
         <Link to="/become-coach" className="flex min-h-11 items-center gap-3 rounded-2xl bg-neutral-900 px-4 text-sm text-white">
           <Users size={16} className="text-neutral-300" />
-          {t('coaching.becomeCoach')}
+          {canCoach ? t('coaching.coachMode') : t('coaching.becomeCoach')}
         </Link>
         )}
 

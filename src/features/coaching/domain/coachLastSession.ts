@@ -3,7 +3,7 @@ import { isCompletedSet } from '../../../lib/performedSets';
 import { relanceThreadHref } from './coachQueue';
 import { displayName, datePrefix } from './coachText';
 import { RECENT_SESSION_DAYS, trainingSessionHref } from './coachTraining';
-import { addDaysToDateStr } from '../../../lib/utils';
+import { addDaysToDateStr, formatLoad } from '../../../lib/utils';
 import type {
   ClientLiftProgress,
   ClientOpsRow,
@@ -24,21 +24,21 @@ export function readableSets(sets: LiftSetSnapshot[]): LiftSetSnapshot[] {
   return sets.filter(isCompletedSet);
 }
 
-function setLine(set: LiftSetSnapshot): string {
+export function setLine(set: LiftSetSnapshot, unit: 'kg' | 'lbs' = 'kg'): string {
   const load = set.set_type === 'isometric'
-    ? `${set.weight_kg}kg × ${set.duration_seconds ?? 0}s`
-    : `${set.weight_kg}kg × ${set.reps}`;
+    ? `${formatLoad(set.weight_kg, unit)} × ${set.duration_seconds ?? 0}s`
+    : `${formatLoad(set.weight_kg, unit)} × ${set.reps}`;
   const rir = set.rir > 0 ? ` @ RIR ${set.rir}` : '';
   return `${load}${rir}`;
 }
 
-export function sessionExerciseLines(session: LastSessionView): string[] {
+export function sessionExerciseLines(session: LastSessionView, unit: 'kg' | 'lbs' = 'kg'): string[] {
   return session.exercises
     .map(ex => {
       const sets = readableSets(ex.sets);
       if (sets.length === 0) return '';
       const notes = ex.notes?.trim() ? ` — ${ex.notes.trim()}` : '';
-      return `${ex.name}: ${sets.map(setLine).join(', ')}${notes}`;
+      return `${ex.name}: ${sets.map(set => setLine(set, unit)).join(', ')}${notes}`;
     })
     .filter(Boolean);
 }

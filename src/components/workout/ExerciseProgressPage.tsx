@@ -183,11 +183,11 @@ export default function ExerciseProgressPage({ embedded = false }: { embedded?: 
                       <p className="text-sm font-medium text-white">
                         {formatWeekdayShort(e.date, i18n.language)}
                       </p>
-                      <p className="text-xs text-neutral-500">{e.sets} sets</p>
+                      <p className="text-xs text-neutral-500">{t('progress.setsCount', { count: e.sets })}</p>
                     </div>
                     <div className="text-right space-y-0.5">
                       <p className="text-xs font-medium text-blue-400">{showKg(e.estimated1RM)} <span className="text-neutral-600">1RM</span></p>
-                      <p className="text-[11px] text-neutral-500">{showKg(e.maxWeight)} max | {e.totalVolume} vol</p>
+                      <p className="text-[11px] text-neutral-500">{t('progress.maxAndVolume', { max: showKg(e.maxWeight), volume: showKg(e.totalVolume) })}</p>
                     </div>
                     {isRecordAtIndex(detail.entries, detail.entries.indexOf(e)) && (
                       <Trophy size={12} className="text-amber-400 shrink-0" />

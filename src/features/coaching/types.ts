@@ -112,7 +112,9 @@ export type CoachClientTab =
   | 'overview'
   | 'profile'
   | 'training'
+  | 'program'
   | 'progress'
+  | 'nutrition'
   | 'checkins'
   | 'health'
   | 'notes';

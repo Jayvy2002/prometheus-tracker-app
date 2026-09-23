@@ -59,7 +59,7 @@ export default function BecomeCoachPage() {
 
   return (
     <div className="px-4 pt-6 pb-16 max-w-lg">
-      <PageHeader title={t('coaching.becomeCoach')} backTo="/profile" />
+      <PageHeader title={canCoach ? t('coaching.coachMode') : t('coaching.becomeCoach')} backTo="/profile" />
       <p className="text-sm text-neutral-300 mb-6">{t('coaching.becomeCoachBody')}</p>
       {canCoach ? (
         <div className="space-y-3">

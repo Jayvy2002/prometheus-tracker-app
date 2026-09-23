@@ -1,4 +1,4 @@
-import { CheckCircle, Zap, Dumbbell, Clock, BarChart2 } from 'lucide-react';
+import { CheckCircle, Zap, Dumbbell, Clock, BarChart2, Trophy } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatDuration, formatWeight } from '../../lib/utils';
 import { useProfileStore } from '../../stores/profileStore';
@@ -6,6 +6,7 @@ import type { Workout } from '../../lib/types';
 import { computeWorkoutSummaryStats } from '../../lib/performedSets';
 import { isCoachedAthlete } from '../../lib/coachRole';
 import { useCoachingStore } from '../../stores/coachingStore';
+import { useSessionRecords } from '../../features/workout/hooks/useSessionRecords';
 import Button from '../ui/Button';
 
 function StatCard({
@@ -46,6 +47,7 @@ export default function WorkoutSummaryScreen({
   const stats = computeWorkoutSummaryStats(workout, duration);
   const unit = useProfileStore(s => s.profile?.unit_weight) === 'lbs' ? 'lbs' : 'kg';
   const volumeLabel = formatWeight(stats.totalVolume, unit);
+  const records = useSessionRecords(workout);
 
   const fact = stats.setCount === 0
     ? t('workout.summary.facts.nonePerformed')
@@ -103,6 +105,30 @@ export default function WorkoutSummaryScreen({
             colorClass="bg-blue-500/15 text-blue-400"
           />
         </div>
+
+        {records.length > 0 && (
+          <section
+            aria-labelledby="summary-records"
+            className="mb-6 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 animate-fade-in-up"
+          >
+            <h2 id="summary-records" className="text-sm font-semibold text-amber-200 flex items-center gap-1.5">
+              <Trophy size={14} aria-hidden="true" /> {t('workout.summary.records')}
+            </h2>
+            <ul className="mt-2 space-y-1">
+              {records.map(r => (
+                <li key={r.name} className="flex items-baseline justify-between gap-3 text-sm">
+                  <span className="text-white truncate">{r.name}</span>
+                  <span className="text-amber-100 tabular-nums shrink-0">
+                    {r.set.weight_kg > 0
+                      ? `${formatWeight(r.set.weight_kg, unit)} × ${r.set.reps}`
+                      : t('workout.summary.recordReps', { count: r.set.reps })}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="text-[11px] text-neutral-500 mt-2">{t('workout.summary.recordsHint')}</p>
+          </section>
+        )}
 
         {fact ? (
           <p
