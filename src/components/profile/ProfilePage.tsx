@@ -29,6 +29,7 @@ import DataControlPanel from './DataControlPanel';
 import CoachSettingsPanel from '../coaching/CoachSettingsPanel';
 import ClientCoachRelationshipPanel from '../coaching/ClientCoachRelationshipPanel';
 import SoloHub from './SoloHub';
+import AccessCard from './AccessCard';
 import WorkspaceSwitcher from '../layout/WorkspaceSwitcher';
 
 type Section = 'personal' | 'goals' | 'units' | 'password' | 'feedback' | 'notifications' | 'language' | 'coachPrefs';
@@ -353,6 +354,7 @@ export default function ProfilePage() {
       </Button>
 
       <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mt-6 mb-2">{t('profile.groups.advanced')}</p>
+      <AccessCard userId={user?.id} isCoach={canCoach} />
       <DataControlPanel
         hasCoach={!!myCoach}
         coachName={myCoach?.full_name ?? null}

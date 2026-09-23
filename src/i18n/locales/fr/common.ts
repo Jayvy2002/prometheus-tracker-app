@@ -68,6 +68,28 @@ const common = {
     coaching: 'Coaching',
   },
 
+  entitlements: {
+    title: 'Accès',
+    personal: 'Personnel',
+    coach: 'Coach',
+    access: {
+      beta: 'Bêta',
+      paid: 'Actif',
+      trial: 'Essai',
+      grace: 'Période de grâce',
+      expired: 'Terminé',
+      none: 'Aucun abonnement',
+    },
+    until: 'jusqu’au {{date}}',
+    since: 'depuis le {{date}}',
+    activeClients_one: '{{count}} client actif',
+    activeClients_other: '{{count}} clients actifs',
+    clientLimit: 'sur {{limit}} prévus',
+    overLimit: 'Au-delà de la limite prévue. Rien n’est bloqué.',
+    noEnforcement: 'Rien n’est limité par ces droits pour l’instant.',
+    loadError: 'Impossible de lire tes droits. Ce n’est pas une absence d’accès.',
+  },
+
   entryIntention: {
     title: 'Pourquoi es-tu ici ?',
     solo: 'Je me gère seul',

@@ -1,3 +1,8 @@
 {
-  "pending": []
+  "pending": [
+    {
+      "version": "20260923140000",
+      "name": "p6_entitlements"
+    }
+  ]
 }

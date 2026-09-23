@@ -32,7 +32,7 @@ Prometheus dispose déjà d’un socle important :
 
 Le travail restant n’est pas une reconstruction. Le principal enjeu est désormais de **faire converger les contrats métier et l’architecture vers la Vision de référence**.
 
-> **CURRENT IMPLEMENTATION GATE — P5 CLOSED.** Production/lock **138**. Dernière migration `20260923021000_p5_minimal_admin` (79 statements, `created_by` null, timestamp Git conservé). Pending vide. P6 n’est pas commencé. Job `coach-import-preview-purge` actif (`15 * * * *`). Watch n’applique pas.
+> **CURRENT IMPLEMENTATION GATE — P6.1 en revue.** Production/lock **138**. Dernière migration appliquée `20260923021000_p5_minimal_admin`. P5 clos ; son passage d’audit est en revue (PR `#221`, 2 migrations pending). P6.1 (entitlements indépendants, `agent/p6-1-entitlements`) ajoute `20260923140000_p6_entitlements`, pending, horodatée après celles de `#221`. Aucun droit ne bloque encore une fonctionnalité. P6.2 n’est pas commencé : attendre le feu vert.
 >
 > Watch reste une surface d’observation, d’explicabilité, de correction de contexte et de décision humaine. Accepter, modifier ou refuser depuis Watch n’applique pas automatiquement une cible ou un programme. `commit_solo_weekly_review_decision` et `apply_intervention` restent les chemins d’effet durable. Aucune auto-application. Aucune réécriture des mesures sources. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
 
@@ -65,7 +65,7 @@ Le template `.github/pull_request_template.md` fait partie de la Definition of D
 | **P3** | Planification avancée | **P3.1–P3.3 + hardening clos (130)** | Clos |
 | **P4** | Marketplace complète | **P4.1–P4.4 clos (134)** | Qualifications, matching, prospect, signalement |
 | **P5** | Adoption Coach | **P5.1–P5.4 clos (138)** | Imports, dossier provisoire, bibliothèque, admin |
-| **P6** | Bêta économique | À faire après entitlements P1 | Entitlements, essais, grâce, mesure coûts |
+| **P6** | Bêta économique | **P6.1 en revue** (1 pending) ; P6.2–P6.4 à faire | Entitlements, essais, grâce, mesure coûts |
 | **P7** | Intégrations et polish | Dernier | Health/wearables, offline secondaire, E2E final |
 
 Aucun agent ne doit sauter directement à P3–P7 si P0/P1 contient un blocage qui affecte le même domaine.
@@ -846,6 +846,8 @@ Ne pas construire un back-office générique sans besoin réel. Abonnements, san
 # P6 — Architecture économique de bêta
 
 ## P6.1 — Entitlements indépendants
+
+**En revue.** Contrat : `docs/P6_1_ENTITLEMENTS.md`. Migration `20260923140000_p6_entitlements` (pending). Table `account_entitlements` par produit (`solo`, `coach`), écriture `service_role` seulement, lecture de ses propres droits (`get_my_entitlements`), accès effectif `beta | paid | trial | grace | expired | none`, grâce Coach de 7 jours posée une fois, essai Solo P1.5 réutilisé. Carte « Accès » en lecture seule dans le profil. Aucun blocage, aucun prix, aucun quota décidé. Preuves : `supabase/tests/p6_entitlements.sql` (CI), tests unitaires du miroir TypeScript.
 
 Remplacer progressivement le modèle trop simple `free/premium` par un contrat pouvant représenter :
 
