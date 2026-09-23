@@ -36,6 +36,7 @@ export interface WorkoutExercise {
   prescribed_rest_seconds?: number | null;
   prescribed_weight_kg?: number | null;
   prescription_source?: 'program' | 'user';
+  catalog_exercise_id?: string | null;
   sets?: WorkoutSet[];
   created_at: string;
 }
@@ -79,6 +80,7 @@ export interface RoutineExercise {
   default_rest_seconds: number;
   order_index: number;
   notes: string;
+  catalog_exercise_id?: string | null;
   created_at: string;
 }
 

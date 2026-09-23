@@ -9,6 +9,7 @@ import { trackScreen } from '../../lib/telemetryClient';
 import { useEffect } from 'react';
 import { useAccountContext } from '@/features/account/hooks/useAccountContext';
 import AssignedQuestionnaireBanner from '../../components/onboarding/AssignedQuestionnaireBanner';
+import SessionResumeBar from '../../components/workout/SessionResumeBar';
 
 export default function AppLayout() {
   const coachingRole = useCoachingStore(s => s.coachingRole);
@@ -20,6 +21,8 @@ export default function AppLayout() {
   const isCoach = context.activeWorkspace === 'coaching';
   const location = useLocation();
   const hideFab = isCoach
+    || location.pathname === '/dashboard'
+    || location.pathname.startsWith('/workout')
     || location.pathname.startsWith('/coaches')
     || location.pathname === '/coach/profile'
     || location.pathname === '/coaching-requests'
@@ -56,6 +59,7 @@ export default function AppLayout() {
       </main>
 
       {!hideFab && <FAB />}
+      {!isCoach && <SessionResumeBar />}
       <BottomNav />
     </div>
   );

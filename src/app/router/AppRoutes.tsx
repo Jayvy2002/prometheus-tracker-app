@@ -34,8 +34,12 @@ const WeightPage = lazy(() => import('../../components/weight/WeightPage'));
 const NutritionPage = lazy(() => import('../../components/nutrition/NutritionPage'));
 const ScannerPage = lazy(() => import('../../components/scanner/ScannerPage'));
 const ProfilePage = lazy(() => import('../../components/profile/ProfilePage'));
+const BecomeCoachPage = lazy(() => import('../../components/profile/BecomeCoachPage'));
 const AdminPage = lazy(() => import('../../components/admin/AdminPage'));
 const CalendarPage = lazy(() => import('../../components/calendar/CalendarPage'));
+const BodyHub = lazy(() => import('../../components/navigation/BodyHub'));
+const SuiviHub = lazy(() => import('../../components/navigation/SuiviHub'));
+const WatchPage = lazy(() => import('../../components/navigation/WatchPage'));
 const RecipesPage = lazy(() => import('../../components/nutrition/RecipesPage'));
 const CheckInPage = lazy(() => import('../../components/checkin/CheckInPage'));
 const ClientsPage = lazy(() => import('../../components/coaching/ClientsPage'));
@@ -268,12 +272,17 @@ export default function AppRoutes() {
       <Route element={<AppLayout />}>
         <Route path="/dashboard" element={<HomeDashboard />} />
         <Route path="/workout" element={<CoachTrackerRedirect><TrackingGate module="workouts"><WorkoutPage /></TrackingGate></CoachTrackerRedirect>} />
+        <Route path="/body" element={<CoachTrackerRedirect><BodyHub /></CoachTrackerRedirect>} />
+        <Route path="/suivi" element={<CoachTrackerRedirect><SuiviHub /></CoachTrackerRedirect>} />
+        <Route path="/watch" element={<CoachTrackerRedirect><WatchPage /></CoachTrackerRedirect>} />
         <Route path="/nutrition" element={<CoachTrackerRedirect><TrackingGate module="nutrition"><NutritionPage /></TrackingGate></CoachTrackerRedirect>} />
         <Route path="/weight" element={<CoachTrackerRedirect><TrackingGate module="weight"><WeightPage /></TrackingGate></CoachTrackerRedirect>} />
         <Route path="/calendar" element={<CoachTrackerRedirect><CalendarPage /></CoachTrackerRedirect>} />
         <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/become-coach" element={<BecomeCoachPage />} />
         <Route path="/admin" element={<AdminPage />} />
         <Route path="/exercise-progress" element={<CoachTrackerRedirect><ExerciseProgressPage /></CoachTrackerRedirect>} />
+        <Route path="/progress/exercise/:exerciseName" element={<CoachTrackerRedirect><ExerciseProgressPage /></CoachTrackerRedirect>} />
         <Route path="/stats" element={<CoachTrackerRedirect><StatsPage /></CoachTrackerRedirect>} />
         <Route path="/checkin" element={<CoachTrackerRedirect><TrackingGate module="checkins"><CheckInPage /></TrackingGate></CoachTrackerRedirect>} />
         <Route path="/clients" element={<CoachOnly><ClientsPage /></CoachOnly>} />

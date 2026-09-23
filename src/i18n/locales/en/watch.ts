@@ -9,6 +9,7 @@ const watch = {
     loadError: 'Observations could not be loaded. That is not “nothing to watch”.',
     loadErrorCoach: 'This file’s observations could not be loaded.',
     more: 'See why',
+    evidence: 'See the evidence',
     certainty: 'Reading',
     observed: 'What was seen',
     observedCopy: {

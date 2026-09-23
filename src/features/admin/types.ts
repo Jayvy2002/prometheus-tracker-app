@@ -16,6 +16,7 @@ export interface AdminExerciseProposal {
   description: string;
   suggestion_name_fr: string;
   created_at: string;
+  updated_at: string;
 }
 
 export interface AdminExerciseDuplicate {

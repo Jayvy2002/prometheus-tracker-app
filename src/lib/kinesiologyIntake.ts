@@ -755,15 +755,13 @@ export type IntakeGateInput = {
  * Hard wall for a new account with no completed intake and no app history.
  * - Coached invite: only when the usage probe answered (fail-open — never block a client
  *   whose history could not be read).
- * - Solo: also when the probe failed — the alternative would be the tracker onboarding wall
- *   anyway, and the intake IS the solo onboarding (docs/VISION.md, point 9).
+ * - Solo: never. The health intake is optional and offered later from Profil.
  * - Coach: never.
  */
 export function shouldForceKinesiologyIntake(input: IntakeGateInput): boolean {
-  if (input.isCoach) return false;
+  if (input.isCoach || !input.isCoachedClient) return false;
   if (shouldSkipKinesiologyIntake(input.profile, input.usage)) return false;
-  if (input.isCoachedClient) return input.probeStatus === 'ok';
-  return input.probeStatus === 'ok' || input.probeStatus === 'failed';
+  return input.probeStatus === 'ok';
 }
 
 export function intakeGateNeedsUsageProbe(input: {
@@ -771,7 +769,7 @@ export function intakeGateNeedsUsageProbe(input: {
   isCoach: boolean;
   profile: IntakeProfileSlice | null | undefined;
 }): boolean {
-  if (input.isCoach) return false;
+  if (input.isCoach || !input.isCoachedClient) return false;
   if (shouldSkipKinesiologyIntake(input.profile, null)) return false;
   return true;
 }

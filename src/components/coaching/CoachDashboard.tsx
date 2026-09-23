@@ -6,7 +6,6 @@ import {
   Link2,
   Plus,
   Search,
-  Upload,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
@@ -29,7 +28,7 @@ export default function CoachDashboard() {
   const {
     opsRows, opsLoading, opsPartialError, invites,
     fetchCoachOps, fetchInvites, createInvite, fetchCoachSettings,
-    runFleetRound, fleetRunning, coachingRoleError, fetchMyRole,
+    coachingRoleError, fetchMyRole,
   } = useCoachingStore();
   const [creating, setCreating] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
@@ -65,18 +64,6 @@ export default function CoachDashboard() {
     await copyUrl(result.token);
   };
 
-  const handleFleet = async () => {
-    const result = await runFleetRound();
-    if (result.error) {
-      toast(t('coaching.fleet.failed'), 'error');
-      return;
-    }
-    toast(t('coaching.fleet.done', {
-      flagged: result.clients_flagged ?? 0,
-      skipped: result.clients_skipped ?? 0,
-    }));
-  };
-
   return (
     <PageTransition>
       <div className="px-4 pt-6 pb-28 md:px-6">
@@ -94,29 +81,12 @@ export default function CoachDashboard() {
             ) : null}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {opsRows.length > 0 && (
-            <Button type="button" size="sm" variant="secondary" loading={fleetRunning} onClick={() => void handleFleet()}>
-              {t('coaching.fleet.refresh')}
-            </Button>
-            )}
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              onClick={() => navigate('/prometheus')}
-            >
-              <Search size={14} />
-              {t('coaching.ask.shortcut')}
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              onClick={() => navigate('/coach/import')}
-            >
-              <Upload size={14} />
-              {t('coaching.importCsv.title')}
-            </Button>
+            <IconButton label={t('common.search')} onClick={() => navigate('/clients?search=1')}>
+              <Search size={18} />
+            </IconButton>
+            <IconButton label={t('coaching.ask.shortcut')} onClick={() => navigate('/prometheus')}>
+              <Search size={18} />
+            </IconButton>
           </div>
         </div>
 

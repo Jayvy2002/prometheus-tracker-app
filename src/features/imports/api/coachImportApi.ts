@@ -26,6 +26,9 @@ export type CoachImportView = {
   row_offset: number;
   row_limit: number;
   errors_only: boolean;
+  created_at: string;
+  subject_user_id: string | null;
+  provisional_dossier_id: string | null;
 };
 
 export function asCoachImportView(value: unknown): CoachImportView {
@@ -49,6 +52,9 @@ export function asCoachImportView(value: unknown): CoachImportView {
     row_offset: Number(row.row_offset ?? 0),
     row_limit: Number(row.row_limit ?? 50),
     errors_only: row.errors_only === true,
+    created_at: String(row.created_at ?? ''),
+    subject_user_id: row.subject_user_id ? String(row.subject_user_id) : null,
+    provisional_dossier_id: row.provisional_dossier_id ? String(row.provisional_dossier_id) : null,
   };
 }
 
@@ -93,6 +99,31 @@ export async function cancelCoachImport(
   });
   if (error) return { data: null, error: error.message };
   return { data: asCoachImportView(data), error: null };
+}
+
+export async function listCoachImports(page?: {
+  before?: string | null;
+  beforeId?: string | null;
+  limit?: number;
+}): Promise<{ data: CoachImportView[]; error: string | null }> {
+  const { data, error } = await supabase.rpc('list_coach_imports', {
+    p_before: page?.before ?? null,
+    p_before_id: page?.beforeId ?? null,
+    p_limit: page?.limit ?? 50,
+  });
+  if (error) return { data: [], error: error.message };
+  const rows = Array.isArray(data) ? data : [];
+  return { data: rows.map(asCoachImportView), error: null };
+}
+
+export async function recordCoachImportIncident(
+  kind: 'workout' | 'body_weight' | null,
+  errorCode: string,
+): Promise<void> {
+  await supabase.rpc('record_coach_import_incident', {
+    p_kind: kind,
+    p_error_code: errorCode,
+  });
 }
 
 export async function getCoachImport(

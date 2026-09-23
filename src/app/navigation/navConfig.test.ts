@@ -17,12 +17,12 @@ const coachSnap = parseAccountSnapshot({
   active_coach_id: null,
 }, 'A');
 
-test('solo mobile tabs are Today / Workout / Progress / Nutrition / Profile', () => {
+test('solo mobile tabs are Today / Workout / Suivi / Profile', () => {
   const context = resolveAccountContext('none', null, true, null);
   assert.equal(navPersona(context), 'solo');
   assert.deepEqual(
     mobileTabs('solo', trackingOn).map(item => item.path),
-    ['/dashboard', '/workout', '/exercise-progress', '/nutrition', '/profile'],
+    ['/dashboard', '/workout', '/suivi', '/profile'],
   );
 });
 
@@ -32,12 +32,12 @@ test('coach mobile tabs put account in chrome and keep copilot off the tab bar',
   assert.equal(paths.includes('/prometheus'), false);
 });
 
-test('coached mobile tabs keep messages and check-in, not photos', () => {
+test('coached mobile tabs are home, workout, body, coach and profile', () => {
   const paths = mobileTabs('coached', trackingOn).map(item => item.path);
-  assert.deepEqual(paths, ['/dashboard', '/workout', '/checkin', '/messages', '/profile']);
+  assert.deepEqual(paths, ['/dashboard', '/workout', '/body', '/messages', '/profile']);
   assert.equal(paths.length, 5);
   assert.equal(paths.includes('/photos'), false);
-  assert.equal(paths.includes('/nutrition'), false);
+  assert.equal(paths.includes('/checkin'), false);
   assert.equal(paths.includes('/exercise-progress'), false);
 });
 
@@ -52,11 +52,13 @@ test('UX84 quick add names an off-plan session when a program day is due', () =>
   assert.equal(workoutRest?.state, undefined);
 });
 
-test('UX111 coached nutrition stays off the tab bar (FAB + profile + desktop)', () => {
+test('coached body tab keeps nutrition on desktop and off the marketplace', () => {
   const tabs = mobileTabs('coached', trackingOn);
   assert.equal(tabs.length, 5);
+  assert.equal(tabs.some(item => item.path === '/body'), true);
   const desktop = desktopSections('coached', trackingOn).flatMap(s => s.items.map(i => i.path));
   assert.equal(desktop.includes('/nutrition'), true);
+  assert.equal(desktop.includes('/coaches'), false);
   const fab = quickAddActions(trackingOn).map(a => a.path);
   assert.equal(fab.includes('/nutrition?add=1'), true);
   assert.equal(fab.includes('/checkin'), true);
@@ -65,7 +67,7 @@ test('UX111 coached nutrition stays off the tab bar (FAB + profile + desktop)', 
 test('coached desktop train lists program, progress, stats and calendar', () => {
   const sections = desktopSections('coached', trackingOn);
   const train = sections.find(section => section.id === 'train')?.items.map(item => item.path);
-  assert.deepEqual(train, ['/workout', '/programs', '/exercise-progress', '/stats', '/calendar']);
+  assert.deepEqual(train, ['/workout', '/routines', '/programs', '/exercise-progress', '/stats', '/calendar']);
   const all = sections.flatMap(section => section.items.map(item => item.path));
   assert.equal(all.includes('/stats'), true);
   assert.equal(all.includes('/calendar'), true);
@@ -89,8 +91,9 @@ test('tab matching prefers the longest prefix and respects end', () => {
   const tabs = mobileTabs('solo', trackingOn);
   assert.equal(tabIndexForPath('/dashboard', tabs), 0);
   assert.equal(tabIndexForPath('/workout/new', tabs), 1);
+  assert.equal(tabIndexForPath('/suivi', tabs), 2);
   assert.equal(tabIndexForPath('/exercise-progress', tabs), 2);
-  assert.equal(tabIndexForPath('/profile', tabs), 4);
+  assert.equal(tabIndexForPath('/profile', tabs), 3);
   const profile = tabs.find(item => item.path === '/profile');
   assert.ok(profile);
   assert.equal(pathMatchesItem('/coach/profile', profile), false);

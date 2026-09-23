@@ -23,8 +23,8 @@ test('10a: recipes live in AppLayout Nutrition chrome, not FullPageLayout / Sess
   assert.doesNotMatch(recipes, /FullPageLayout/);
   assert.doesNotMatch(recipes, /SessionShell/);
   const nutrition = src('src/components/nutrition/NutritionPage.tsx');
-  assert.match(nutrition, /CardLink to="\/recipes"/);
-  assert.match(nutrition, /nutrition\.recipes\.title/);
+  assert.match(nutrition, /navigate\('\/recipes'\)/);
+  assert.doesNotMatch(nutrition, /CardLink to="\/recipes"/);
   assert.doesNotMatch(nutrition, /!coached/);
 });
 

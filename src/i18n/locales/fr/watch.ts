@@ -9,6 +9,7 @@ const watch = {
     loadError: 'Les observations n’ont pas pu être chargées. Ce n’est pas « rien à suivre ».',
     loadErrorCoach: 'Les observations de ce dossier n’ont pas pu être chargées.',
     more: 'Voir pourquoi',
+    evidence: 'Voir les preuves',
     certainty: 'Lecture',
     observed: 'Ce qui a été vu',
     observedCopy: {

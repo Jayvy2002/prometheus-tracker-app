@@ -164,7 +164,8 @@ test('Entraînements is the séance du jour, not a second program editor', () =>
   const page = src('src/components/workout/WorkoutPage.tsx');
   assert.match(page, /ClientGymCard/);
   assert.match(page, /startProgramDay/);
-  assert.match(page, /to="\/programs"/);
+  assert.match(page, /nav\.routines/);
+  assert.doesNotMatch(page, /to="\/programs"/);
   assert.doesNotMatch(page, /ProgramEditorPage/);
   assert.doesNotMatch(page, /workout\.myRoutines/);
   const profile = src('src/components/profile/ProfilePage.tsx');

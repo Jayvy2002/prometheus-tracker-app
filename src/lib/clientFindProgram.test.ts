@@ -20,10 +20,12 @@ test('coached athlete can open Mon programme, exercise-progress, stats and calen
   assert.doesNotMatch(app, /path="\/calendar" element=\{<CoachTrackerRedirect><CoachedAthleteRedirect>/);
 
   const workout = src('src/components/workout/WorkoutPage.tsx');
-  assert.match(workout, /data-testid="workout-program"/);
-  assert.match(workout, /to="\/programs"/);
-  assert.match(workout, /to="\/exercise-progress"/);
-  assert.doesNotMatch(workout, /coached \|\| !assignment\?\.program/);
+  assert.doesNotMatch(workout, /data-testid="workout-program"/);
+  assert.doesNotMatch(workout, /to="\/programs"/);
+  assert.doesNotMatch(workout, /to="\/exercise-progress"/);
+  const nav = src('src/app/navigation/navConfig.ts');
+  assert.match(nav, /labelKey: 'nav\.myProgram'/);
+  assert.match(nav, /path: '\/exercise-progress'/);
 
   const progress = src('src/components/workout/ExerciseProgressPage.tsx');
   assert.match(progress, /canReadOwnHistory/);

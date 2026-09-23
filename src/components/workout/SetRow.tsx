@@ -73,7 +73,7 @@ function SetRowMenu({
         aria-label={t('workout.exerciseCard.setActions')}
         aria-expanded={open}
         onClick={() => setOpen(v => !v)}
-        className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg text-neutral-500 hover:text-white hover:bg-neutral-800"
+        className="sr-only"
       >
         <MoreVertical size={16} />
       </button>
@@ -339,20 +339,41 @@ export function SetRow({
       ${set.completed ? 'bg-emerald-950/30 ring-1 ring-emerald-500/30' : isFilled ? 'bg-neutral-900/80 ring-1 ring-emerald-500/20' : 'bg-neutral-900/60'}
       ${isDrop && index > 0 ? '-mt-0.5' : ''}
     `}>
-      <div className="flex items-center gap-1.5 p-2">
-        {showSets && (
-        <div className="w-6 text-center text-xs text-neutral-500 font-semibold shrink-0">
-          {index + 1}
-        </div>
-        )}
-
+      <div
+        className="flex items-center gap-1.5 p-2"
+        onPointerDown={(event) => {
+          const node = event.target as HTMLElement;
+          if (node.closest('input, button')) return;
+          const startX = event.clientX;
+          const target = event.currentTarget;
+          const move = (ev: PointerEvent) => {
+            if (startX - ev.clientX > 72) {
+              target.removeEventListener('pointermove', move);
+              onDelete();
+            }
+          };
+          const up = () => {
+            target.removeEventListener('pointermove', move);
+            target.removeEventListener('pointerup', up);
+          };
+          target.addEventListener('pointermove', move);
+          target.addEventListener('pointerup', up);
+        }}
+      >
         <div className="relative shrink-0">
           <button
+            type="button"
+            aria-label={t('workout.exerciseCard.setActions')}
             onClick={() => setShowTypePicker(!showTypePicker)}
-            className={`min-h-11 min-w-11 flex items-center justify-center rounded-lg text-[11px] font-bold tracking-wide uppercase transition-all
+            onContextMenu={(event) => {
+              event.preventDefault();
+              onDuplicate();
+            }}
+            className={`min-h-11 min-w-11 flex flex-col items-center justify-center rounded-lg text-xs font-bold tracking-wide uppercase transition-all
               ${typeInfo.bgColor} ${typeInfo.color} hover:brightness-125`}
           >
-            {typeInfo.shortLabel}
+            {showSets ? <span>{index + 1}</span> : null}
+            <span>{typeInfo.shortLabel}</span>
           </button>
           {showTypePicker && (
             <SetTypePicker
@@ -363,21 +384,24 @@ export function SetRow({
           )}
         </div>
 
+        <span className="w-14 shrink-0 text-center text-xs text-neutral-500" data-prev-set="true">
+          {prevSet && (prevSet.weight_kg || prevSet.reps) ? `${displayPrev || '—'}×${prevSet.reps || '—'}` : '—'}
+        </span>
         {isDrop && dropPct != null && dropPct > 0 && (
-          <span className="text-[9px] font-bold text-sky-400/70 shrink-0">-{dropPct}%</span>
+          <span className="text-xs font-bold text-sky-400/70 shrink-0">-{dropPct}%</span>
         )}
         {isMyoActivation && (
-          <span className="text-[9px] font-bold text-rose-400/70 shrink-0">{t('workout.exerciseCard.act')}</span>
+          <span className="text-xs font-bold text-rose-400/70 shrink-0">{t('workout.exerciseCard.act')}</span>
         )}
         {isMyo && !isMyoActivation && (
-          <span className="text-[9px] font-medium text-rose-400/50 shrink-0">{t('workout.exerciseCard.mini')}</span>
+          <span className="text-xs font-medium text-rose-400/50 shrink-0">{t('workout.exerciseCard.mini')}</span>
         )}
 
         <div className={`flex-1 min-w-0 grid gap-1.5 ${inputGrid}`}>
           {showLoad && !isDrop && (
           <div className="min-w-0">
             <input
-              type="number"
+              type="text"
               inputMode="decimal"
               value={localWeight}
               onChange={e => {
@@ -386,7 +410,7 @@ export function SetRow({
               }}
               onFocus={e => e.target.select()}
               onBlur={() => {
-                const w = parseFloat(localWeight);
+                const w = parseFloat(localWeight.replace(',', '.'));
                 updateSet(set.id, { weight_kg: isNaN(w) ? 0 : toStorage(w) });
               }}
               className={`w-full min-h-11 rounded-lg px-1.5 py-2.5 text-base text-white text-center font-medium focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all
@@ -410,7 +434,7 @@ export function SetRow({
                 onFocus={e => e.target.select()}
                 onBlur={handleDurationBlur}
                 className="w-full min-h-11 bg-neutral-800/80 border border-transparent rounded-lg px-1.5 py-2.5 text-base text-white text-center font-medium focus:outline-none focus:ring-1 focus:ring-orange-500"
-                placeholder="sec"
+                placeholder={t('workout.restTimer.customPlaceholder')}
               />
             ) : (
               <input
@@ -443,7 +467,7 @@ export function SetRow({
                 onFocus={e => e.target.select()}
                 onBlur={handleRirBlur}
                 className="w-full min-h-11 bg-neutral-800/80 border border-transparent rounded-lg px-1 py-2.5 text-base text-white text-center font-medium focus:outline-none focus:ring-1 focus:ring-blue-500"
-                placeholder="RIR"
+                placeholder={t('workout.exerciseCard.rirShort', { defaultValue: 'RIR' })}
               />
             </div>
           )}

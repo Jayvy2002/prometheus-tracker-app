@@ -38,6 +38,7 @@ export type NavItemDef = {
   icon: LucideIcon;
   end?: boolean;
   badge?: 'unreadMessages';
+  match?: string[];
 };
 
 export type NavSectionDef = {
@@ -58,6 +59,21 @@ export type QuickAddDef = {
 const today: NavItemDef = { id: 'today', path: '/dashboard', labelKey: 'nav.today', icon: LayoutDashboard, end: true };
 const workout: NavItemDef = { id: 'train', path: '/workout', labelKey: 'nav.workout', icon: Dumbbell };
 const progress: NavItemDef = { id: 'progress', path: '/exercise-progress', labelKey: 'nav.exerciseProgress', icon: TrendingUp };
+const body: NavItemDef = {
+  id: 'body',
+  path: '/body',
+  match: ['/body', '/nutrition', '/weight', '/checkin', '/photos'],
+  labelKey: 'nav.sectionBody',
+  icon: Apple,
+};
+const suivi: NavItemDef = {
+  id: 'suivi',
+  path: '/suivi',
+  match: ['/suivi', '/exercise-progress', '/calendar', '/stats', '/weight', '/nutrition'],
+  labelKey: 'nav.suivi',
+  icon: TrendingUp,
+};
+const routines: NavItemDef = { id: 'routines', path: '/routines', labelKey: 'nav.routines', icon: ListFilter };
 const nutrition: NavItemDef = { id: 'nutrition', path: '/nutrition', labelKey: 'nav.nutrition', icon: Apple };
 const profile: NavItemDef = { id: 'you', path: '/profile', labelKey: 'nav.profile', icon: User };
 const checkin: NavItemDef = { id: 'checkin', path: '/checkin', labelKey: 'nav.checkin', icon: ClipboardCheck };
@@ -83,17 +99,16 @@ export function navPersona(context: AccountContext): NavPersona {
   return 'solo';
 }
 
+/** Pas de 6ᵉ onglet. Solo : Accueil, Séance, Suivi, Toi. Coaché et coaching : cinq onglets. */
 export function mobileTabs(persona: NavPersona, tracking: NavTracking): NavItemDef[] {
   if (persona === 'coaching') {
     return [today, clients, messages, programs, profile];
   }
   if (persona === 'coached') {
-    // UX111 : 5 onglets. Check-in reste en tab si le module est on.
-    // Nutrition : desktop + carte Profil + FAB repas. Pas de 6ᵉ onglet.
     return [
       today,
       ...(tracking.track_workouts ? [workout] : []),
-      ...(tracking.track_checkins ? [checkin] : []),
+      body,
       messages,
       profile,
     ];
@@ -101,8 +116,7 @@ export function mobileTabs(persona: NavPersona, tracking: NavTracking): NavItemD
   return [
     today,
     ...(tracking.track_workouts ? [workout] : []),
-    progress,
-    ...(tracking.track_nutrition ? [nutrition] : []),
+    suivi,
     profile,
   ];
 }
@@ -128,7 +142,7 @@ export function desktopSections(persona: NavPersona, tracking: NavTracking): Nav
         id: 'train',
         labelKey: 'nav.sectionTrain',
         items: [
-          ...(tracking.track_workouts ? [workout, myProgram] : []),
+          ...(tracking.track_workouts ? [workout, routines, myProgram] : []),
           progress,
           stats,
           calendar,
@@ -146,7 +160,6 @@ export function desktopSections(persona: NavPersona, tracking: NavTracking): Nav
       },
       { id: 'inbox', items: [messages] },
       { id: 'account', items: [profile] },
-      { id: 'marketplace', labelKey: 'nav.sectionActivity', tone: 'muted', items: [directory, coachMatch, requests] },
     ]);
   }
 
@@ -156,7 +169,7 @@ export function desktopSections(persona: NavPersona, tracking: NavTracking): Nav
       id: 'train',
       labelKey: 'nav.sectionTrain',
       items: [
-        ...(tracking.track_workouts ? [workout, myProgram] : []),
+        ...(tracking.track_workouts ? [workout, routines, myProgram] : []),
       ],
     },
     {
@@ -175,7 +188,6 @@ export function desktopSections(persona: NavPersona, tracking: NavTracking): Nav
       items: [progress, stats, calendar],
     },
     { id: 'account', items: [profile] },
-    { id: 'marketplace', labelKey: 'nav.sectionActivity', tone: 'muted', items: [directory, coachMatch, requests] },
   ]);
 }
 
@@ -206,8 +218,11 @@ export function quickAddActions(
 }
 
 export function pathMatchesItem(pathname: string, item: NavItemDef): boolean {
-  if (item.end) return pathname === item.path;
-  return pathname === item.path || pathname.startsWith(`${item.path}/`);
+  const paths = item.match ?? [item.path];
+  return paths.some((path) => {
+    if (item.end && path === item.path) return pathname === path;
+    return pathname === path || pathname.startsWith(`${path}/`);
+  });
 }
 
 export function tabIndexForPath(pathname: string, tabs: NavItemDef[]): number {

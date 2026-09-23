@@ -133,6 +133,7 @@ interface WorkoutState {
     prescribed_rir?: number | null;
     prescribed_rest_seconds?: number | null;
     prescribed_weight_kg?: number | null;
+    catalog_exercise_id?: string | null;
   }) => Promise<WorkoutExercise | null>;
   updateExercise: (id: string, data: Partial<WorkoutExercise>) => Promise<void>;
   deleteExercise: (id: string) => Promise<void>;
@@ -425,6 +426,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
       prescribed_rest_seconds: extras?.prescribed_rest_seconds ?? null,
       prescribed_weight_kg: extras?.prescribed_weight_kg ?? null,
       prescription_source: 'user' as const,
+      catalog_exercise_id: extras?.catalog_exercise_id ?? null,
     };
     const op = takeQueuedOp('exercise.add', { workoutId, exercise: { ...exercise } }, owner);
     const { data, error } = await supabase

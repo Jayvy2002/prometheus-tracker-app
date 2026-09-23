@@ -19,10 +19,37 @@ export type ProvisionalDossier = {
   invite_expires_at: string | null;
 };
 
+export type ProvisionalSetPreview = {
+  order: number;
+  weight_kg: number | null;
+  reps: number | null;
+  rir: number | null;
+  set_type: string;
+};
+
+export type ProvisionalExercisePreview = {
+  name: string;
+  notes: string;
+  sets: ProvisionalSetPreview[];
+};
+
 export type ProvisionalSessionPreview = {
   date: string;
   name: string;
   exercises: string[];
+  details: ProvisionalExercisePreview[];
+};
+
+export type ProvisionalWeightPreview = {
+  measured_at: string;
+  weight_kg: number | null;
+  notes: string;
+};
+
+export type ProvisionalCollisions = {
+  files: string[];
+  session_dates: string[];
+  weight_dates: string[];
 };
 
 export type ProvisionalClaimPreview = {
@@ -37,6 +64,9 @@ export type ProvisionalClaimPreview = {
   coaching_status: string | null;
   sessions: ProvisionalSessionPreview[];
   weight_dates: string[];
+  weights: ProvisionalWeightPreview[];
+  revision: string | null;
+  collisions: ProvisionalCollisions;
 };
 
 function asDossier(value: unknown): ProvisionalDossier | null {
@@ -74,18 +104,65 @@ function asClaim(value: unknown): ProvisionalClaimPreview {
     coaching_status: row.coaching_status ? String(row.coaching_status) : null,
     sessions: sessions.map((item) => {
       const session = (item && typeof item === 'object') ? item as Record<string, unknown> : {};
+      const details = Array.isArray(session.details) ? session.details : [];
       return {
         date: String(session.date ?? ''),
         name: String(session.name ?? ''),
         exercises: Array.isArray(session.exercises) ? session.exercises.map(String) : [],
+        details: details.map((entry) => {
+          const exercise = (entry && typeof entry === 'object') ? entry as Record<string, unknown> : {};
+          const sets = Array.isArray(exercise.sets) ? exercise.sets : [];
+          return {
+            name: String(exercise.name ?? ''),
+            notes: String(exercise.notes ?? ''),
+            sets: sets.map((set) => {
+              const row = (set && typeof set === 'object') ? set as Record<string, unknown> : {};
+              return {
+                order: Number(row.order ?? 0),
+                weight_kg: row.weight_kg == null ? null : Number(row.weight_kg),
+                reps: row.reps == null ? null : Number(row.reps),
+                rir: row.rir == null ? null : Number(row.rir),
+                set_type: String(row.set_type ?? 'working'),
+              };
+            }),
+          };
+        }),
       };
     }),
     weight_dates: dates,
+    weights: (Array.isArray(row.weights) ? row.weights : []).map((item) => {
+      const weight = (item && typeof item === 'object') ? item as Record<string, unknown> : {};
+      return {
+        measured_at: String(weight.measured_at ?? ''),
+        weight_kg: weight.weight_kg == null ? null : Number(weight.weight_kg),
+        notes: String(weight.notes ?? ''),
+      };
+    }),
+    revision: row.revision ? String(row.revision) : null,
+    collisions: {
+      files: Array.isArray((row.collisions as Record<string, unknown> | undefined)?.files)
+        ? ((row.collisions as Record<string, unknown>).files as unknown[]).map(String)
+        : [],
+      session_dates: Array.isArray((row.collisions as Record<string, unknown> | undefined)?.session_dates)
+        ? ((row.collisions as Record<string, unknown>).session_dates as unknown[]).map(String)
+        : [],
+      weight_dates: Array.isArray((row.collisions as Record<string, unknown> | undefined)?.weight_dates)
+        ? ((row.collisions as Record<string, unknown>).weight_dates as unknown[]).map(String)
+        : [],
+    },
   };
 }
 
-export async function listProvisionalDossiers(): Promise<{ data: ProvisionalDossier[]; error: string | null }> {
-  const { data, error } = await supabase.rpc('list_provisional_dossiers');
+export async function listProvisionalDossiers(page?: {
+  before?: string | null;
+  beforeId?: string | null;
+  limit?: number;
+}): Promise<{ data: ProvisionalDossier[]; error: string | null }> {
+  const { data, error } = await supabase.rpc('list_provisional_dossiers', {
+    p_before: page?.before ?? null,
+    p_before_id: page?.beforeId ?? null,
+    p_limit: page?.limit ?? 50,
+  });
   if (error) return { data: [], error: error.message };
   const rows = Array.isArray(data) ? data : [];
   return { data: rows.map(asDossier).filter((row): row is ProvisionalDossier => row !== null), error: null };
@@ -145,11 +222,15 @@ export async function confirmProvisionalClaim(input: {
   token: string;
   acceptData: boolean;
   acceptCoaching: boolean;
+  revision: string | null;
+  acknowledgeCollisions: boolean;
 }): Promise<{ data: ProvisionalClaimPreview | null; error: string | null }> {
   const { data, error } = await supabase.rpc('confirm_provisional_claim', {
     p_token: input.token,
     p_accept_data: input.acceptData,
     p_accept_coaching: input.acceptCoaching,
+    p_revision: input.revision,
+    p_acknowledge_collisions: input.acknowledgeCollisions,
   });
   if (error) return { data: null, error: error.message };
   return { data: asClaim(data), error: null };

@@ -5,6 +5,8 @@ const CLAIM_ERRORS = [
   'invite_consumed',
   'invite_email_mismatch',
   'confirmation_required',
+  'content_changed',
+  'collision_unacknowledged',
   'not_authenticated',
   'invalid_email',
   'invalid_name',

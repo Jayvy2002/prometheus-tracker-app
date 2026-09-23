@@ -43,6 +43,14 @@ const IMPORT_ERROR_KEYS = [
 
 export type ImportErrorCode = (typeof IMPORT_ERROR_KEYS)[number];
 
+export function importErrorCode(message: string | null | undefined): string {
+  if (!message) return 'generic';
+  const exact = IMPORT_ERROR_KEYS.find((code) => message === code);
+  if (exact) return exact;
+  const contained = IMPORT_ERROR_KEYS.find((code) => message.includes(code));
+  return contained ?? 'generic';
+}
+
 export function importErrorI18nKey(code: string | null | undefined): string {
   if (code && (IMPORT_ERROR_KEYS as readonly string[]).includes(code)) {
     return `coaching.importCsv.errors.${code}`;

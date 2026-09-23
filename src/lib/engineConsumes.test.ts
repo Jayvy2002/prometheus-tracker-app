@@ -51,7 +51,7 @@ test('triage_coach_fleet latest definition emits hunger/mood/stress averages and
 
 test('onboarding UI no longer writes dead profile fields the engine never reads', () => {
   const flow = src('src/components/onboarding/OnboardingFlow.tsx');
-  assert.match(flow, /const TOTAL_STEPS = 7/);
+  assert.match(flow, /const TOTAL_STEPS = 4/);
   assert.doesNotMatch(flow, /stress_level/);
   assert.doesNotMatch(flow, /supplement_use/);
   assert.doesNotMatch(flow, /meals_per_day/);

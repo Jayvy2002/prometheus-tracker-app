@@ -1,4 +1,5 @@
 import { useCheckinStore } from '../stores/checkinStore';
+import { useExerciseStore } from '../stores/exerciseStore';
 import { useCoachingStore } from '../stores/coachingStore';
 import { useNutritionStore } from '../stores/nutritionStore';
 import { useProfileStore } from '../stores/profileStore';
@@ -31,6 +32,7 @@ export function resetSessionStores(): void {
   useRecipeStore.getState().reset();
   useRoutineStore.getState().reset();
   useCheckinStore.getState().clear();
+  useExerciseStore.getState().reset();
   useSoloCopilotStore.getState().clear();
   // Purge locale du compte qui part, puis libération du scope.
   // NOTE : la file offline (D07) n'est PAS purgée — namespacée par compte,

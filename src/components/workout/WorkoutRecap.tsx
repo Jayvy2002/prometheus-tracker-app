@@ -1,7 +1,8 @@
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Clock, Pencil } from 'lucide-react';
-import { formatDate, formatDuration } from '../../lib/utils';
+import { formatDate, formatDuration, formatWeight } from '../../lib/utils';
+import { useProfileStore } from '../../stores/profileStore';
 import { optionLabel } from '../../lib/optionLabels';
 import { isCompletedSet, isPerformedSet, isWarmupSet } from '../../lib/performedSets';
 import { usePlanSessionLabel } from '../../features/programs/hooks/usePlanSessionLabel';
@@ -18,6 +19,7 @@ interface Props {
 
 export default function WorkoutRecap({ workout, onEdit }: Props) {
   const { t, i18n } = useTranslation();
+  const unit = useProfileStore(s => s.profile?.unit_weight) === 'lbs' ? 'lbs' : 'kg';
   const navigate = useNavigate();
   const sessionLabel = usePlanSessionLabel(workout.program_day_id, workout.name || t('workout.title'));
 
@@ -68,7 +70,7 @@ export default function WorkoutRecap({ workout, onEdit }: Props) {
                       key={s.id}
                       className={`text-xs tabular-nums ${done ? 'text-neutral-400' : 'text-neutral-600'}`}
                     >
-                      {i + 1}. {s.weight_kg} kg × {s.set_type === 'isometric' ? `${s.duration_seconds ?? 0}s` : s.reps}
+                      {i + 1}. {formatWeight(s.weight_kg, unit)} × {s.set_type === 'isometric' ? `${s.duration_seconds ?? 0}s` : s.reps}
                       {s.rir ? ` · RIR ${s.rir}` : ''}
                       {s.set_type && s.set_type !== 'working' ? ` · ${optionLabel(t, 'setTypes', s.set_type)}` : ''}
                       {!done && !isWarmupSet(s) ? ` · ${t('workout.recap.skippedSet')}` : ''}

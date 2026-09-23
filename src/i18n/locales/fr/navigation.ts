@@ -36,6 +36,8 @@ const navigation = {
     copilot: 'Copilote',
     sectionTrain: "S'entraîner",
     sectionBody: 'Corps',
+    suivi: 'Suivi',
+    routines: 'Routines',
     sectionUnderstand: 'Comprendre',
     sectionCopilot: 'Copilote',
     sectionActivity: 'Activité',

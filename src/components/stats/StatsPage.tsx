@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
-import { ArrowLeft, Flame, Dumbbell, Droplets, Scale, TrendingUp, TrendingDown, Minus, Award, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Flame, Dumbbell, Droplets, Scale, TrendingUp, TrendingDown, Minus, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
@@ -210,21 +210,6 @@ export default function StatsPage() {
   const proteinDelta = pctDelta(avgProtein, prevNutrition.avgProtein);
   const waterDelta = pctDelta(avgWater, prevNutrition.avgWater);
   const workoutDelta = pctDelta(totalWorkouts, prevWorkoutCount);
-
-  // Achievements / encouragements
-  const achievements: string[] = [];
-  const daysOnTarget = calorieTarget > 0
-    ? nutrition.filter(d => d.calories >= calorieTarget * 0.9 && d.calories <= calorieTarget * 1.1).length
-    : 0;
-  if (daysOnTarget >= 5) achievements.push(t('stats.achievements.caloriesOnTarget', { days: daysOnTarget }));
-  const proteinDaysHit = proteinTarget > 0
-    ? nutrition.filter(d => d.protein >= proteinTarget * 0.9).length
-    : 0;
-  if (proteinDaysHit >= 4) achievements.push(t('stats.achievements.proteinGoal', { days: proteinDaysHit }));
-  if (totalWorkouts >= 3) achievements.push(t('stats.achievements.consistentTraining', { count: totalWorkouts }));
-  if (weightChange !== null && weightChange < 0 && profile?.goal === 'lose') achievements.push(t('stats.achievements.weightLoss'));
-  if (weightChange !== null && weightChange > 0 && profile?.goal === 'gain') achievements.push(t('stats.achievements.weightGain'));
-  if (achievements.length === 0 && nutrition.length > 0) achievements.push(t('stats.achievements.keepGoing'));
 
   // Chart data
   const calorieChartData = nutrition.map(d => ({
@@ -485,22 +470,6 @@ export default function StatsPage() {
               </div>
               <ChevronRight size={16} className="text-neutral-600" />
             </CardLink>
-
-            {/* Achievements */}
-            {achievements.length > 0 && (
-              <div className="space-y-2 animate-fade-in-up stagger-5">
-                <div className="flex items-center gap-2 mb-1">
-                  <Award size={14} className="text-amber-400" />
-                  <h3 className="text-xs font-semibold text-neutral-400 uppercase tracking-wide">{t('stats.encouragements')}</h3>
-                </div>
-                {achievements.map((msg, i) => (
-                  <div key={i} className="flex items-center gap-3 bg-neutral-900/60 border border-neutral-800/50 rounded-xl px-4 py-3">
-                    <div className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
-                    <p className="text-sm text-neutral-300">{msg}</p>
-                  </div>
-                ))}
-              </div>
-            )}
 
             {nutrition.length === 0 && totalWorkouts === 0 && weights.length === 0 && (
               <Card className="text-center py-12">

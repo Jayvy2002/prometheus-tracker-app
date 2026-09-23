@@ -38,12 +38,12 @@ test('UX101 rest bar survives closing the modal; a new set remounts', () => {
   assert.match(form, /autoStart=\{restAutoStart\}/);
 });
 
-test('UX102 free session saves as a plan day with lot 14 types', () => {
+test('UX102 free session saves as a routine, distinct from a program', () => {
   const form = src('src/components/workout/WorkoutForm.tsx');
-  assert.match(form, /data-save-plan="true"/);
-  assert.match(form, /workoutExerciseToPlanDraft/);
-  assert.match(form, /soloAsk\.savePlan/);
-  assert.match(form, /createProgram/);
+  assert.match(form, /data-save-routine="true"/);
+  assert.match(form, /createRoutine/);
+  assert.match(form, /workout\.saveAsRoutine/);
+  assert.doesNotMatch(form, /data-save-plan="true"/);
   assert.doesNotMatch(form, /navigate\('\/programs\/new'\)/);
 });
 

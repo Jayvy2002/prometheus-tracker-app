@@ -236,7 +236,8 @@ test('solo copilot lives on the solo home, writes targets only on an explicit ac
   assert.doesNotMatch(store, /updateProfile/);
 
   const dash = src('src/components/dashboard/Dashboard.tsx') + src('src/features/dashboard/hooks/useDashboardBootstrap.ts');
-  assert.match(dash, /\{!hasCoach && !activityPending && !firstRun && <SoloWeeklyReview \/>\}/);
+  assert.match(dash, /SoloProgramProposal/);
+  assert.doesNotMatch(dash, /<SoloWeeklyReview/);
   const nutrition = src('src/components/nutrition/NutritionPage.tsx');
   assert.doesNotMatch(nutrition, /WeeklyAdjustment/);
   assert.doesNotMatch(nutrition, /weeklyAdjustmentDismissed/);

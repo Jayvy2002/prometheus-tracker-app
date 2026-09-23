@@ -6,6 +6,7 @@ import { useCoachingStore } from '../../stores/coachingStore';
 import { useAccountContext } from '@/features/account/hooks/useAccountContext';
 import { desktopSections, navPersona, quickAddActions } from '@/app/navigation/navConfig';
 import { useProgramDayDue } from '@/features/workout/hooks/useProgramDayDue';
+import WorkspaceSwitcher from './WorkspaceSwitcher';
 
 export default function SideNav() {
   const { t } = useTranslation();
@@ -25,6 +26,9 @@ export default function SideNav() {
           <img src="/logo.svg" alt="Prometheus" className="w-8 h-8" />
         </div>
         <span className="text-white font-bold text-lg tracking-tight">Prometheus</span>
+      </div>
+      <div className="px-3 pt-3">
+        <WorkspaceSwitcher />
       </div>
 
       <nav className="flex-1 px-3 py-3 space-y-3 overflow-y-auto scrollbar-hide">

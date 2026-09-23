@@ -27,7 +27,7 @@ interface NutritionState {
   selectedDate: string;
   setSelectedDate: (date: string) => void;
   fetchLogs: (userId: string, date: string) => Promise<void>;
-  addLog: (log: Partial<NutritionLog>) => Promise<{ error: string | null }>;
+  addLog: (log: Partial<NutritionLog>) => Promise<{ error: string | null; id?: string }>;
   updateLog: (id: string, data: Partial<NutritionLog>) => Promise<void>;
   deleteLog: (id: string) => Promise<void>;
   fetchWaterLogs: (userId: string, date: string) => Promise<void>;
@@ -90,7 +90,7 @@ export const useNutritionStore = create<NutritionState>((set, get) => ({
     if (saved.user_id && saved.logged_at) {
       void useStreakStore.getState().recordActivity(saved.user_id, saved.logged_at);
     }
-    return { error: null };
+    return { error: null, id: saved.id };
   },
 
   updateLog: async (id, updates) => {

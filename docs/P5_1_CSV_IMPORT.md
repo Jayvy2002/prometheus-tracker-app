@@ -9,7 +9,7 @@ Upload → parsing → détection des colonnes → mapping proposé
 → ambiguïtés → preview serveur → corrections → confirmation → transaction
 ```
 
-Le frontend parse et propose. Preview obligatoire. Le serveur **reparse, remap, revalide** au preview et au commit. Aucune écriture métier avant confirmation.
+Le frontend parse et propose. Preview obligatoire. Le serveur parse, mappe et valide au preview. Le commit applique le plan déjà prévisualisé (il ne relit pas le fichier) et refuse un hash vide. Aucune écriture métier avant confirmation.
 
 ## Pipeline
 

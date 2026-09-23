@@ -1,13 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Flame, Droplets, Dumbbell, ChevronRight, Play, Scale, AlertCircle, Battery, ClipboardCheck, MessageSquare, CalendarRange } from 'lucide-react';
+import { Droplets, Dumbbell, ChevronRight, Play, Plus, Scale, AlertCircle, Battery, ClipboardCheck, MessageSquare, CalendarRange } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
 import { useWeightStore } from '../../stores/weightStore';
 import { useWorkoutStore } from '../../stores/workoutStore';
-import { useStreakStore } from '../../stores/streakStore';
 import { useRoutineStore } from '../../stores/routineStore';
 import { useCheckinStore } from '../../stores/checkinStore';
 import { useCoachingStore } from '../../stores/coachingStore';
@@ -16,6 +15,7 @@ import { useDashboardBootstrap } from '../../features/dashboard/hooks/useDashboa
 import { startWorkoutFromTemplate } from '../../lib/startWorkout';
 import { toWorkoutTemplateExercise } from '../../lib/programSetPrescription';
 import { toLocalDateStr, kgToLbs, programWeekNumber, formatWeekdayDate } from '../../lib/utils';
+import { weeklyAverageKg } from '../../lib/weeklyWeight';
 import { useClientTracking } from '../../lib/useClientTracking';
 import { anyMacroField, showModule, showNutritionField } from '../../lib/clientTracking';
 import { isCoachedAthlete } from '../../lib/coachRole';
@@ -45,8 +45,6 @@ import ListRow from '../ui/ListRow';
 import NutritionRings from '../nutrition/NutritionRings';
 import ClientGymCard from './ClientGymCard';
 import DashboardWeightCard from './DashboardWeightCard';
-import SoloWeeklyReview from './SoloWeeklyReview';
-import PrometheusWatchPanel from './PrometheusWatchPanel';
 import SoloProgramProposal from './SoloProgramProposal';
 import LinkEndedBanner from './LinkEndedBanner';
 
@@ -71,7 +69,6 @@ export default function Dashboard() {
   const { logs, waterLogs } = useNutritionStore();
   const { measurements } = useWeightStore();
   const { workouts, loading: workoutsLoading } = useWorkoutStore();
-  const { streak } = useStreakStore();
   const { routines, fetchRoutineWithExercises } = useRoutineStore();
   const { todayCheckin, checkins, loading: checkinLoading } = useCheckinStore();
   const { myCoach, coachingRole, latestCoachMessage, unreadMessageCount } = useCoachingStore();
@@ -115,23 +112,16 @@ export default function Dashboard() {
   const weekWorkoutsDone = doneDays.filter(Boolean).length;
   const weekGoalMet = weekWorkoutsDone >= trainingTarget;
 
-  // Streak
-  const currentStreak = streak?.current_streak ?? 0;
-  const longestStreak = streak?.longest_streak ?? 0;
-
   // Weight trend (last 14)
   const recentWeights = [...measurements]
     .sort((a, b) => a.measured_at.localeCompare(b.measured_at))
     .slice(-14);
   const weightUnit = profile?.unit_weight ?? 'kg';
-  const latestWeight = recentWeights.length > 0
-    ? weightUnit === 'lbs'
-      ? kgToLbs(recentWeights[recentWeights.length - 1].weight_kg)
-      : +recentWeights[recentWeights.length - 1].weight_kg
-    : null;
-  const weightDelta = recentWeights.length >= 2
-    ? +(recentWeights[recentWeights.length - 1].weight_kg - recentWeights[0].weight_kg).toFixed(1)
-    : null;
+  const weekWeight = weeklyAverageKg(measurements, programClock.today);
+  const latestWeight = weekWeight.current == null
+    ? null
+    : +(weightUnit === 'lbs' ? kgToLbs(weekWeight.current) : weekWeight.current).toFixed(1);
+  const weightDelta = weekWeight.deltaKg;
 
   const todayDow = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][programClock.weekday];
   const alreadyTrainedToday = doneDays[todayIndex];
@@ -214,7 +204,9 @@ export default function Dashboard() {
     const startOfYear = new Date(d.getFullYear(), 0, 1);
     return Math.floor((d.getTime() - startOfYear.getTime()) / (7 * 86400000));
   }));
-  const showDeloadSuggestion = !hasCoach && weeksWithWorkouts.size >= 4 && recentCompletedWorkouts.length >= 12;
+  const showDeloadSuggestion = false;
+  void recentCompletedWorkouts;
+  void weeksWithWorkouts;
   const showGymHero = hasGymCard && !!assignment?.program;
   const dueGymHero = showGymHero && isProgramDayDue(gymCard);
   const restGymCard = showGymHero && !dueGymHero;
@@ -285,11 +277,6 @@ export default function Dashboard() {
               {t('nav.today')} · {formatWeekdayDate(new Date(), i18n.language)}
             </p>
             <p className="text-sm font-medium text-white leading-snug">{greeting}</p>
-            {myCoach && (
-              <p className="text-[11px] text-blue-400/80 mt-0.5">
-                {t('coaching.coachedBy', { name: myCoach.full_name || t('coaching.invite.aCoach') })}
-              </p>
-            )}
           </div>
         </div>
 
@@ -363,11 +350,19 @@ export default function Dashboard() {
         )}
 
         {showNextActionHero && nextAction === 'first_session' && showModule(tracking, 'workouts') ? (
-          <ListRow
-            className="mb-4"
-            title={t('dashboard.firstRun.firstSession')}
-            to="/workout"
-          />
+          <div className="mb-4 space-y-2">
+            <Button className="w-full" onClick={() => navigate('/workout/new')}>
+              {t('dashboard.firstRun.startSession')}
+            </Button>
+            <button
+              type="button"
+              data-import-history="true"
+              className="w-full min-h-11 text-sm text-neutral-400"
+              onClick={() => navigate('/workout')}
+            >
+              {t('dashboard.firstRun.importHistory')}
+            </button>
+          </div>
         ) : showNextActionHero && nextAction === 'waiting_program' ? (
           <ListRow
             className="mb-4"
@@ -480,11 +475,7 @@ export default function Dashboard() {
           />
         )}
 
-        {!hasCoach && !activityPending && !firstRun && <SoloWeeklyReview />}
-        {!activityPending && !firstRun && user?.id && (
-          <PrometheusWatchPanel athleteId={user.id} viewer="self" />
-        )}
-        {showModule(tracking, 'workouts') && !activityPending && (
+        {showModule(tracking, 'workouts') && !activityPending && !hasGymCard && (
           <CardLink to="/programs" className="mb-4" data-testid="dashboard-program">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 min-w-0">
@@ -502,18 +493,38 @@ export default function Dashboard() {
           </CardLink>
         )}
         {showNutritionRings && (
-          <CardLink to="/nutrition" className="mb-4">
-            <NutritionRings />
-          </CardLink>
+          <div className="relative mb-4">
+            <CardLink to="/nutrition">
+              <NutritionRings />
+            </CardLink>
+            <button
+              type="button"
+              aria-label={t('nutrition.add')}
+              onClick={() => navigate('/nutrition?add=1')}
+              className="absolute top-3 right-3 min-h-11 min-w-11 rounded-xl bg-neutral-900 text-white"
+            >
+              <Plus size={16} className="mx-auto" />
+            </button>
+          </div>
         )}
 
         {showModule(tracking, 'weight') && !activityPending && (
-          <DashboardWeightCard
-            points={weightPoints}
-            unit={weightUnit}
-            latest={latestWeight}
-            delta={weightDeltaDisplay}
-          />
+          <div className="relative">
+            <DashboardWeightCard
+              points={weightPoints}
+              unit={weightUnit}
+              latest={latestWeight}
+              delta={weightDeltaDisplay}
+            />
+            <button
+              type="button"
+              aria-label={t('weight.log')}
+              onClick={() => navigate('/weight?log=1')}
+              className="absolute top-3 right-3 min-h-11 min-w-11 rounded-xl bg-neutral-900 text-white"
+            >
+              <Plus size={16} className="mx-auto" />
+            </button>
+          </div>
         )}
 
         {showModule(tracking, 'workouts') && !activityPending && (
@@ -592,47 +603,7 @@ export default function Dashboard() {
               <p className="text-sm font-semibold text-white">{t('dashboard.checkinDone')}</p>
             </CardLink>
           )}
-          {hasCoach && (
-            <CardLink to="/messages">
-              <div className="flex items-center gap-2 mb-1">
-                <MessageSquare size={16} className="text-blue-400" />
-                <span className="text-xs text-neutral-500">{t('nav.messages')}</span>
-              </div>
-              <p className="text-sm font-semibold text-white truncate">
-                {t('dashboard.coachingFollow', { name: myCoach?.full_name || t('coaching.invite.aCoach') })}
-              </p>
-            </CardLink>
-          )}
-          {showModule(tracking, 'workouts') && !firstRun && (
-            <CardLink to="/exercise-progress">
-              <div className="flex items-center gap-2 mb-1">
-                <Dumbbell size={16} className="text-blue-400" />
-                <span className="text-xs text-neutral-500">{t('dashboard.viewProgress')}</span>
-              </div>
-              <p className="text-sm text-neutral-400">{t('dashboard.progressDesc')}</p>
-            </CardLink>
-          )}
         </div>
-        )}
-
-        {!hasCoach && !activityPending && (
-        <Card className="mb-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Flame size={16} className={currentStreak > 0 ? 'text-orange-400' : 'text-neutral-600'} />
-            <span className="text-xs text-neutral-500">{t('dashboard.streak')}</span>
-          </div>
-          <div className="flex items-baseline gap-1">
-            <span className={`text-2xl font-bold ${currentStreak >= 7 ? 'text-orange-300' : currentStreak > 0 ? 'text-orange-400' : 'text-neutral-500'}`}>
-              {currentStreak}
-            </span>
-            <span className="text-xs text-neutral-500">{currentStreak !== 1 ? t('dashboard.days') : t('dashboard.day')}</span>
-          </div>
-          {longestStreak > 0 && (
-            <p className="text-xs text-neutral-600 mt-1">
-              {t('dashboard.bestStreak')}: {longestStreak}
-            </p>
-          )}
-        </Card>
         )}
         </div>
       </div>

@@ -1,6 +1,7 @@
 import { CheckCircle, Zap, Dumbbell, Clock, BarChart2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { formatDuration } from '../../lib/utils';
+import { formatDuration, formatWeight } from '../../lib/utils';
+import { useProfileStore } from '../../stores/profileStore';
 import type { Workout } from '../../lib/types';
 import { computeWorkoutSummaryStats } from '../../lib/performedSets';
 import { isCoachedAthlete } from '../../lib/coachRole';
@@ -43,11 +44,8 @@ export default function WorkoutSummaryScreen({
   const myCoach = useCoachingStore(s => s.myCoach);
   const showCoachSaw = isCoachedAthlete(coachingRole, myCoach);
   const stats = computeWorkoutSummaryStats(workout, duration);
-
-  const volumeLabel =
-    stats.totalVolume >= 1000
-      ? `${(stats.totalVolume / 1000).toFixed(1)}t`
-      : `${Math.round(stats.totalVolume)} kg`;
+  const unit = useProfileStore(s => s.profile?.unit_weight) === 'lbs' ? 'lbs' : 'kg';
+  const volumeLabel = formatWeight(stats.totalVolume, unit);
 
   const fact = stats.setCount === 0
     ? t('workout.summary.facts.nonePerformed')
@@ -136,15 +134,13 @@ export default function WorkoutSummaryScreen({
                   <div className="text-right shrink-0">
                     {ex.volume > 0 && (
                       <p className="text-xs text-neutral-400">
-                        {ex.volume >= 1000
-                          ? `${(ex.volume / 1000).toFixed(1)}t`
-                          : `${Math.round(ex.volume)} kg`}{' '}
+                        {formatWeight(ex.volume, unit)}{' '}
                         {t('workout.summary.vol')}
                       </p>
                     )}
                     {ex.estimated1RM > 0 && (
                       <p className="text-xs text-blue-400 font-medium">
-                        ~{ex.estimated1RM} kg {t('workout.summary.oneRM')}
+                        ~{formatWeight(ex.estimated1RM, unit)} {t('workout.summary.oneRM')}
                       </p>
                     )}
                   </div>

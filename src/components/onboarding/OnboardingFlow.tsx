@@ -24,7 +24,7 @@ import Button from '../ui/Button';
 import { toast } from '../ui/Toast';
 import { optionDescription, optionLabel, type OptionGroup } from '../../lib/optionLabels';
 
-const TOTAL_STEPS = 7;
+const TOTAL_STEPS = 4;
 
 interface FormData {
   full_name: string;
@@ -139,11 +139,11 @@ function ChipSelect({ options, selected, onChange, group }: {
 }
 
 // --- Step 1: About You ---
-function StepPersonal({ form, setForm }: { form: FormData; setForm: (f: FormData) => void }) {
+function StepPersonal({ form, setForm, banner = true }: { form: FormData; setForm: (f: FormData) => void; banner?: boolean }) {
   const { t } = useTranslation();
   return (
     <div className="space-y-5 animate-fade-in-up">
-      <StepHeader icon={User} title={t('onboarding.steps.aboutYou')} subtitle={t('onboarding.steps.aboutYouSub')} />
+      {banner ? <StepHeader icon={User} title={t('onboarding.steps.aboutYou')} subtitle={t('onboarding.steps.aboutYouSub')} /> : null}
 
       <div>
         <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-1.5 block">{t('onboarding.fields.fullName')}</label>
@@ -189,11 +189,13 @@ function StepPersonal({ form, setForm }: { form: FormData; setForm: (f: FormData
 }
 
 // --- Step 2: Your Body ---
-function StepPhysical({ form, setForm }: { form: FormData; setForm: (f: FormData) => void }) {
+function StepPhysical({ form, setForm, banner = true }: { form: FormData; setForm: (f: FormData) => void; banner?: boolean }) {
   const { t } = useTranslation();
+  const [unit, setUnit] = useState<'kg' | 'lbs'>('kg');
+  const shown = (kg: number) => unit === 'lbs' ? Math.round(kg * 2.20462 * 10) / 10 : kg;
   return (
     <div className="space-y-6 animate-fade-in-up">
-      <StepHeader icon={Ruler} title={t('onboarding.steps.yourBody')} subtitle={t('onboarding.steps.yourBodySub')} />
+      {banner ? <StepHeader icon={Ruler} title={t('onboarding.steps.yourBody')} subtitle={t('onboarding.steps.yourBodySub')} /> : null}
 
       <div>
         <div className="flex justify-between items-baseline mb-2">
@@ -212,7 +214,7 @@ function StepPhysical({ form, setForm }: { form: FormData; setForm: (f: FormData
       <div>
         <div className="flex justify-between items-baseline mb-2">
           <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider">{t('onboarding.fields.currentWeight')}</label>
-          <span className="text-lg font-bold text-white">{form.weight_kg} kg</span>
+          <span className="text-lg font-bold text-white">{shown(form.weight_kg)} {unit}</span>
         </div>
         <input
           type="range"
@@ -226,7 +228,7 @@ function StepPhysical({ form, setForm }: { form: FormData; setForm: (f: FormData
       <div>
         <div className="flex justify-between items-baseline mb-2">
           <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider">{t('onboarding.fields.targetWeight')}</label>
-          <span className="text-lg font-bold text-white">{form.target_weight_kg} kg</span>
+          <span className="text-lg font-bold text-white">{shown(form.target_weight_kg)} {unit}</span>
         </div>
         <input
           type="range"
@@ -235,9 +237,10 @@ function StepPhysical({ form, setForm }: { form: FormData; setForm: (f: FormData
           onChange={e => setForm({ ...form, target_weight_kg: +e.target.value })}
           className="w-full accent-emerald-500"
         />
-        <div className="flex justify-between mt-1 text-[10px] text-neutral-600">
-          <span>30 kg</span>
-          <span>200 kg</span>
+        <div className="flex justify-between mt-1 text-xs text-neutral-500">
+          <span>{shown(30)} {unit}</span>
+          <button type="button" className="min-h-11 px-2" onClick={() => setUnit(unit === 'kg' ? 'lbs' : 'kg')}>{unit === 'kg' ? 'lb' : 'kg'}</button>
+          <span>{shown(200)} {unit}</span>
         </div>
       </div>
     </div>
@@ -576,16 +579,21 @@ export default function OnboardingFlow() {
 
   const renderStep = () => {
     switch (step) {
-      case 0: return <StepPersonal form={form} setForm={setForm} />;
-      case 1: return <StepPhysical form={form} setForm={setForm} />;
-      case 2: return <StepTraining form={form} setForm={setForm} />;
-      case 3: return <StepLifestyle form={form} setForm={setForm} />;
-      case 4: return <StepNutrition form={form} setForm={setForm} />;
-      case 5: return <StepGoalMotivation form={form} setForm={setForm} />;
-      case 6: return <StepSummary form={form} coached={coached} />;
+      case 0:
+        return (
+          <>
+            <StepGoalMotivation form={form} setForm={setForm} />
+            <StepPersonal form={form} setForm={setForm} banner={false} />
+            <StepPhysical form={form} setForm={setForm} banner={false} />
+          </>
+        );
+      case 1: return <StepTraining form={form} setForm={setForm} />;
+      case 2: return <StepLifestyle form={form} setForm={setForm} />;
+      case 3: return <StepNutrition form={form} setForm={setForm} />;
       default: return null;
     }
   };
+  void StepSummary;
 
   return (
     <div className="min-h-screen bg-black flex flex-col">

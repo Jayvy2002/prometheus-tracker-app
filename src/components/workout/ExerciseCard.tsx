@@ -21,6 +21,7 @@ import { useExerciseStore } from '../../stores/exerciseStore';
 import { findCatalogExercise } from '../../lib/exerciseCatalog';
 import ExerciseMedia from './ExerciseMedia';
 import PlateCalc from './PlateCalc';
+import ExercisePicker from './ExercisePicker';
 import SoloAskBar from '../solo/SoloAskBar';
 import { soloAskFromProfile } from '../../lib/soloAskDefaults';
 import OverflowMenu, { type OverflowAction } from '../ui/OverflowMenu';
@@ -69,6 +70,7 @@ export default function ExerciseCard({
   const [showMedia, setShowMedia] = useState(false);
   const [plateOpen, setPlateOpen] = useState(false);
   const [showAsk, setShowAsk] = useState(false);
+  const [replaceOpen, setReplaceOpen] = useState(false);
   const catalogExercises = useExerciseStore(s => s.exercises);
   const fetchExercises = useExerciseStore(s => s.fetchExercises);
   const catalog = findCatalogExercise(catalogExercises, exercise.name);
@@ -171,6 +173,21 @@ export default function ExerciseCard({
       label: t('workout.exerciseCard.ask'),
       onSelect: () => setShowAsk(v => !v),
     }] : []),
+    {
+      id: 'replace-today',
+      label: t('workout.exerciseCard.replaceToday'),
+      onSelect: () => setReplaceOpen(true),
+    },
+    {
+      id: 'skip-today',
+      label: t('workout.exerciseCard.skipToday'),
+      onSelect: () => {
+        for (const row of exercise.sets ?? []) {
+          void updateSet(row.id, { completed: true });
+        }
+        void updateExercise(exercise.id, { notes: t('workout.exerciseCard.skippedNote') });
+      },
+    },
     ...(!planLocked ? [{
       id: 'delete',
       label: t('common.delete'),
@@ -233,7 +250,7 @@ export default function ExerciseCard({
               onClose={() => setShowLinkPicker(false)}
             />
           )}
-          {showLoad && (
+          {showLoad && catalog?.equipment === 'barbell' && (
             <button
               type="button"
               data-plates-open="true"
@@ -299,30 +316,6 @@ export default function ExerciseCard({
               </span>
             ))}
           </div>
-
-          {history.length >= 2 && (
-            <div className="flex items-center gap-1 mt-1">
-              <span className="text-[9px] text-neutral-700 uppercase tracking-wider mr-0.5">{t('workout.exerciseCard.trend')}</span>
-              {history.slice(0, 5).reverse().map((h, i) => {
-                const maxW = Math.max(...h.sets.filter(s => isPerformedSet(s) && s.weight_kg > 0).map(s => s.weight_kg), 0);
-                const prevH = history.slice(0, 5).reverse()[i - 1];
-                const prevMaxW = prevH ? Math.max(...prevH.sets.filter(s => isPerformedSet(s) && s.weight_kg > 0).map(s => s.weight_kg), 0) : 0;
-                const isUp = i > 0 && maxW > prevMaxW;
-                const isDown = i > 0 && maxW < prevMaxW;
-                return (
-                  <div key={i} className="flex flex-col items-center gap-0.5">
-                    <div className={`w-1.5 h-1.5 rounded-full ${
-                      i === history.slice(0, 5).length - 1 ? 'bg-blue-400' :
-                      isUp ? 'bg-emerald-500' : isDown ? 'bg-rose-500' : 'bg-neutral-600'
-                    }`} />
-                    {maxW > 0 && (
-                      <span className="text-[8px] text-neutral-700">{weightUnit === 'lbs' ? kgToLbs(maxW) : maxW}</span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
 
           {suggestion && (
             <div className={`mt-1.5 flex items-center gap-1.5 px-2 py-1 rounded-lg w-fit
@@ -420,7 +413,7 @@ export default function ExerciseCard({
           {myoSets.length > 1 && myoTotalReps > 0 && (
             <div className="mt-1.5 px-1">
               <span className="text-[10px] text-rose-400/70 font-medium">
-                Myo total: {myoTotalReps} reps ({myoSets.length} sets)
+                {t('workout.exerciseCard.myoTotal', { reps: myoTotalReps, sets: myoSets.length })}
               </span>
             </div>
           )}
@@ -435,6 +428,14 @@ export default function ExerciseCard({
           )}
         </div>
       )}
+      <ExercisePicker
+        open={replaceOpen}
+        onClose={() => setReplaceOpen(false)}
+        onSelect={(name, catalogId) => {
+          void updateExercise(exercise.id, { name, catalog_exercise_id: catalogId ?? null });
+          setLocalName(name);
+        }}
+      />
       <PlateCalc
         open={plateOpen}
         onClose={() => setPlateOpen(false)}

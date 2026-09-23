@@ -3,10 +3,11 @@ import { create } from 'zustand';
 export type WorkoutPrefs = {
   showRir: boolean;
   autoStartRest: boolean;
+  keepScreenAwake: boolean;
 };
 
 function defaults(): WorkoutPrefs {
-  return { showRir: true, autoStartRest: true };
+  return { showRir: true, autoStartRest: true, keepScreenAwake: true };
 }
 
 function loadPrefs(): WorkoutPrefs {
@@ -17,6 +18,7 @@ function loadPrefs(): WorkoutPrefs {
     return {
       showRir: parsed.showRir !== false,
       autoStartRest: parsed.autoStartRest !== false,
+      keepScreenAwake: parsed.keepScreenAwake !== false,
     };
   } catch {
     return defaults();
@@ -34,16 +36,21 @@ function savePrefs(prefs: WorkoutPrefs) {
 interface PreferencesState extends WorkoutPrefs {
   setShowRir: (v: boolean) => void;
   setAutoStartRest: (v: boolean) => void;
+  setKeepScreenAwake: (v: boolean) => void;
 }
 
 export const usePreferencesStore = create<PreferencesState>((set, get) => ({
   ...loadPrefs(),
   setShowRir: (v) => {
-    savePrefs({ showRir: v, autoStartRest: get().autoStartRest });
+    savePrefs({ ...get(), showRir: v });
     set({ showRir: v });
   },
   setAutoStartRest: (v) => {
-    savePrefs({ showRir: get().showRir, autoStartRest: v });
+    savePrefs({ ...get(), autoStartRest: v });
     set({ autoStartRest: v });
+  },
+  setKeepScreenAwake: (v) => {
+    savePrefs({ ...get(), keepScreenAwake: v });
+    set({ keepScreenAwake: v });
   },
 }));

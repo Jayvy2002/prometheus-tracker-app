@@ -20,11 +20,15 @@ const corsHeaders = {
  *    program, retarget workouts.program_id, pause with frozen_revision_no,
  *    then run the solo transition.
  *    Single transaction — all or nothing, safe to retry.
- * 2. Complete Storage API cleanup of the user's own prefixes (fail-closed).
+ * 2. prepare_account_deletion: refuse the last operator, detach provisional
+ *    dossiers, and remove a non-last operator row. Storage is untouched if
+ *    this step fails.
+ * 3. Complete Storage API cleanup of the user's own prefixes (fail-closed).
  *    list / remove / truncation failure aborts; the Auth user is kept so
  *    close_coach_account + cleanup can be retried. A missing
  *    qualification-proofs bucket (pre-P4) is treated as empty.
- * 3. Auth user deletion (cascades to remaining coach-owned rows).
+ * 4. Auth user deletion. platform_operators.user_id is ON DELETE RESTRICT,
+ *    so a direct Auth delete cannot empty the allowlist.
  */
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -82,7 +86,22 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // 2. Fail-closed Storage cleanup — never delete Auth if personal objects remain.
+    // 2. Detach provisional dossiers and refuse the last operator before any
+    // storage object is removed. Auth deletion still cannot cascade the allowlist.
+    const { error: prepError } = await adminClient.rpc("prepare_account_deletion", {
+      p_user: user.id,
+    });
+    if (prepError) {
+      const last = (prepError.message ?? "").includes("last_operator");
+      return new Response(
+        JSON.stringify({
+          error: last ? "last_operator" : `prepare_account_deletion: ${prepError.message}`,
+        }),
+        { status: last ? 409 : 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    // 3. Fail-closed Storage cleanup — never delete Auth if personal objects remain.
     try {
       await deleteAuthUserAfterStorageCleanup(
         adminClient,

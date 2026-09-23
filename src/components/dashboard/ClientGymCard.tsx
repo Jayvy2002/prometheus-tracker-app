@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Check, ChevronRight, Dumbbell, Play } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { programSessionLabel } from '../../features/programs/domain/namedSession';
@@ -115,13 +116,16 @@ function SessionPreview({
   weekLabel: string;
   cta: string;
   starting: boolean;
-  showPreviewHint: boolean;
+  showPreviewHint?: boolean;
   onStart: () => void;
   onEditPlan?: () => void;
 }) {
   const { t } = useTranslation();
+  void showPreviewHint;
+  const [openList, setOpenList] = useState(false);
   const exercises = [...(day.exercises ?? [])].sort((a, b) => a.order_index - b.order_index);
   const count = exercises.length;
+  const minutes = Math.max(20, count * 8);
 
   return (
     <div className="w-full bg-gradient-to-r from-blue-600/20 to-blue-500/5 border border-blue-500/30 rounded-2xl p-4 mb-4">
@@ -133,19 +137,24 @@ function SessionPreview({
           <p className="text-xs text-blue-300 font-medium">{eyebrow}</p>
           <p className="text-sm font-semibold text-white truncate" data-testid="ux22-session-label">
             {programSessionLabel(day, n => t(`programs.weekdays.${n}`))}
-            {count > 0 ? ` · ${t('dashboard.gym.exercises', { n: count })}` : ''}
+            {count > 0 ? ` · ${t('dashboard.gym.exercises', { n: count })} · ${minutes} min` : ''}
           </p>
           <p className="text-xs text-neutral-500 mt-0.5 truncate">{weekLabel}</p>
         </div>
       </div>
 
       {count === 0 ? (
-        <p className="mt-3 text-xs text-neutral-500">{t('programs.noExercises')}</p>
+        <p className="mt-3 text-sm text-neutral-500">{t('programs.noExercises')}</p>
       ) : (
-        <ul className="mt-3 space-y-1">
+        <button type="button" className="mt-3 min-h-11 text-sm text-neutral-300" onClick={() => setOpenList(v => !v)}>
+          {openList ? t('dashboard.gym.hideList') : t('dashboard.gym.showList')}
+        </button>
+      )}
+      {openList && (
+        <ul className="mt-2 space-y-1">
           {exercises.map(ex => (
-            <li key={ex.id} className="flex items-start gap-1.5 text-[12px] text-neutral-300">
-              <Dumbbell size={11} className="text-blue-400/70 mt-0.5 shrink-0" />
+            <li key={ex.id} className="flex items-start gap-1.5 text-sm text-neutral-300">
+              <Dumbbell size={14} className="text-blue-400/70 mt-0.5 shrink-0" />
               <span className="min-w-0">
                 <span className="text-white">{ex.name}</span>
                 <span className="text-neutral-500"> · {ex.default_sets}×{repsLabel(ex)}</span>
@@ -155,12 +164,8 @@ function SessionPreview({
         </ul>
       )}
 
-      {showPreviewHint && (
-        <p className="mt-2 text-xs text-neutral-500">{t('dashboard.gym.previewHint')}</p>
-      )}
-
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <Button type="button" size="sm" loading={starting} onClick={onStart}>
+      <div className="mt-3">
+        <Button type="button" className="w-full" loading={starting} onClick={onStart}>
           {cta}
           <ChevronRight size={14} />
         </Button>

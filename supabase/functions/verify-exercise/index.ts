@@ -6,6 +6,8 @@ import { chatCompletionsBody, resolveOpenAiModel } from "../_shared/openaiJson.t
  * Exercise check: catalog first. A miss may ask OpenAI for a non-binding
  * suggestion stored on the pending request. This function never inserts an
  * exercise and never marks a proposal approved.
+ * The daily budget is reserved before the provider call. A timeout keeps
+ * that reservation. Terminal request rows are never rewritten.
  */
 
 const corsHeaders = {
@@ -76,7 +78,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: exReq, error: fetchErr } = await adminClient
       .from("exercise_requests")
-      .select("*")
+      .select("id, user_id, name, muscles, description, status, result_exercise_id")
       .eq("id", request_id)
       .eq("user_id", user.id)
       .maybeSingle();
@@ -84,52 +86,54 @@ Deno.serve(async (req: Request) => {
     if (fetchErr || !exReq) {
       return json(404, { error: "Exercise request not found" });
     }
+    if (!["pending", "processing"].includes(String(exReq.status)) || exReq.result_exercise_id) {
+      return json(200, { status: exReq.status, applied: false, closed: true });
+    }
 
     const normalizedName = String(exReq.name ?? "").trim();
-    const { data: resolvedId } = await adminClient.rpc("resolve_exercise_catalog", {
+    const { data: resolvedId, error: resolveErr } = await adminClient.rpc("resolve_exercise_catalog_as", {
       p_name: normalizedName,
+      p_user: user.id,
     });
-    let existing: Record<string, unknown> | null = null;
+    if (resolveErr) {
+      return json(500, { error: "catalog_lookup_failed" });
+    }
+
     if (typeof resolvedId === "string" && resolvedId) {
-      const { data } = await adminClient.from("exercises").select("*").eq("id", resolvedId).maybeSingle();
-      existing = data;
-    }
-    if (!existing) {
-      const { data } = await adminClient
-        .from("exercises")
-        .select("*")
-        .ilike("name", normalizedName)
-        .is("merged_into_id", null)
-        .maybeSingle();
-      existing = data;
-    }
-
-    if (existing) {
-      await adminClient
-        .from("exercise_requests")
-        .update({
-          status: "matched",
-          result_exercise_id: existing.id,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", request_id);
-      return json(200, { exercise: existing, status: "matched", applied: false });
-    }
-
-    const dayStart = new Date();
-    dayStart.setUTCHours(0, 0, 0, 0);
-    const { count: usageCount } = await adminClient
-      .from("ai_usage_logs")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", user.id)
-      .eq("function_name", "verify-exercise")
-      .gte("called_at", dayStart.toISOString());
-
-    if ((usageCount ?? 0) >= 20) {
-      return json(429, {
-        error: "DAILY_LIMIT_REACHED",
-        limit: 20,
+      const { data: card } = await adminClient.rpc("exercise_public_card", {
+        p_id: resolvedId,
+        p_user: user.id,
       });
+      if (card && typeof card === "object") {
+        const { data: updated } = await adminClient
+          .from("exercise_requests")
+          .update({
+            status: "matched",
+            result_exercise_id: resolvedId,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", request_id)
+          .in("status", ["pending", "processing"])
+          .is("result_exercise_id", null)
+          .select("id");
+        if (!updated?.length) {
+          return json(200, { status: "closed", applied: false });
+        }
+        return json(200, { exercise: card, status: "matched", applied: false });
+      }
+    }
+
+    const { error: reserveErr } = await adminClient.rpc("reserve_ai_usage", {
+      p_user: user.id,
+      p_function: "verify-exercise",
+      p_limit: 20,
+    });
+    if (reserveErr) {
+      const message = reserveErr.message ?? "";
+      if (message.includes("daily_limit")) {
+        return json(429, { error: "DAILY_LIMIT_REACHED", limit: 20 });
+      }
+      return json(500, { error: "usage_reservation_failed" });
     }
 
     const openaiKey = Deno.env.get("OPENAI_API_KEY");
@@ -140,7 +144,9 @@ Deno.serve(async (req: Request) => {
     await adminClient
       .from("exercise_requests")
       .update({ status: "processing", updated_at: new Date().toISOString() })
-      .eq("id", request_id);
+      .eq("id", request_id)
+      .eq("status", "pending")
+      .is("result_exercise_id", null);
 
     const systemPrompt = `You are a fitness exercise description assistant. Respond with ONLY a JSON object. Do not decide whether the exercise is added to the catalog.
 {
@@ -186,21 +192,20 @@ Describe this exercise. The catalog decision is human.`;
       await adminClient
         .from("exercise_requests")
         .update({ status: "pending", updated_at: new Date().toISOString() })
-        .eq("id", request_id);
-      return json(200, { status: "pending", applied: false });
+        .eq("id", request_id)
+        .eq("status", "processing")
+        .is("result_exercise_id", null);
+      return json(200, { status: "pending", applied: false, budget: "consumed" });
     }
-
-    await adminClient.from("ai_usage_logs").insert({
-      user_id: user.id,
-      function_name: "verify-exercise",
-    });
 
     if (!openaiRes.ok) {
       await adminClient
         .from("exercise_requests")
         .update({ status: "pending", updated_at: new Date().toISOString() })
-        .eq("id", request_id);
-      return json(200, { status: "pending", applied: false });
+        .eq("id", request_id)
+        .eq("status", "processing")
+        .is("result_exercise_id", null);
+      return json(200, { status: "pending", applied: false, budget: "consumed" });
     }
 
     const aiResult = await openaiRes.json();
@@ -220,7 +225,9 @@ Describe this exercise. The catalog decision is human.`;
         ai_suggestion: exerciseData,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", request_id);
+      .eq("id", request_id)
+      .eq("status", "processing")
+      .is("result_exercise_id", null);
 
     return json(200, { status: "pending", applied: false, suggestion: exerciseData });
   } catch (err) {

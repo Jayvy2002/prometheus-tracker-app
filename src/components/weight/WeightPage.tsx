@@ -7,6 +7,7 @@ import { useProfileStore } from '../../stores/profileStore';
 import { useWeightStore } from '../../stores/weightStore';
 
 import { formatWeight, formatDate, formatDateShort, parseDateStr, todayStr } from '../../lib/utils';
+import { weeklyAverageKg } from '../../lib/weeklyWeight';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, ReferenceLine } from 'recharts';
 import { toast } from '../ui/Toast';
 import Card from '../ui/Card';
@@ -111,7 +112,8 @@ export default function WeightPage() {
     weight: unit === 'lbs' ? +(m.weight_kg * 2.20462).toFixed(1) : +m.weight_kg.toFixed(1),
   }));
 
-  const latest = measurements[0]?.weight_kg;
+  const week = weeklyAverageKg(measurements, todayStr());
+  const latest = week.current ?? measurements[0]?.weight_kg;
   const previous = measurements[1]?.weight_kg;
   const diff = latest && previous ? +(latest - previous).toFixed(2) : 0;
   const targetKg = profile?.target_weight_kg ?? 0;
