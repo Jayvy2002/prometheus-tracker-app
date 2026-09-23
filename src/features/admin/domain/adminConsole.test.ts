@@ -51,7 +51,16 @@ test('P5.4 admin is an operator console with confirm gates and no public review 
   const testSql = src('supabase/tests/p5_minimal_admin.sql');
   assert.match(testSql, /^ROLLBACK;/m);
   assert.doesNotMatch(testSql, /^COMMIT;/m);
+  const grant = fnBody(sql, 'grant_platform_operator');
+  const revoke = fnBody(sql, 'admin_revoke_platform_operator');
+  assert.match(grant, /lock_platform_operators\(\)/);
+  assert.match(revoke, /lock_platform_operators\(\)/);
+  assert.ok(grant.indexOf('lock_platform_operators()') < grant.indexOf('INSERT INTO public.platform_operators'));
+  assert.ok(revoke.indexOf('lock_platform_operators()') < revoke.indexOf('INTO v_active, v_target'));
+  assert.match(sql, /pg_advisory_xact_lock\(20014508, 1135\)/);
+  assert.match(revoke, /v_target = 1 AND v_active <= 1/);
   assert.match(src('.github/workflows/ci.yml'), /p5_minimal_admin\.sql/);
+  assert.match(src('.github/workflows/ci.yml'), /test-p5-operator-lock\.sh/);
   assert.match(src('supabase/tests/rls_matrix.sql'), /P5_ADMIN_GRANTS/);
   const pending = JSON.parse(src('supabase/migrations.pending.json')) as { pending: Array<{ version: string }> };
   assert.equal(pending.pending.some(row => row.version === '20260923021000'), true);

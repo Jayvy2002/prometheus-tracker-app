@@ -505,6 +505,14 @@ jobs:
         run: |
           set -euo pipefail
           grep -F 'p5.4 minimal admin: operator queues, no public review grant, confirm required, private fields omitted' /tmp/p5-minimal-admin.txt
+      - name: Test P5.4 operator allowlist mutex
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: bash scripts/test-p5-operator-lock.sh | tee /tmp/p5-operator-lock.txt
+      - name: Confirm P5.4 operator allowlist echo
+        run: |
+          set -euo pipefail
+          grep -F 'p5.4 revoke × revoke × grant: one survivor, second last_operator, grant serialized, no zero operators, no deadlock' /tmp/p5-operator-lock.txt
       - name: Test qualification proof Storage API withdraw
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

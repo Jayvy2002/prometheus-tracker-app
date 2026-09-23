@@ -45,7 +45,8 @@ DO $$ BEGIN
      OR NOT has_function_privilege('authenticated', 'public.is_platform_operator()', 'execute')
      OR has_table_privilege('authenticated', 'public.platform_operators', 'select')
      OR has_table_privilege('authenticated', 'public.platform_admin_audit', 'select')
-     OR has_table_privilege('authenticated', 'public.exercises', 'insert') THEN
+     OR has_table_privilege('authenticated', 'public.exercises', 'insert')
+     OR has_function_privilege('authenticated', 'public.lock_platform_operators()', 'execute') THEN
     RAISE EXCEPTION 'admin grants mismatch';
   END IF;
 END $$;

@@ -1269,6 +1269,7 @@ BEGIN
      AND NOT has_function_privilege('authenticated', 'public.review_marketplace_report(uuid, text, text)', 'execute')
      AND NOT has_function_privilege('authenticated', 'public.merge_exercises(uuid, uuid, boolean)', 'execute')
      AND NOT has_function_privilege('authenticated', 'public.admin_require(boolean)', 'execute')
+     AND NOT has_function_privilege('authenticated', 'public.lock_platform_operators()', 'execute')
      AND NOT has_function_privilege('anon', 'public.admin_list_open_reports()', 'execute')
      AND NOT has_function_privilege('anon', 'public.admin_merge_exercises(uuid, uuid, boolean)', 'execute')
      AND NOT has_table_privilege('authenticated', 'public.platform_operators', 'select')

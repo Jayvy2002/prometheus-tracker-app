@@ -224,6 +224,24 @@ BEGIN
 END;
 $$;
 
+-- One allowlist mutex. Grant and revoke take it after authorization and
+-- before any read or write of platform_operators. Class 20014508.
+CREATE OR REPLACE FUNCTION public.lock_platform_operators()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+  PERFORM pg_advisory_xact_lock(20014508, 1135);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.lock_platform_operators() FROM PUBLIC, anon, authenticated;
+
+COMMENT ON FUNCTION public.lock_platform_operators() IS
+  'Internal. Serializes grant_platform_operator and admin_revoke_platform_operator. Class 20014508. The active-operator count is read only while this lock is held.';
+
 CREATE OR REPLACE FUNCTION public.grant_platform_operator(p_user uuid, p_confirm boolean)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -243,6 +261,7 @@ BEGIN
   IF p_user IS NULL OR NOT EXISTS (SELECT 1 FROM auth.users WHERE id = p_user) THEN
     RAISE EXCEPTION 'not_found';
   END IF;
+  PERFORM public.lock_platform_operators();
   v_actor := public.marketplace_audit_actor();
   INSERT INTO public.platform_operators (user_id, granted_by_ref)
   VALUES (p_user, v_actor)
@@ -264,12 +283,15 @@ AS $$
 DECLARE
   v_actor text;
   v_active integer;
+  v_target integer;
 BEGIN
   v_actor := public.admin_require(p_confirm);
-  SELECT count(*) INTO v_active
-  FROM public.platform_operators
-  WHERE revoked_at IS NULL;
-  IF v_active <= 1 AND p_user = auth.uid() THEN
+  PERFORM public.lock_platform_operators();
+  SELECT count(*) FILTER (WHERE revoked_at IS NULL),
+         count(*) FILTER (WHERE user_id = p_user AND revoked_at IS NULL)
+    INTO v_active, v_target
+  FROM public.platform_operators;
+  IF v_target = 1 AND v_active <= 1 THEN
     RAISE EXCEPTION 'last_operator';
   END IF;
   UPDATE public.platform_operators
