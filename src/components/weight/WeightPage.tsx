@@ -55,9 +55,10 @@ export default function WeightPage() {
 
   useEffect(() => {
     if (searchParams.get('log') === '1') {
+      const requested = searchParams.get('date');
       setEditId(null);
       setWeight('');
-      setDate(todayStr());
+      setDate(requested && /^\d{4}-\d{2}-\d{2}$/.test(requested) ? requested : todayStr());
       setShowAdd(true);
       setSearchParams({});
     }

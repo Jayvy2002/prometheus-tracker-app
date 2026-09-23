@@ -57,6 +57,8 @@ export default function CheckInPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const focusId = parseAthleteCheckinQuery(searchParams);
+  const requestedDate = searchParams.get('date');
+  const logDate = requestedDate && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate) ? requestedDate : todayStr();
   const [focused, setFocused] = useState<DailyCheckin | null>(null);
   const [ficheGone, setFicheGone] = useState(false);
   const { user } = useAuthStore();
@@ -128,7 +130,7 @@ export default function CheckInPage() {
   }, [focusId, todayCheckin, checkins]);
 
   useEffect(() => {
-    if (!todayCheckin) return;
+    if (!todayCheckin || logDate !== todayStr()) return;
     setSleepHours(todayCheckin.sleep_hours != null ? String(todayCheckin.sleep_hours) : '');
     setNotes(todayCheckin.notes || '');
     setScales({
@@ -144,7 +146,7 @@ export default function CheckInPage() {
       adherence_training: adherenceScoreFromPercent(todayCheckin.adherence_training),
       adherence_nutrition: adherenceScoreFromPercent(todayCheckin.adherence_nutrition),
     });
-  }, [todayCheckin]);
+  }, [todayCheckin, logDate]);
 
   const setScale = (key: CheckinScaleKey, value: number | null) => {
     setScales(s => ({ ...s, [key]: value }));
@@ -155,7 +157,7 @@ export default function CheckInPage() {
     setSaving(true);
     const hours = sleepHours.trim() === '' ? null : Number(sleepHours);
     const payload: DailyCheckinInput = {
-      checked_at: todayStr(),
+      checked_at: logDate,
       notes: showCheckinField(tracking, 'notes') || notes.trim()
         ? notes
         : (todayCheckin?.notes || ''),
