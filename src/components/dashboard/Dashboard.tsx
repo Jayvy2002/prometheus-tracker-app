@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Droplets, Dumbbell, ChevronRight, Play, Scale, AlertCircle, ClipboardCheck, MessageSquare, CalendarRange } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
@@ -250,7 +250,12 @@ export default function Dashboard() {
       <div className="px-4 pt-6 pb-28">
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-11 h-11 rounded-xl overflow-hidden flex-shrink-0 ring-2 ring-neutral-800">
+          {/* The avatar opens the profile: on mobile the coached athlete has no Profil tab. */}
+          <Link
+            to="/profile"
+            aria-label={t('nav.profile')}
+            className="w-11 h-11 rounded-xl overflow-hidden flex-shrink-0 ring-2 ring-neutral-800 hover:ring-neutral-600"
+          >
             {profile?.avatar_url ? (
               <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
             ) : (
@@ -258,7 +263,7 @@ export default function Dashboard() {
                 {firstName[0]?.toUpperCase() || 'U'}
               </div>
             )}
-          </div>
+          </Link>
           <div className="flex-1">
             <p className="text-neutral-400 text-xs">
               {t('nav.today')} · {formatWeekdayDate(new Date(), i18n.language)}

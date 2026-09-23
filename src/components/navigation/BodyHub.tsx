@@ -3,17 +3,18 @@ import { useTranslation } from 'react-i18next';
 import NutritionPage from '../nutrition/NutritionPage';
 import WeightPage from '../weight/WeightPage';
 import CheckInPage from '../checkin/CheckInPage';
+import ClientPhotosPage from '../coaching/ClientPhotosPage';
 import StepsTracker from '../nutrition/StepsTracker';
-import EmptyState from '../ui/EmptyState';
 import HubTabs from './HubTabs';
 import { useClientTracking } from '../../lib/useClientTracking';
 import { checkinHasAnyField, showModule, showNutritionField } from '../../lib/clientTracking';
 
-type View = 'nutrition' | 'weight' | 'checkin';
+type View = 'nutrition' | 'weight' | 'checkin' | 'photos';
 
 /**
- * Corps : ce qui se logge chaque jour. Seuls les modules actifs apparaissent :
+ * Corps : ce qui se logge sur soi. Seuls les modules actifs apparaissent :
  * un module coupé par le coach n'est pas une vue vide, il n'existe pas.
+ * Les photos (privées par défaut) sont toujours là.
  */
 export default function BodyHub() {
   const { t } = useTranslation();
@@ -23,22 +24,16 @@ export default function BodyHub() {
     ...(showModule(tracking, 'nutrition') ? ['nutrition' as const] : []),
     ...(showModule(tracking, 'weight') ? ['weight' as const] : []),
     ...(showModule(tracking, 'checkins') && checkinHasAnyField(tracking) ? ['checkin' as const] : []),
+    'photos',
   ];
   const requested = params.get('view') as View | null;
-  const view = requested && views.includes(requested) ? requested : views[0];
+  const view: View = requested && views.includes(requested) ? requested : views[0];
   const labels: Record<View, string> = {
     nutrition: t('nav.nutrition'),
     weight: t('nav.weight'),
     checkin: t('nav.checkin'),
+    photos: t('nav.photos'),
   };
-
-  if (!view) {
-    return (
-      <div className="px-4 pt-6">
-        <EmptyState title={t('nav.bodyEmpty')} />
-      </div>
-    );
-  }
 
   return (
     <div>
@@ -55,6 +50,7 @@ export default function BodyHub() {
         </>
       ) : null}
       {view === 'checkin' ? <CheckInPage /> : null}
+      {view === 'photos' ? <ClientPhotosPage /> : null}
     </div>
   );
 }

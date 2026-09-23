@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
 import { i18nLocaleSource } from './i18nLocaleSource';
+import { quickAddActions } from '../app/navigation/navConfig';
 
 function src(rel: string): string {
   if (rel === 'src/i18n/locales/fr.ts') return i18nLocaleSource('fr');
@@ -41,8 +42,9 @@ test('waiting for a program goes to Messages; a due plan day is labelled hors pr
   assert.match(dash, /dashboard\.nothingToday/);
 
   // Quick add « Séance » opens the training page, which offers the off-plan session.
-  const fab = src('src/app/layout/FAB.tsx');
-  assert.match(fab, /nav\.quickSession/);
+  const session = quickAddActions({ track_workouts: true, track_checkins: true, track_nutrition: true, track_weight: true }).find(a => a.id === 'session');
+  assert.equal(session?.labelKey, 'nav.quickSession');
+  assert.equal(session?.path, '/workout');
   const workoutPage = src('src/components/workout/WorkoutPage.tsx');
   assert.match(workoutPage, /nav\.addWorkoutOffPlan/);
 

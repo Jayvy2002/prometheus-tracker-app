@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { User, Target, Ruler, Lock, LogOut, ChevronDown, MessageSquare, Bell, Trash2, Globe, Users, SlidersHorizontal, ClipboardList, Inbox, Search, Shield } from 'lucide-react';
+import { User, Target, Ruler, Lock, LogOut, ChevronDown, MessageSquare, Bell, Trash2, Globe, Users, SlidersHorizontal, ClipboardList, Inbox, Shield, Sparkles, Upload, FolderOpen } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
@@ -183,14 +183,21 @@ export default function ProfilePage() {
 
       {inCoaching && (
         <Card className="mb-6 space-y-1 md:hidden">
-          <Link to="/coach/profile" className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
+          <Link to="/coach/profile" className="w-full flex min-h-11 items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
             <User size={16} className="text-blue-400" /> {t('marketplace.profile')}
           </Link>
-          <Link to="/coaching-requests" className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
+          <Link to="/coaching-requests" className="w-full flex min-h-11 items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
             <Inbox size={16} className="text-blue-400" /> {t('marketplace.requests')}
           </Link>
-          <Link to="/coaches" className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
-            <Search size={16} className="text-blue-400" /> {t('marketplace.directory')}
+          {/* « Trouver un coach » is a personal step: it lives in the personal space, not here. */}
+          <Link to="/prometheus" className="w-full flex min-h-11 items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
+            <Sparkles size={16} className="text-blue-400" /> {t('nav.copilot')}
+          </Link>
+          <Link to="/coach/import" className="w-full flex min-h-11 items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
+            <Upload size={16} className="text-blue-400" /> {t('nav.importCsv')}
+          </Link>
+          <Link to="/coach/dossiers" className="w-full flex min-h-11 items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
+            <FolderOpen size={16} className="text-blue-400" /> {t('nav.provisionalDossiers')}
           </Link>
         </Card>
       )}
@@ -261,12 +268,6 @@ export default function ProfilePage() {
       <Button variant="secondary" onClick={handleSignOut} className="w-full animate-fade-in-up stagger-7">
         <LogOut size={16} /> {t('profile.signOut')}
       </Button>
-
-      {!coached && (
-        <Link to="/coaches" className="mt-6 flex min-h-11 items-center gap-3 text-sm text-neutral-400">
-          <Search size={16} /> {t('marketplace.directory')}
-        </Link>
-      )}
 
       <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mt-6 mb-2">{t('profile.groups.advanced')}</p>
       {operator && (

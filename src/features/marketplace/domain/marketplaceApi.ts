@@ -50,6 +50,21 @@ export async function readRequests(owner: string, page = 0): Promise<CoachingReq
   }));
 }
 
+/**
+ * Coach side: requests waiting on the coach's answer (Vision §15.1, §21 —
+ * a prospect is a decision for the coach's queue). Counts only; the list lives
+ * on /coaching-requests.
+ */
+export async function countRequestsAwaitingCoach(owner: string): Promise<number> {
+  if (!OWNER_ID.test(owner)) throw Error('invalid_response');
+  const { count, error } = await supabase.from('coach_join_requests')
+    .select('id', { count: 'exact', head: true })
+    .eq('coach_id', owner)
+    .eq('status', 'pending');
+  if (error) throw error;
+  return count ?? 0;
+}
+
 function asQualification(row: CoachQualification): CoachQualification {
   return row;
 }

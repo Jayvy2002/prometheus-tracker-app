@@ -370,8 +370,11 @@ const coaching = {
       notes: 'Notes',
     },
     command: {
-      title: 'Today',
-      subtitle: 'Handle priorities, then open the client file when needed.',
+      title: 'Dashboard',
+      subtitle: 'Who needs your attention and why. Open a client file only when needed.',
+      prospectsWaiting_one: '{{count}} coaching request is waiting for your answer',
+      prospectsWaiting_other: '{{count}} coaching requests are waiting for your answer',
+      prospectsWaitingHint: 'Agreeing to continue does not start coaching: the athlete confirms next.',
       stats: {
         active: 'Active clients',
         attention: 'Need attention',

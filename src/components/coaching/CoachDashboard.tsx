@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   Copy,
+  Inbox,
   Link2,
   Plus,
   Search,
   Sparkles,
 } from 'lucide-react';
+import { countRequestsAwaitingCoach } from '../../features/marketplace/domain/marketplaceApi';
 import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import Button from '../ui/Button';
@@ -33,12 +35,20 @@ export default function CoachDashboard() {
   } = useCoachingStore();
   const [creating, setCreating] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
+  const [prospects, setProspects] = useState(0);
 
   useEffect(() => {
     if (!user) return;
     fetchCoachOps();
     fetchInvites();
     fetchCoachSettings();
+    let cancelled = false;
+    // A prospect waiting on the coach is a decision (Vision §15.1). A failed
+    // count hides the row; it never pretends there is nobody waiting elsewhere.
+    countRequestsAwaitingCoach(user.id)
+      .then(n => { if (!cancelled) setProspects(n); })
+      .catch(() => { if (!cancelled) setProspects(0); });
+    return () => { cancelled = true; };
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const activeInvites = invites.filter(i => new Date(i.expires_at) > new Date() && i.use_count < i.max_uses);
@@ -92,6 +102,18 @@ export default function CoachDashboard() {
         </div>
 
         <CoachRelationshipNotices />
+
+        {prospects > 0 && (
+          <div className="mb-4" data-testid="coach-prospects-waiting">
+            <ListRow
+              icon={<Inbox size={16} />}
+              tone="info"
+              title={t('coaching.command.prospectsWaiting', { count: prospects })}
+              subtitle={t('coaching.command.prospectsWaitingHint')}
+              to="/coaching-requests"
+            />
+          </div>
+        )}
 
         {opsLoading ? (
           <ListSkeleton />

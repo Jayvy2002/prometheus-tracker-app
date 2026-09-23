@@ -106,8 +106,10 @@ test('10g: OverflowMenu Escape + first item focus; nav aria-current', () => {
   assert.match(menu, /items\?\.\[0\]\?\.focus/);
   const bottom = src('src/app/layout/BottomNav.tsx');
   const side = src('src/app/layout/SideNav.tsx');
-  assert.match(bottom, /aria-current="page"/);
-  assert.match(side, /aria-current="page"/);
+  // Only the active tab is the current page (a hard-coded "page" on every tab lies to screen readers).
+  assert.match(bottom, /aria-current=\{active \? 'page' : undefined\}/);
+  assert.match(side, /aria-current=\{isActive \? 'page' : undefined\}/);
+  assert.doesNotMatch(bottom + side, /aria-current="page"/);
 });
 
 test('10h: PageTransition resets tab index when persona changes', () => {

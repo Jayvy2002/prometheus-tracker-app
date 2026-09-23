@@ -30,12 +30,12 @@ test('solo mobile tabs are Today / Workout / Body / Progress / Profile', () => {
   );
 });
 
-test('the body tab exists only when a body module is tracked', () => {
+test('the body tab always exists: progress photos live there whatever is tracked', () => {
   const none = { ...trackingOn, track_nutrition: false, track_weight: false, track_checkins: false };
-  assert.equal(mobileTabs('coached', none).some(item => item.path === '/body'), false);
-  assert.equal(mobileTabs('solo', none).some(item => item.path === '/body'), false);
-  const weightOnly = { ...none, track_weight: true };
-  assert.equal(mobileTabs('coached', weightOnly).some(item => item.path === '/body'), true);
+  assert.equal(mobileTabs('coached', none).some(item => item.path === '/body'), true);
+  assert.equal(mobileTabs('solo', none).some(item => item.path === '/body'), true);
+  const body = mobileTabs('solo', none).find(item => item.path === '/body');
+  assert.ok(body && pathMatchesItem('/photos', body));
 });
 
 test('hubs stay lit on their sub-pages, and logging is not under progress', () => {
@@ -56,13 +56,14 @@ test('coach mobile tabs put account in chrome and keep copilot off the tab bar',
   assert.equal(paths.includes('/prometheus'), false);
 });
 
-test('coached mobile tabs are home, workout, body, coach and profile', () => {
-  const paths = mobileTabs('coached', trackingOn).map(item => item.path);
-  assert.deepEqual(paths, ['/dashboard', '/workout', '/body', '/messages', '/profile']);
+test('coached mobile tabs reach the calendar like the solo (Vision §13)', () => {
+  const tabs = mobileTabs('coached', trackingOn);
+  const paths = tabs.map(item => item.path);
+  assert.deepEqual(paths, ['/dashboard', '/workout', '/body', '/suivi', '/messages']);
   assert.equal(paths.length, 5);
-  assert.equal(paths.includes('/photos'), false);
-  assert.equal(paths.includes('/checkin'), false);
-  assert.equal(paths.includes('/exercise-progress'), false);
+  const suivi = tabs.find(item => item.path === '/suivi');
+  assert.ok(suivi && pathMatchesItem('/calendar', suivi));
+  assert.ok(suivi && pathMatchesItem('/exercise-progress', suivi));
 });
 
 test('quick add « Séance » opens the training page, never an empty workout', () => {
@@ -71,8 +72,9 @@ test('quick add « Séance » opens the training page, never an empty workout', 
   assert.equal(session?.path, '/workout');
   assert.equal(session?.state, undefined);
   assert.equal(quickAddActions(trackingOn).some(action => action.path === '/workout/new'), false);
+  // The mobile + button reads this same list; it never keeps a second one.
   const fab = src('src/app/layout/FAB.tsx');
-  assert.match(fab, /navigate\('\/workout'\)/);
+  assert.match(fab, /quickAddActions\(tracking\)/);
   assert.doesNotMatch(fab, /\/workout\/new/);
 });
 
