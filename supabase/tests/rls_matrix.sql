@@ -1257,6 +1257,30 @@ BEGIN
   END IF;
 END $$;
 
+-- P5.4 admin: operator wrappers granted; raw review, merge, and table reads stay closed.
+DO $$
+BEGIN
+  IF to_regclass('public.platform_operators') IS NOT NULL
+     AND has_function_privilege('authenticated', 'public.is_platform_operator()', 'execute')
+     AND has_function_privilege('authenticated', 'public.admin_review_qualification(uuid, text, text, boolean)', 'execute')
+     AND has_function_privilege('authenticated', 'public.admin_list_open_reports()', 'execute')
+     AND has_function_privilege('authenticated', 'public.admin_merge_exercises(uuid, uuid, boolean)', 'execute')
+     AND NOT has_function_privilege('authenticated', 'public.review_coach_qualification(uuid, text, text)', 'execute')
+     AND NOT has_function_privilege('authenticated', 'public.review_marketplace_report(uuid, text, text)', 'execute')
+     AND NOT has_function_privilege('authenticated', 'public.merge_exercises(uuid, uuid, boolean)', 'execute')
+     AND NOT has_function_privilege('authenticated', 'public.admin_require(boolean)', 'execute')
+     AND NOT has_function_privilege('anon', 'public.admin_list_open_reports()', 'execute')
+     AND NOT has_function_privilege('anon', 'public.admin_merge_exercises(uuid, uuid, boolean)', 'execute')
+     AND NOT has_table_privilege('authenticated', 'public.platform_operators', 'select')
+     AND NOT has_table_privilege('authenticated', 'public.platform_admin_audit', 'select')
+     AND NOT has_table_privilege('authenticated', 'public.exercises', 'insert')
+  THEN
+    PERFORM pg_temp.record('P5_ADMIN_GRANTS', true, 'operator wrappers granted, raw review and merge revoked');
+  ELSE
+    PERFORM pg_temp.record('P5_ADMIN_GRANTS', false, 'P5.4 admin grants mismatch');
+  END IF;
+END $$;
+
 SELECT check_id, passed, detail FROM rls_results ORDER BY check_id;
 
 DO $$

@@ -497,6 +497,14 @@ jobs:
         run: |
           set -euo pipefail
           grep -F 'p5.3 merge × merge: one merge, second idempotent, written name kept, no deadlock' /tmp/p5-exercise-merge-lock.txt
+      - name: Test P5.4 minimal admin
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/p5_minimal_admin.sql | tee /tmp/p5-minimal-admin.txt
+      - name: Confirm P5.4 minimal admin echo
+        run: |
+          set -euo pipefail
+          grep -F 'p5.4 minimal admin: operator queues, no public review grant, confirm required, private fields omitted' /tmp/p5-minimal-admin.txt
       - name: Test qualification proof Storage API withdraw
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

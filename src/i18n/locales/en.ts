@@ -6,6 +6,7 @@ import nutrition from './en/nutrition';
 import programs from './en/programs';
 import marketplace from './en/marketplace';
 import watch from './en/watch';
+import admin from './en/admin';
 
 const en = {
   ...common,
@@ -16,6 +17,7 @@ const en = {
   ...programs,
   ...marketplace,
   ...watch,
+  ...admin,
 } as const;
 
 export default en;

@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { User, Target, Ruler, Lock, LogOut, ChevronDown, MessageSquare, Bell, Trash2, Globe, Users, SlidersHorizontal, Camera, CalendarRange, CalendarDays, Apple, Scale, ClipboardList, Inbox, Search, BarChart2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { User, Target, Ruler, Lock, LogOut, ChevronDown, MessageSquare, Bell, Trash2, Globe, Users, SlidersHorizontal, Camera, CalendarRange, CalendarDays, Apple, Scale, ClipboardList, Inbox, Search, BarChart2, Shield } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
@@ -12,6 +12,7 @@ import { toast } from '../ui/Toast';
 import { setAppLanguage } from '../../i18n';
 import { userFacingError } from '../../lib/userFacingError';
 import { COACH_HAS_ACTIVE_CLIENTS } from '../../lib/coachModeGuard';
+import { supabase } from '../../lib/supabase';
 
 import Card from '../ui/Card';
 import Button from '../ui/Button';
@@ -83,13 +84,25 @@ export default function ProfilePage() {
   const coached = context.personalCoaching === 'coached';
 
   const [openSection, setOpenSection] = useState<Section | null>(null);
+  const [operator, setOperator] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [coachModeDialog, setCoachModeDialog] = useState<{ count: number } | null>(null);
   const [coachModeBusy, setCoachModeBusy] = useState(false);
+  const [operator, setOperator] = useState(false);
   const confirmWord = deleteConfirmToken(i18n.language);
+
+  useEffect(() => {
+    let cancelled = false;
+    setOperator(false);
+    if (!user?.id) return undefined;
+    supabase.rpc('is_platform_operator').then(({ data, error }) => {
+      if (!cancelled) setOperator(!error && data === true);
+    });
+    return () => { cancelled = true; };
+  }, [user?.id, setOperator]);
 
   const handleLanguageChange = async (lang: string) => {
     setAppLanguage(lang);
@@ -187,6 +200,14 @@ export default function ProfilePage() {
           </div>
         </div>
       </Card>
+
+      {operator && (
+        <Card className="mb-6">
+          <Link to="/admin" className="w-full flex items-center gap-3 px-1 py-2.5 min-h-11 text-left text-sm text-white">
+            <Shield size={16} className="text-blue-400" /> {t('admin.profileLink')}
+          </Link>
+        </Card>
+      )}
 
       {(coached || inCoaching) && (
         <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-2">{t('profile.groups.coaching')}</p>

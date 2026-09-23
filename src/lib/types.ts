@@ -5,3 +5,4 @@ export * from '../features/nutrition/types';
 export * from '../features/programs/types';
 export * from '../features/coaching/types';
 export * from '../features/signals/types';
+export * from '../features/admin/types';
