@@ -202,9 +202,9 @@ test('UX47 calendar page shows plan states without dropping logged points', () =
   assert.doesNotMatch(page, /saveProgram|updateProgram|syncProgramDays/);
   assert.doesNotMatch(page, /erasePast|deletePast/);
   const fr = src('src/i18n/locales/fr/workout.ts');
-  assert.match(fr, /scheduled: 'Prévu'/);
-  assert.match(fr, /started: 'Commencé'/);
-  assert.match(fr, /done: 'Terminé'/);
+  assert.match(fr, /scheduled: 'Séance prévue'/);
+  assert.match(fr, /started: 'Commencée'/);
+  assert.match(fr, /done: 'Faite'/);
   const ci = src('.github/workflows/ci.yml');
   assert.match(ci, /node scripts\/test-personal-calendar-browser\.mjs/);
   assert.match(ci, /grep -F 'PASS: coached calendar past\/future' artifacts\/p13\/results\.txt/);

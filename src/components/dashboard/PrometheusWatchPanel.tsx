@@ -28,6 +28,8 @@ interface Props {
   athleteId: string;
   viewer: 'self' | 'coach';
   hasActiveRelationship?: boolean;
+  /** The /watch page already carries the title: the panel does not repeat it. */
+  showHeader?: boolean;
 }
 
 type WatchLoadState =
@@ -56,7 +58,7 @@ interface DecisionDraft {
   evidence: Record<string, unknown>;
 }
 
-export default function PrometheusWatchPanel({ athleteId, viewer, hasActiveRelationship }: Props) {
+export default function PrometheusWatchPanel({ athleteId, viewer, hasActiveRelationship, showHeader = true }: Props) {
   const { t } = useTranslation();
   const { user } = useAuthStore();
   const { canReadAthleteWatch, canCorrectAthleteWatchContext, canDecideAthleteWatchProposal } = useResourcePermissions();
@@ -114,6 +116,7 @@ export default function PrometheusWatchPanel({ athleteId, viewer, hasActiveRelat
   return (
     <div data-testid="prometheus-watch">
       <Card className="mb-4">
+        {showHeader && (
         <div className="flex items-start gap-2 mb-2">
           <div className="w-8 h-8 rounded-lg bg-blue-500/15 flex items-center justify-center shrink-0">
             <Eye size={15} className="text-blue-300" />
@@ -123,6 +126,7 @@ export default function PrometheusWatchPanel({ athleteId, viewer, hasActiveRelat
             <p className="text-[11px] text-neutral-500">{t('prometheusWatch.subtitle')}</p>
           </div>
         </div>
+        )}
 
         {load.phase === 'loading' ? (
           <p className="text-sm text-neutral-400">

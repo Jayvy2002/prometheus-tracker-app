@@ -93,8 +93,8 @@ test('hub link, banner, draft, and audience-before-medical are wired', () => {
 
   const fr = src('src/i18n/locales/fr.ts');
   const en = src('src/i18n/locales/en.ts');
-  assert.match(fr, /myTitle: 'Mon questionnaire'/);
-  assert.match(en, /myTitle: 'My questionnaire'/);
+  assert.match(fr, /myTitle: 'Questionnaire de mon coach'/);
+  assert.match(en, /myTitle: 'My coach’s questionnaire'/);
   assert.doesNotMatch(fr, /60 secondes/);
   assert.doesNotMatch(en, /60 seconds/);
 });

@@ -234,6 +234,7 @@ const common = {
     weight: 'Poids',
     thisWeek: 'cette sem.',
     noWeightYet: 'Aucune pesée',
+    weightAvg7: 'moy. 7 j',
     viewStats: 'Statistiques',
     statsDesc: 'Bilans et tendances',
     viewProgress: 'Progression',
@@ -257,7 +258,7 @@ const common = {
     linkEnded: {
       title: 'Ta collaboration de coaching est terminée',
       body: 'Ton historique et tes cibles sont conservés. Ton programme est en pause et tu peux continuer en mode solo.',
-      trial: 'Période d’essai solo : {{days}} jour(s) restant(s).',
+      trial: 'Période d’essai solo — jours restants : {{days}}.',
       trialOver: 'Ta période d’essai solo est terminée.',
     },
     gym: {
@@ -320,7 +321,7 @@ const common = {
       heicUnsupported: 'Format HEIC (iPhone) non supporté — choisis JPEG ou PNG.',
       unsupportedType: 'Format non supporté — JPEG, PNG ou WebP uniquement.',
       uploadFailed: 'Échec d’envoi de la photo — réessaie.',
-      publicHint: 'Ta photo est publique : ton coach (et tes futurs coachs) la voient.',
+      publicHint: 'Ta photo de profil est visible par ton coach et par les coachs à qui tu écris. Tes photos de progression restent privées.',
     },
     fallbackName: 'Toi',
     hubTitle: 'Coaching',
@@ -553,7 +554,7 @@ const common = {
       dim: 'Dim',
     },
     waiting: 'Questionnaire pas encore rempli',
-    completeLater: 'Compléter le questionnaire',
+    completeLater: 'Compléter mon bilan santé',
     later: 'Plus tard',
   },
 

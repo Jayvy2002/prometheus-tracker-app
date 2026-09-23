@@ -17,14 +17,16 @@ const coaching = {
     publishUnassigned: 'Not assigned yet',
     publishNone: 'No one on the roster will be asked again.',
     confirmPublish: 'Publish without asking again',
-    assignCount: 'Publish and ask {{count}} client(s)',
+    assignCount_one: 'Publish and ask {{count}} client',
+    assignCount_other: 'Publish and ask {{count}} clients',
     published: 'Version published',
-    publishedAssigned: 'Version published. {{count}} client(s) can complete the extra questions.',
+    publishedAssigned_one: 'Version published. {{count}} client can complete the extra questions.',
+    publishedAssigned_other: 'Version published. {{count}} clients can complete the extra questions.',
     advanced: 'Advanced settings',
     mapping: 'Standard field',
     unmapped: 'Custom question, no mapping',
     title: 'Questionnaires',
-    myTitle: 'My questionnaire',
+    myTitle: 'My coach’s questionnaire',
     bannerTitle: 'Questionnaire from your coach',
     bannerBody: 'You can fill it in now or later. Your draft is kept.',
     choose: 'Choose',
@@ -205,7 +207,8 @@ const coaching = {
       dismissFor: 'Mark the departure of {{name}} as read',
       error: 'Coaching notifications could not be updated.',
     },
-    weekSessions: '{{count}} session(s) this week',
+    weekSessions_one: '{{count}} session this week',
+    weekSessions_other: '{{count}} sessions this week',
     noteSaved: 'Note saved',
     noteOnWorkout: 'Note on this workout…',
     noteOnDay: 'Note for today…',
@@ -389,8 +392,10 @@ const coaching = {
     },
     queue: {
       title: 'Today’s queue',
-      attentionCount: '{{count}} client(s) need your attention',
-      remaining: '{{count}} client(s) left',
+      attentionCount_one: '{{count}} client needs your attention',
+      attentionCount_other: '{{count}} clients need your attention',
+      remaining_one: '{{count}} client left',
+      remaining_other: '{{count}} clients left',
       severity: {
         red: 'Urgent',
         orange: 'Attention',
@@ -504,7 +509,7 @@ const coaching = {
       painFlag: 'Pain flagged at {{n}}',
       sinceVisit: 'Since my last visit',
       sinceUnknown: 'No previous coach visit recorded — showing recent logs.',
-      sinceMeta: '{{workouts}} session(s) · {{checkins}} check-in(s)',
+      sinceMeta: 'Sessions: {{workouts}} · Check-ins: {{checkins}}',
       sinceSource: {
         visit: 'Last opened {{date}}',
         note: 'Last note {{date}}',
@@ -781,6 +786,7 @@ const coaching = {
       iaOff: 'Automatic suggestion',
     },
     inbox: {
+      prospectBadge: 'Prospect',
       title: 'Messages',
       subtitle: 'Messages, follow-ups, and drafts to handle.',
       signals: 'Check-ins & flags',
@@ -789,7 +795,7 @@ const coaching = {
       nudges: 'Sent nudges',
       nudgesEmpty: 'No nudges sent yet.',
       threads: 'Threads',
-      threadsEmpty: 'No threads yet. Nudge from Today or the client file.',
+      threadsEmpty: 'No threads yet. Nudge from the Dashboard or the client file.',
       toHandle: 'To handle',
     },
     messages: {
@@ -1050,6 +1056,7 @@ const coaching = {
 
     importCsv: {
       title: 'Import a file',
+      short: 'Import',
       subtitle: 'Prometheus shows exactly what it understood before writing anything.',
       oneKind: 'One file imports one kind of data: sessions or weigh-ins. A mixed spreadsheet must be split into two files.',
       orderRule: {

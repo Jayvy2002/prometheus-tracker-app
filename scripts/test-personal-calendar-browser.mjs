@@ -188,7 +188,7 @@ try {
   await coachedPage.goto(origin + '/calendar');
   await coachedPage.getByTestId('calendar-page').waitFor();
   const planLegend = coachedPage.getByTestId('calendar-plan-legend');
-  await planLegend.getByText('Scheduled', { exact: true }).waitFor();
+  await planLegend.getByText('Planned session', { exact: true }).waitFor();
   await planLegend.getByText('Started', { exact: true }).waitFor();
   await planLegend.getByText('Done', { exact: true }).waitFor();
   assert.equal(await coachedPage.getByRole('button', { name: 'Save plan' }).count(), 0);

@@ -106,7 +106,9 @@ test('client check-in form uses 0–10 sliders, not a button grid', () => {
   assert.doesNotMatch(page, /!solo \|\| moreOpen/);
   assert.doesNotMatch(page, /solo && extraVars/);
   assert.doesNotMatch(page, /\[1, 2, 3, 4, 5\]/);
-  assert.match(page, /\[0, 2, 4, 6, 8, 10\]/);
+  // Every 0–10 score uses the same slider with labelled ends (no even-only grid).
+  assert.doesNotMatch(page, /\[0, 2, 4, 6, 8, 10\]/);
+  assert.match(page, /<ScoreSlider/);
   assert.doesNotMatch(page, /CHECKIN_SCORE_VALUES\.map/);
   assert.match(slider, /role="slider"/);
   assert.match(slider, /scoreFromTrackRatio/);

@@ -3,22 +3,19 @@ import { useResourcePermissions } from '../../lib/useResourcePermissions';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams, Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Copy, Link2, Users, ChevronRight, Plus, Trash2, Upload } from 'lucide-react';
+import { Copy, Link2, Users, ChevronRight, Plus, Upload } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { shouldOpenSetup } from '../../lib/coachAlerts';
 import { parseRosterFilter, rosterHitsForFilter, ROSTER_FILTERS } from '../../lib/coachAsk';
-import { displayName } from '../../lib/coachText';
 import { todayStr } from '../../lib/utils';
 import { clientFileHref } from '../../lib/coachSituation';
 import { rosterBackPath, rosterChainState, sortRosterClients, type RosterGoalStatus } from '../../lib/coachRoster';
-import type { CoachClientSummary } from '../../lib/types';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import Modal from '../ui/Modal';
 import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
-import RemoveClientDialog from './RemoveClientDialog';
 
 function goalChipKey(status: RosterGoalStatus): 'coaching.rosterList.goalCut' | 'coaching.rosterList.goalBulk' | 'coaching.rosterList.goalPerf' | null {
   if (status === 'cut') return 'coaching.rosterList.goalCut';
@@ -36,7 +33,6 @@ export default function ClientsPage() {
   const {
      clients, invites, loading, opsLoading, opsRows, priorities, rosterSignals,
     fetchMyRole, fetchClients, fetchInvites, fetchCoachOps, fetchCoachMessages, createInvite, revokeInvite,
-    endClientLink,
   } = useCoachingStore();
   const [searchParams] = useSearchParams();
   const rosterFilter = parseRosterFilter(searchParams.get('filter'));
@@ -44,8 +40,8 @@ export default function ClientsPage() {
   const [maxUses, setMaxUses] = useState(1);
   const [copied, setCopied] = useState<string | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
-  const [removeTarget, setRemoveTarget] = useState<CoachClientSummary | null>(null);
-  const [removing, setRemoving] = useState(false);
+  // Ending a relationship is not a one-tap roster action: it lives in the client
+  // file (« Retirer de mes clients ») with its explicit confirmation.
   const [clientQuery, setClientQuery] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -87,24 +83,6 @@ export default function ClientsPage() {
     } catch {
       toast(url, 'info');
     }
-  };
-
-  const handleRemoveClient = async () => {
-    if (!removeTarget) return;
-    setRemoving(true);
-    const result = await endClientLink(removeTarget.id);
-    setRemoving(false);
-    if (result.error) {
-      toast(
-        result.error === 'cannot_end_self'
-          ? t('coaching.removeClient.cannotSelf')
-          : t('coaching.removeClient.error'),
-        'error',
-      );
-      return;
-    }
-    toast(t('coaching.removeClient.removed', { name: displayName(removeTarget, t('coaching.unnamed')) }));
-    setRemoveTarget(null);
   };
 
   if (!canCoach) {
@@ -156,8 +134,8 @@ export default function ClientsPage() {
             )}
           </div>
           <div className="flex items-center gap-2">
-            <Button size="sm" variant="secondary" onClick={() => navigate('/coach/import')}>
-              <Upload size={14} /> {t('coaching.importCsv.title')}
+            <Button size="sm" variant="secondary" onClick={() => navigate('/coach/import')} className="whitespace-nowrap">
+              <Upload size={14} aria-hidden="true" /> {t('coaching.importCsv.short')}
             </Button>
             <Button size="sm" onClick={() => setInviteOpen(true)}>
               <Plus size={14} /> {t('coaching.invite.cta')}
@@ -293,19 +271,6 @@ export default function ClientsPage() {
                   {t('coaching.setupCta')}
                 </button>
                 )}
-                {user && c.id !== user.id && (
-                  <button
-                    type="button"
-                    onClick={e => {
-                      e.stopPropagation();
-                      setRemoveTarget(c);
-                    }}
-                    className="p-1.5 text-neutral-600 hover:text-rose-400 shrink-0"
-                    aria-label={t('coaching.removeClient.action')}
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                )}
                 <button
                   type="button"
                   onClick={e => {
@@ -363,13 +328,6 @@ export default function ClientsPage() {
           )}
         </div>
       </Modal>
-      <RemoveClientDialog
-        open={!!removeTarget}
-        clientName={removeTarget ? displayName(removeTarget, t('coaching.unnamed')) : ''}
-        removing={removing}
-        onClose={() => setRemoveTarget(null)}
-        onConfirm={handleRemoveClient}
-      />
     </PageTransition>
   );
 }

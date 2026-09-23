@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Check, ChevronDown } from 'lucide-react';
+import { Check, ChevronDown, Sparkles } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { formatBilanDate, parseAthleteCheckinQuery } from '../../lib/messageBilan';
 import { useAuthStore } from '../../stores/authStore';
@@ -212,33 +212,12 @@ export default function CheckInPage() {
   const extraCount = extraVars.length;
   const showExtras = moreOpen;
 
-  const tapKeys = new Set<CheckinVarKey>(['energy', 'sleep_quality', 'soreness', 'fatigue', 'joint_pain']);
-
+  // One control for every 0–10 score, with its meaning at both ends. A grid of
+  // even numbers next to a slider in the same form read as two different scales.
   const renderSlider = (key: CheckinVarKey) => {
     const col = CHECKIN_SCALE_BY_VAR[key];
     if (!col) return null;
     const copy = SCALE_COPY[col];
-    if (tapKeys.has(key)) {
-      const current = scales[col];
-      return (
-        <div key={key}>
-          <p className="text-sm font-medium text-white mb-2">{t(`checkin.fields.${copy.field}`)}</p>
-          <div className="grid grid-cols-6 gap-1" role="group" aria-label={t(`checkin.fields.${copy.field}`)}>
-            {[0, 2, 4, 6, 8, 10].map((n) => (
-              <button
-                key={n}
-                type="button"
-                aria-pressed={current === n}
-                onClick={() => setScale(col, n)}
-                className={`min-h-11 rounded-xl text-sm font-semibold ${current === n ? 'bg-blue-600 text-white' : 'bg-neutral-900 text-neutral-300'}`}
-              >
-                {n}
-              </button>
-            ))}
-          </div>
-        </div>
-      );
-    }
     return (
       <ScoreSlider
         key={key}
@@ -278,8 +257,13 @@ export default function CheckInPage() {
         ) : null}
 
         {solo && (
-          <button type="button" className="mb-3 min-h-11 text-sm text-neutral-300" onClick={() => setAskOpen(v => !v)}>
-            {t('soloAsk.label')}
+          <button
+            type="button"
+            aria-expanded={askOpen}
+            className="mb-3 inline-flex min-h-11 items-center gap-2 rounded-xl border border-neutral-800 px-3 text-sm text-neutral-200 hover:border-neutral-700"
+            onClick={() => setAskOpen(v => !v)}
+          >
+            <Sparkles size={16} className="text-blue-300" aria-hidden="true" /> {t('soloAsk.label')}
           </button>
         )}
         {askOpen && solo && (

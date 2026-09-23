@@ -17,14 +17,16 @@ const coaching = {
     publishUnassigned: 'Pas encore attribué',
     publishNone: 'Aucun client du roster ne sera relancé.',
     confirmPublish: 'Publier sans relancer',
-    assignCount: 'Publier et demander à {{count}} client(s)',
+    assignCount_one: 'Publier et demander à {{count}} client',
+    assignCount_other: 'Publier et demander à {{count}} clients',
     published: 'Version publiée',
-    publishedAssigned: 'Version publiée. {{count}} client(s) peuvent compléter le complément.',
+    publishedAssigned_one: 'Version publiée. {{count}} client peut compléter le complément.',
+    publishedAssigned_other: 'Version publiée. {{count}} clients peuvent compléter le complément.',
     advanced: 'Paramètres avancés',
     mapping: 'Correspondance standard',
     unmapped: 'Question personnalisée, sans correspondance',
     title: 'Questionnaires',
-    myTitle: 'Mon questionnaire',
+    myTitle: 'Questionnaire de mon coach',
     bannerTitle: 'Questionnaire de prise en charge',
     bannerBody: 'Tu peux le remplir maintenant ou plus tard. Le brouillon est conservé.',
     choose: 'Choisir',
@@ -205,7 +207,8 @@ const coaching = {
       dismissFor: 'Marquer le départ de {{name}} comme lu',
       error: 'Impossible de mettre à jour les notifications de suivi.',
     },
-    weekSessions: '{{count}} séance(s) cette semaine',
+    weekSessions_one: '{{count}} séance cette semaine',
+    weekSessions_other: '{{count}} séances cette semaine',
     noteSaved: 'Note enregistrée',
     noteOnWorkout: 'Note sur cette séance…',
     noteOnDay: 'Note du jour…',
@@ -389,8 +392,10 @@ const coaching = {
     },
     queue: {
       title: 'File du jour',
-      attentionCount: '{{count}} client(s) nécessitent ton attention',
-      remaining: '{{count}} client(s) restant(s)',
+      attentionCount_one: '{{count}} client mérite ton attention',
+      attentionCount_other: '{{count}} clients méritent ton attention',
+      remaining_one: '{{count}} client restant',
+      remaining_other: '{{count}} clients restants',
       severity: {
         red: 'Urgent',
         orange: 'Attention',
@@ -504,7 +509,7 @@ const coaching = {
       painFlag: 'Douleur signalée à {{n}}',
       sinceVisit: 'Depuis ma dernière visite',
       sinceUnknown: 'Aucune visite coach enregistrée — logs récents.',
-      sinceMeta: '{{workouts}} séance(s) · {{checkins}} check-in(s)',
+      sinceMeta: 'Séances : {{workouts}} · Check-ins : {{checkins}}',
       sinceSource: {
         visit: 'Dernière ouverture {{date}}',
         note: 'Dernière note {{date}}',
@@ -781,6 +786,7 @@ const coaching = {
       iaOff: 'Suggestion automatique',
     },
     inbox: {
+      prospectBadge: 'Prospect',
       title: 'Messages',
       subtitle: 'Messages, relances et brouillons à traiter.',
       signals: 'Check-ins & alertes',
@@ -789,7 +795,7 @@ const coaching = {
       nudges: 'Relances envoyées',
       nudgesEmpty: 'Aucune relance envoyée pour l’instant.',
       threads: 'Conversations',
-      threadsEmpty: 'Aucun fil pour l’instant. Relance depuis Aujourd’hui ou la fiche client.',
+      threadsEmpty: 'Aucun fil pour l’instant. Relance depuis le Dashboard ou la fiche client.',
       toHandle: 'À traiter',
     },
     messages: {
@@ -1050,6 +1056,7 @@ const coaching = {
 
     importCsv: {
       title: 'Importer un fichier',
+      short: 'Importer',
       subtitle: 'Prometheus te montre exactement ce qu’il a compris avant d’écrire quoi que ce soit.',
       oneKind: 'Un fichier importe un seul type de données : séances ou pesées. Un tableau mixte doit être séparé en deux fichiers.',
       orderRule: {
@@ -1368,7 +1375,7 @@ const coaching = {
     dailyLimit: 'Limite quotidienne du copilote atteinte. Réessaie demain.',
   },
   soloAsk: {
-    label: 'Ask Prometheus',
+    label: 'Demander à Prometheus',
     ask: 'Demander',
     ignore: 'Ignorer',
     namedDay: 'Nom du jour de plan',

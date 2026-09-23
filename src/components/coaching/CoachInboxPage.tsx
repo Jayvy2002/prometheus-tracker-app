@@ -216,7 +216,12 @@ export default function CoachInboxPage() {
                 >
                   {t('coaching.queue.relance')}
                 </Button>
-              ) : undefined}
+              ) : (
+                // A prospect is not a client yet (Vision §18): say so in the list.
+                <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[11px] text-amber-200">
+                  {t('coaching.inbox.prospectBadge')}
+                </span>
+              )}
             />
           );
         })}

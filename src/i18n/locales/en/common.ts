@@ -234,6 +234,7 @@ const common = {
     weight: 'Weight',
     thisWeek: 'this week',
     noWeightYet: 'No weigh-in yet',
+    weightAvg7: '7-day avg',
     viewStats: 'Statistics',
     statsDesc: 'Trends & insights',
     viewProgress: 'Progress',
@@ -257,7 +258,7 @@ const common = {
     linkEnded: {
       title: 'Your coaching relationship has ended',
       body: 'Your history and targets are kept. Your program is paused and you can continue in solo mode.',
-      trial: 'Solo trial: {{days}} day(s) left.',
+      trial: 'Solo trial — days left: {{days}}.',
       trialOver: 'Your solo trial has ended.',
     },
     gym: {
@@ -320,7 +321,7 @@ const common = {
       heicUnsupported: 'HEIC format (iPhone) not supported — pick JPEG or PNG.',
       unsupportedType: 'Unsupported format — JPEG, PNG or WebP only.',
       uploadFailed: 'Photo upload failed — try again.',
-      publicHint: 'Your photo is public: your coach (and future coaches) can see it.',
+      publicHint: 'Your profile picture is visible to your coach and to coaches you write to. Your progress photos stay private.',
     },
     fallbackName: 'You',
     hubTitle: 'Coaching',
@@ -553,7 +554,7 @@ const common = {
       dim: 'Sun',
     },
     waiting: 'Questionnaire not filled yet',
-    completeLater: 'Complete the questionnaire',
+    completeLater: 'Complete my health intake',
     later: 'Later',
   },
 

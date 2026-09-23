@@ -25,10 +25,9 @@ flowchart TD
   F --> I
   G --> I
   H --> J[Marketplace]
-  J --> K[Demande]
+  J --> K[Demande + conversation prospect]
   K --> L[Coach accepte de poursuivre]
-  L --> M[Conversation prospect]
-  M --> N[Athlète confirme]
+  L --> N[Athlète confirme]
   N --> O[Relation active]
   O --> F
   I --> P[Analyse / signaux / propositions]
@@ -146,10 +145,10 @@ flowchart TD
   D --> E[Shortlist expliquée]
   E --> F[Profil / comparaison]
   F --> G[Demande]
-  G --> H{Réponse Coach}
+  G --> J[Conversation prospect]
+  J --> H{Réponse Coach}
   H -->|Refus| I[Retour recherche]
-  H -->|Accepte de poursuivre| J[Conversation prospect]
-  J --> K{Athlète confirme ?}
+  H -->|Accepte de poursuivre| K{Athlète confirme ?}
   K -->|Non| J
   K -->|Oui| L[Activation relation]
   L --> M[Onboarding coaching]
@@ -165,6 +164,8 @@ Avant activation, le Coach ne doit voir que ce qui est nécessaire et explicitem
 - éléments volontairement ajoutés à la demande.
 
 Pas d’accès complet aux séances, photos, check-ins ou historique sans relation active/consentement approprié.
+
+Photos de progression : privées par défaut, même en relation active. L’athlète choisit de les partager avec son Coach actif (`set_progress_photo_sharing`) ; la fin de relation met fin au partage (Vision §14.4, §22.2).
 
 ---
 
@@ -407,7 +408,7 @@ Une relation logique Coach–athlète possède un fil principal.
 
 ### Prospect
 
-La conversation peut commencer après acceptation du Coach sans créer de relation active.
+La conversation peut commencer dès la demande de l’athlète (Vision §18.2–18.3, `docs/P4_3_PROSPECT_MESSAGING.md`) et continue après l’acceptation du Coach, sans créer de relation active.
 
 ### Client actif
 

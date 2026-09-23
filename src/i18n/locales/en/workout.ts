@@ -19,7 +19,8 @@ const workout = {
     unnamed: 'Session',
     deleteConfirm: 'Delete “{{name}}”? This action cannot be undone.',
     finishIncompleteTitle: 'Finish this session?',
-    finishIncompleteBody: '{{count}} set(s) were not marked as done. They will stay incomplete.',
+    finishIncompleteBody_one: '{{count}} set was not marked as done. It will stay incomplete.',
+    finishIncompleteBody_other: '{{count}} sets were not marked as done. They will stay incomplete.',
     finishAnyway: 'Finish anyway',
     backToSession: 'Back to session',
     deleteFailed: 'Failed to delete workout. Please try again.',
@@ -86,7 +87,8 @@ const workout = {
       seeSession: 'See session',
       coachWillSee: 'Your coach will see this session.',
       facts: {
-        skipped: '{{count}} set(s) not checked — not counted in volume or 1RM.',
+        skipped_one: '{{count}} set not checked — not counted in volume or 1RM.',
+        skipped_other: '{{count}} sets not checked — not counted in volume or 1RM.',
         nonePerformed: 'No set was checked. Nothing is counted as done.',
       },
     },
@@ -344,6 +346,10 @@ const workout = {
 
   calendar: {
     title: 'Calendar',
+    showMonth: 'Show month',
+    showWeek: 'Show week',
+    previous: 'Previous period',
+    next: 'Next period',
     thisWeek: 'This Week',
     lastWeek: 'Last Week',
     days: {
@@ -356,13 +362,12 @@ const workout = {
       sun: 'Sun',
     },
     legend: {
-      workout: 'Workout',
+      workout: 'Free session',
       nutrition: 'Nutrition',
       weight: 'Weight',
-      streak: '{{n}} day streak',
     },
     plan: {
-      scheduled: 'Scheduled',
+      scheduled: 'Planned session',
       started: 'Started',
       done: 'Done',
       dueHint: "Scheduled workout. It hasn't been started yet.",

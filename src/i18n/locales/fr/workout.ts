@@ -19,7 +19,8 @@ const workout = {
     unnamed: 'Séance',
     deleteConfirm: 'Supprimer « {{name}} » ? Cette action est irréversible.',
     finishIncompleteTitle: 'Terminer la séance ?',
-    finishIncompleteBody: '{{count}} série(s) n’ont pas été marquées comme réalisées. Elles resteront incomplètes.',
+    finishIncompleteBody_one: '{{count}} série n’a pas été marquée comme réalisée. Elle restera incomplète.',
+    finishIncompleteBody_other: '{{count}} séries n’ont pas été marquées comme réalisées. Elles resteront incomplètes.',
     finishAnyway: 'Terminer quand même',
     backToSession: 'Retour à la séance',
     deleteFailed: "Impossible de supprimer l'entraînement. Réessaie.",
@@ -86,7 +87,8 @@ const workout = {
       seeSession: 'Voir la séance',
       coachWillSee: 'Ton coach verra cette séance.',
       facts: {
-        skipped: '{{count}} série(s) non cochée(s) — hors volume et 1RM.',
+        skipped_one: '{{count}} série non cochée — hors volume et 1RM.',
+        skipped_other: '{{count}} séries non cochées — hors volume et 1RM.',
         nonePerformed: 'Aucune série cochée. Rien n’est compté comme réalisé.',
       },
     },
@@ -344,6 +346,10 @@ const workout = {
 
   calendar: {
     title: 'Calendrier',
+    showMonth: 'Afficher le mois',
+    showWeek: 'Afficher la semaine',
+    previous: 'Période précédente',
+    next: 'Période suivante',
     thisWeek: 'Cette semaine',
     lastWeek: 'Semaine dernière',
     days: {
@@ -356,15 +362,14 @@ const workout = {
       sun: 'Dim',
     },
     legend: {
-      workout: 'Entraînement',
+      workout: 'Séance libre',
       nutrition: 'Nutrition',
       weight: 'Poids',
-      streak: '{{n}} jours de suite',
     },
     plan: {
-      scheduled: 'Prévu',
-      started: 'Commencé',
-      done: 'Terminé',
+      scheduled: 'Séance prévue',
+      started: 'Commencée',
+      done: 'Faite',
       dueHint: 'Séance prévue. Elle n’a pas encore été commencée.',
     },
     weekSummary: {

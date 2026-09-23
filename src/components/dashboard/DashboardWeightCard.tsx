@@ -28,7 +28,7 @@ export default function DashboardWeightCard({ points, unit, latest, delta }: Pro
       <div data-testid="dashboard-weight-chart" className="flex h-full flex-col">
         <div className="flex items-center gap-2 mb-2">
           <Scale size={14} className="text-emerald-400" aria-hidden="true" />
-          <p className="text-xs text-neutral-400">{t('dashboard.weight')}</p>
+          <p className="text-xs text-neutral-400">{t('dashboard.weight')} · {t('dashboard.weightAvg7')}</p>
         </div>
         {latest !== null ? (
           <p className="text-lg font-semibold text-white leading-tight">
@@ -38,7 +38,8 @@ export default function DashboardWeightCard({ points, unit, latest, delta }: Pro
           <p className="text-xs text-neutral-500">{t('dashboard.noWeightYet')}</p>
         )}
         {delta !== null && delta !== 0 && (
-          <p className={`text-[11px] ${delta > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+          // Neutral colour: gaining is the goal for some, losing for others (Vision §14 — no judgement).
+          <p className="text-[11px] text-neutral-300">
             {delta > 0 ? '+' : ''}{delta} {unit} · {t('dashboard.thisWeek')}
           </p>
         )}
