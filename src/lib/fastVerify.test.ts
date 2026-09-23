@@ -28,7 +28,10 @@ test('barcode already in food_products skips the vision API', () => {
   const apiIdx = src.indexOf('api.openai.com');
   assert.ok(dbIdx >= 0, 'looks up food_products');
   assert.ok(apiIdx > dbIdx, 'food_products lookup happens before OpenAI');
-  assert.match(src, /skip API/);
+  // A barcode hit returns before any OpenAI call.
+  const hit = src.indexOf('if (byBarcode)');
+  assert.ok(hit > dbIdx && hit < apiIdx);
+  assert.match(src.slice(hit, apiIdx), /return await completeWithProduct/);
 });
 
 test('Open Food Facts hit skips the vision API', () => {
@@ -57,7 +60,7 @@ test('miss / photo calls the API and completes product_requests in the same 200'
   const src = source('supabase/functions/analyze-product/index.ts');
   assert.match(src, /status:\s*"completed"/);
   assert.match(src, /result_product_id/);
-  assert.match(src, /from\("food_products"\)[\s\S]*insert/);
+  assert.match(src, /from\("food_products"\)[^;]*insert/);
   assert.doesNotMatch(src, /status:\s*202/);
 });
 

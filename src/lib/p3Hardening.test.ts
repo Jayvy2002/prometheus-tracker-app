@@ -12,9 +12,9 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
   const found = latestMigrationContaining('phase_anchor_on date');
   assert.equal(found.file, '20260920014500_p3_hardening.sql');
   assert.match(found.sql, /program_days_program_phase_weekday_unique/);
-  assert.match(found.sql, /program_days_phase_id_fkey[\s\S]*ON DELETE CASCADE/);
-  assert.match(found.sql, /workouts_program_day_id_fkey[\s\S]*ON DELETE SET NULL[\s\S]*DEFERRABLE INITIALLY IMMEDIATE/);
-  assert.match(found.sql, /workouts_program_phase_id_fkey[\s\S]*ON DELETE SET NULL[\s\S]*DEFERRABLE INITIALLY IMMEDIATE/);
+  assert.match(found.sql, /program_days_phase_id_fkey[^;]*ON DELETE CASCADE/);
+  assert.match(found.sql, /workouts_program_day_id_fkey[^;]*ON DELETE SET NULL[^;]*DEFERRABLE INITIALLY IMMEDIATE/);
+  assert.match(found.sql, /workouts_program_phase_id_fkey[^;]*ON DELETE SET NULL[^;]*DEFERRABLE INITIALLY IMMEDIATE/);
   assert.match(found.sql, /program_civil_date/);
   assert.match(found.sql, /validate_program_graph_payload/);
   assert.match(found.sql, /program_day_not_current_phase/);
@@ -111,12 +111,12 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
     assert.match(adoptFn, /apply_program_revision_snapshot\(v_fork_id, 1, 'now'\)/);
     assert.match(adoptFn, /FROM public\.programs p\s+WHERE p\.id = v_program_id\s+FOR UPDATE/);
     assert.match(adoptFn, /FROM public\.program_assignments pa\s+WHERE pa\.id = p_assignment_id\s+FOR UPDATE/);
-    assert.match(adoptFn, /FROM public\.coach_client_links l[\s\S]*FOR SHARE/);
+    assert.match(adoptFn, /FROM public\.coach_client_links l[^;]*FOR SHARE/);
     assert.match(adoptFn, /remap_program_revision_snapshot/);
     const mutexAt = adoptFn.indexOf('lock_client_assignment_mutex');
     const lockProgram = adoptFn.search(/FROM public\.programs p\s+WHERE p\.id = v_program_id\s+FOR UPDATE/);
     const lockAsg = adoptFn.search(/FROM public\.program_assignments pa\s+WHERE pa\.id = p_assignment_id\s+FOR UPDATE/);
-    const lockLink = adoptFn.search(/FROM public\.coach_client_links l[\s\S]*FOR SHARE/);
+    const lockLink = adoptFn.search(/FROM public\.coach_client_links l[^;]*FOR SHARE/);
     const reval = adoptFn.lastIndexOf('is_coach_of');
     assert.ok(
       mutexAt >= 0 && lockProgram > mutexAt && lockAsg > lockProgram && lockLink > lockAsg && reval > lockLink,
@@ -310,7 +310,7 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
   assert.match(found.sql, /GRANT SELECT ON TABLE public\.program_revisions TO authenticated/);
   assert.match(found.sql, /ADD COLUMN IF NOT EXISTS program_id uuid/);
   assert.match(found.sql, /active assignment without active_revision_no after backfill/);
-  assert.match(found.sql, /start_workout_from_template\([\s\S]*SECURITY DEFINER/);
+  assert.match(found.sql, /start_workout_from_template\([^;]*SECURITY DEFINER/);
   assert.match(found.sql, /cancel_scheduled_program_version/);
   assert.match(found.sql, /program_activation_timezone/);
   assert.match(src('supabase/tests/program_versions.sql'), /scheduled_activation_timezone/);

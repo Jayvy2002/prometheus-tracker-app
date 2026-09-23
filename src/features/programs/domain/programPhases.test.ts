@@ -157,7 +157,7 @@ test('civil day math is DST-safe for Toronto 2026 spring/fall', () => {
 test('P3.2 migration extends the existing engine without a second logger', () => {
   const found = latestMigrationContaining('CREATE TABLE public.program_phases');
   assert.equal(found.file, '20260919225507_program_phases.sql');
-  assert.match(found.sql, /program_days[\s\S]*phase_id/);
+  assert.match(found.sql, /program_days[^;]*phase_id/);
   assert.match(found.sql, /prescribed_phase_name/);
   assert.match(found.sql, /sync_program_phases/);
   assert.match(found.sql, /p_phases jsonb DEFAULT NULL/);

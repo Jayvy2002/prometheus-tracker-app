@@ -54,7 +54,8 @@ test('C03: coach deletion runs the business transition first, then paginated cle
   assert.match(cleanup, /listOwnedStoragePaths/);
   assert.match(cleanup, /StorageCleanupError/);
   assert.doesNotMatch(edge, /best effort/);
-  assert.match(edge, /P3 snapshot/);
+  // Coach account closure goes through the service_role RPC (P3 snapshot engine), not ad-hoc deletes.
+  assert.match(edge, /"close_coach_account"/);
 });
 
 test('C04: assignment history follows the athlete; adoption is exact assignment_id', () => {

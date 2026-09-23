@@ -15,8 +15,8 @@ test('Hotfix B revokes Data API execute on P2 primitives and keeps métier RPCs'
   assert.match(mig.sql, /REVOKE ALL ON FUNCTION public\.enqueue_athlete_decision_outbox/);
   assert.match(mig.sql, /REVOKE ALL ON FUNCTION public\.queue_and_record_athlete_decision/);
   assert.match(mig.sql, /FROM PUBLIC, anon, authenticated/);
-  assert.match(mig.sql, /GRANT EXECUTE ON FUNCTION public\.upsert_athlete_signal[\s\S]*TO service_role/);
-  assert.match(mig.sql, /GRANT EXECUTE ON FUNCTION public\.queue_and_record_athlete_decision[\s\S]*TO service_role/);
+  assert.match(mig.sql, /GRANT EXECUTE ON FUNCTION public\.upsert_athlete_signal[^;]*TO service_role/);
+  assert.match(mig.sql, /GRANT EXECUTE ON FUNCTION public\.queue_and_record_athlete_decision[^;]*TO service_role/);
   assert.doesNotMatch(mig.sql, /GRANT EXECUTE ON FUNCTION public\.drain_athlete_decision_outbox/);
   assert.doesNotMatch(mig.sql, /REVOKE ALL ON FUNCTION public\.drain_athlete_decision_outbox/);
   assert.doesNotMatch(mig.sql, /REVOKE ALL ON FUNCTION public\.save_athlete_weekly_review/);
@@ -73,8 +73,9 @@ test('Hotfix B revokes Data API execute on P2 primitives and keeps métier RPCs'
 
   const contract = src('src/features/signals/domain/backendContract.ts');
   assert.doesNotMatch(contract, /Fail-open until P2 candidates are applied in production/);
-  assert.match(contract, /Never fail-open/);
-  assert.match(contract, /commit_solo_weekly_review_decision is the only/);
+  // Fail-closed: the Solo decision store never uses the missing-contract fallback.
+  assert.doesNotMatch(src('src/stores/soloCopilotStore.ts'), /isMissingBackendContract/);
+  assert.match(src('src/stores/soloCopilotStore.ts'), /commit_solo_weekly_review_decision/);
 
   const solo = src('src/stores/soloCopilotStore.ts');
   assert.doesNotMatch(solo, /isMissingBackendContract/);

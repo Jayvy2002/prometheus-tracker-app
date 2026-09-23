@@ -29,9 +29,19 @@ test('tracking modules list only enabled ones', () => {
 });
 
 test('message day keys group by local calendar day', () => {
-  const iso = '2026-09-14T15:00:00.000Z';
-  assert.match(messageDayKey(iso), /^\d{4}-\d{2}-\d{2}$/);
-  assert.equal(formatMessageDay(new Date().toISOString(), 'fr', 'Aujourd’hui', 'Hier'), 'Aujourd’hui');
+  // Two instants of the same local day share a key; the key is the local date, not the UTC one.
+  const morning = new Date(2026, 8, 14, 0, 30).toISOString();
+  const night = new Date(2026, 8, 14, 23, 30).toISOString();
+  assert.equal(messageDayKey(morning), '2026-09-14');
+  assert.equal(messageDayKey(night), '2026-09-14');
+  assert.notEqual(messageDayKey(new Date(2026, 8, 15, 0, 5).toISOString()), messageDayKey(night));
+  assert.equal(messageDayKey('not-a-date'), 'not-a-date'.slice(0, 10));
+  // Relative labels: an instant one minute ago is « today », 24 h earlier is « yesterday ».
+  const now = Date.now();
+  const recent = new Date(now).toISOString();
+  assert.equal(formatMessageDay(recent, 'fr', 'Aujourd’hui', 'Hier'), 'Aujourd’hui');
+  const yesterdayNoon = new Date(new Date(now).setHours(12, 0, 0, 0) - 24 * 3600 * 1000).toISOString();
+  assert.equal(formatMessageDay(yesterdayNoon, 'fr', 'Aujourd’hui', 'Hier'), 'Hier');
 });
 
 test('timezone labels stay human', () => {

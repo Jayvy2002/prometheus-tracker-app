@@ -61,7 +61,8 @@ test('InvitePage records versioned consent; the store no longer calls the 1-arg 
 
   const app = src('src/App.tsx') + src('src/app/bootstrap/useAuthenticatedSession.ts') + src('src/app/guards/RouteGuards.tsx') + src('src/app/router/AppRoutes.tsx');
   assert.doesNotMatch(app, /await acceptInvite\(token\)/);
-  assert.match(app, /Consent is explicit/);
+  // Consent is explicit on /invite/:token: the session bootstrap never accepts on its own.
+  assert.doesNotMatch(app, /acceptInvite\(/);
   assert.match(app, /\/invite\/\$\{pendingInvite\}/);
 
   const ci = src('.github/workflows/ci.yml');
