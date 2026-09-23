@@ -8,7 +8,7 @@
 >
 > **Règle agents :** ne pas reconstruire ce qui existe déjà. Avant chaque chantier, inspecter le code/migrations actuels et vérifier si le problème est réellement fonctionnel, architectural ou simplement non raccordé.
 
-**Mis à jour : 22 septembre 2026.**
+**Mis à jour : 23 septembre 2026.**
 
 ---
 
@@ -32,7 +32,7 @@ Prometheus dispose déjà d’un socle important :
 
 Le travail restant n’est pas une reconstruction. Le principal enjeu est désormais de **faire converger les contrats métier et l’architecture vers la Vision de référence**.
 
-> **CURRENT IMPLEMENTATION GATE — P5.4 en revue.** Production/lock **137**. P5.3 est CLOSED (`20260923014500_p5_exercise_catalog`, 74 statements, `created_by` null, timestamp Git conservé). Le candidat `20260923021000_p5_minimal_admin` est pending, pas encore observé en production. Ne pas commencer P6. Job `coach-import-preview-purge` actif. Watch n’applique pas.
+> **CURRENT IMPLEMENTATION GATE — P5 CLOSED.** Production/lock **138**. Dernière migration `20260923021000_p5_minimal_admin` (79 statements, `created_by` null, timestamp Git conservé). Pending vide. P6 n’est pas commencé. Job `coach-import-preview-purge` actif (`15 * * * *`). Watch n’applique pas.
 >
 > Watch reste une surface d’observation, d’explicabilité, de correction de contexte et de décision humaine. Accepter, modifier ou refuser depuis Watch n’applique pas automatiquement une cible ou un programme. `commit_solo_weekly_review_decision` et `apply_intervention` restent les chemins d’effet durable. Aucune auto-application. Aucune réécriture des mesures sources. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
 
@@ -64,7 +64,7 @@ Le template `.github/pull_request_template.md` fait partie de la Definition of D
 | **P2** | Cerveau Prometheus | **P2.1–P2.5 + Hotfix B actifs en production** (128 migrations) | Unifier revue hebdo + signaux + mémoire + décisions |
 | **P3** | Planification avancée | **P3.1–P3.3 + hardening clos (130)** | Clos |
 | **P4** | Marketplace complète | **P4.1–P4.4 clos (134)** | Qualifications, matching, prospect, signalement |
-| **P5** | Adoption Coach | **P5.1–P5.3 clos (137). P5.4 en revue** | Imports, dossier provisoire, bibliothèque, admin |
+| **P5** | Adoption Coach | **P5.1–P5.4 clos (138)** | Imports, dossier provisoire, bibliothèque, admin |
 | **P6** | Bêta économique | À faire après entitlements P1 | Entitlements, essais, grâce, mesure coûts |
 | **P7** | Intégrations et polish | Dernier | Health/wearables, offline secondaire, E2E final |
 
@@ -118,7 +118,7 @@ Cette configuration est un **contrôle administrateur GitHub**, pas une modifica
 
 ### Point de départ agent
 
-P1.5–P2.5, P3, P4 (`#210`), P5.1 (`#213`), P5.2 (`#215`, `#216`) et P5.3 (`#217`) sont en production (137 migrations). **P5.4 est en revue** (`20260923021000` pending). Watch n’applique pas.
+P1.5–P2.5, P3, P4 (`#210`), P5.1 (`#213`), P5.2 (`#215`, `#216`), P5.3 (`#217`) et P5.4 (`#219`) sont en production (138 migrations, pending vide). Watch n’applique pas. P6 n’est pas commencé.
 
 ## P0.3 — Baseline sécurité — ✅ ÉVALUÉ
 
@@ -769,7 +769,7 @@ CI post-merge verte : [run 35660157162](https://github.com/Jayvy2002/prometheus-
 
 Le parcours complet : questionnaire recherche → shortlist expliquée → demande + snapshot limité → discussion prospect dès pending → Coach accepte → même conversation → Athlète confirme → client actif, sans accès prématuré au dossier. **Critère atteint.**
 
-**Arrêt P4 : livré.** **Arrêt P5.1 : livré** (`#213`, `20260922014500`, lock 135). **Arrêt P5.2 : livré** (`#215`, `20260922223000`, lock 136, pending vide).
+**Arrêt P4 : livré.** **Arrêt P5 : livré** (`#213` lock 135, `#215` lock 136, `#217` lock 137, `#219` lock 138, pending vide).
 
 ---
 
@@ -829,7 +829,7 @@ Alias, recherche normalisée, propositions en attente, fusion explicite. Le nom 
 
 ## P5.4 — Admin minimal
 
-**En revue.** Contrat : `docs/P5_4_MINIMAL_ADMIN.md`. Migration candidate `20260923021000_p5_minimal_admin` (pending, hors lock 137).
+**CLOSED.** Contrat : `docs/P5_4_MINIMAL_ADMIN.md`. Migration `20260923021000_p5_minimal_admin` observée en production (79 statements, `created_by` null, timestamp Git conservé). Lock **138**, pending vide. PR `#219`, merge `aba51d033e7ab3232da2708bd06665bc637571e2`.
 
 Console opérateur pour :
 

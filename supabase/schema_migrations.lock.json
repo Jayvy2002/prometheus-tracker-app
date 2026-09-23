@@ -1,7 +1,7 @@
 {
   "project_ref": "phyuijjekxtjvipjtdfv",
-  "captured_at": "2026-09-22T23:50:00Z",
-  "strategy": "Git migrations on new-JV, this lock, and Supabase production must contain the same ordered versions. Verified directly against production after P5.3 apply on 2026-09-22 (137 versions, last 20260923014500_p5_exercise_catalog, 74 statements, created_by null, fingerprint d0c9455e78a9b5090d76cf6ee5764a52). Function body hashes match the local replay. Git timestamp 20260923014500 was kept; never repair or restamp applied history. Never apply 20260919181919.",
+  "captured_at": "2026-09-23T07:07:53Z",
+  "strategy": "Git migrations on new-JV, this lock, and Supabase production must contain the same ordered versions. Verified directly against production after P5.4 on 2026-09-23 (138 versions, last 20260923021000_p5_minimal_admin, 79 statements, created_by null). The live grant and revoke recheck is_platform_operator() after lock_platform_operators(). Git timestamp 20260923021000 was kept; never repair or restamp applied history. Never apply 20260919181919.",
   "audit_range": {
     "from": "20260910044211",
     "to": "20260910064501",
@@ -555,6 +555,10 @@
     {
       "version": "20260923014500",
       "name": "p5_exercise_catalog"
+    },
+    {
+      "version": "20260923021000",
+      "name": "p5_minimal_admin"
     }
   ]
 }

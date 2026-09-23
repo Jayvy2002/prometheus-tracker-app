@@ -1,6 +1,6 @@
 # P5.4 — Admin minimal
 
-> En revue. Migration candidate `20260923021000_p5_minimal_admin`, déclarée dans `migrations.pending.json`. Elle n’est pas dans le lock production (137) tant qu’elle n’a pas été observée.
+> CLOSED. Migration `20260923021000_p5_minimal_admin` observée en production le 23 septembre 2026 (79 statements, `created_by` null, timestamp Git conservé). Lock 138, pending vide. PR `#219`.
 
 Console privée pour opérer le catalogue, les qualifications, les imports en échec et les signalements. Ce n’est pas un back-office générique. Abonnements, grâce, santé système et coût restent hors de ce contrat.
 
