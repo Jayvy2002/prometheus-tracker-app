@@ -22,11 +22,11 @@ export default function AppLayout() {
   const isCoach = context.activeWorkspace === 'coaching';
   const location = useLocation();
   const resumable = useResumableWorkout();
-  // The resume bar takes the FAB's place while a session is open.
+  // Quick add stays on Today and on the training page; the session logger
+  // (/workout/:id, /workout/new) has its own actions. With a resume bar the
+  // FAB sits above it instead of disappearing.
   const hideFab = isCoach
-    || !!resumable
-    || location.pathname === '/dashboard'
-    || location.pathname.startsWith('/workout')
+    || location.pathname.startsWith('/workout/')
     || location.pathname.startsWith('/coaches')
     || location.pathname === '/coach/profile'
     || location.pathname === '/coaching-requests'
@@ -62,7 +62,7 @@ export default function AppLayout() {
         </div>
       </main>
 
-      {!hideFab && <FAB />}
+      {!hideFab && <FAB raised={!!resumable} />}
       {!isCoach && <SessionResumeBar />}
       <BottomNav />
     </div>

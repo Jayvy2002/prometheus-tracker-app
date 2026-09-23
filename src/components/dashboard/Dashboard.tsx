@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Droplets, Dumbbell, ChevronRight, Play, Plus, Scale, AlertCircle, ClipboardCheck, MessageSquare, CalendarRange } from 'lucide-react';
+import { Droplets, Dumbbell, ChevronRight, Play, Scale, AlertCircle, ClipboardCheck, MessageSquare, CalendarRange } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
@@ -461,41 +461,22 @@ export default function Dashboard() {
             to="/programs"
           />
         )}
+        {/* Adding a meal or a weigh-in goes through the quick-add button. */}
         {showNutritionRings && (
-          <div className="relative mb-4">
-            <CardLink to="/nutrition">
-              <NutritionRings className="pr-12" />
-            </CardLink>
-            <button
-              type="button"
-              aria-label={t('nutrition.add')}
-              onClick={() => navigate('/nutrition?add=1')}
-              className="absolute top-1/2 -translate-y-1/2 right-2 min-h-11 min-w-11 rounded-xl text-neutral-300 hover:text-white"
-            >
-              <Plus size={16} className="mx-auto" />
-            </button>
-          </div>
+          <CardLink to="/nutrition" className="mb-4">
+            <NutritionRings />
+          </CardLink>
         )}
 
         {!activityPending && (showModule(tracking, 'weight') || showModule(tracking, 'workouts')) && (
           <div className={`grid gap-3 mb-4 ${showModule(tracking, 'weight') && showModule(tracking, 'workouts') ? 'grid-cols-2' : 'grid-cols-1'}`}>
             {showModule(tracking, 'weight') && (
-              <div className="relative">
-                <DashboardWeightCard
-                  points={weightPoints}
-                  unit={weightUnit}
-                  latest={latestWeight}
-                  delta={weightDeltaDisplay}
-                />
-                <button
-                  type="button"
-                  aria-label={t('weight.log')}
-                  onClick={() => navigate('/weight?log=1')}
-                  className="absolute top-1.5 right-1.5 min-h-11 min-w-11 rounded-xl text-neutral-300 hover:text-white"
-                >
-                  <Plus size={16} className="mx-auto" />
-                </button>
-              </div>
+              <DashboardWeightCard
+                points={weightPoints}
+                unit={weightUnit}
+                latest={latestWeight}
+                delta={weightDeltaDisplay}
+              />
             )}
             {showModule(tracking, 'workouts') && (
               <CardLink to="/calendar" className="h-full" data-testid="dashboard-week">

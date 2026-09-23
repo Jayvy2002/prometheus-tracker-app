@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Dumbbell, Scale, Flame, X, ClipboardCheck } from 'lucide-react';
+import { Plus, Dumbbell, Scale, Flame, ClipboardCheck } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useClientTracking } from '@/features/coaching/hooks/useClientTracking';
 
@@ -10,7 +10,7 @@ interface FABAction {
   onClick: () => void;
 }
 
-export default function FAB() {
+export default function FAB({ raised = false }: { raised?: boolean }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const tracking = useClientTracking();
@@ -43,7 +43,9 @@ export default function FAB() {
         />
       )}
 
-      <div className="md:hidden fixed left-1/2 z-50 flex -translate-x-1/2 flex-col items-center gap-2 bottom-[calc(4.75rem+env(safe-area-inset-bottom))]">
+      <div className={`md:hidden fixed left-1/2 z-50 flex -translate-x-1/2 flex-col items-center gap-2 ${raised
+        ? 'bottom-[calc(8.25rem+env(safe-area-inset-bottom))]'
+        : 'bottom-[calc(4.75rem+env(safe-area-inset-bottom))]'}`}>
         {open && (
           <div className="flex flex-col items-center gap-2 mb-1 animate-fade-in-up">
             {actions.map((action, i) => {
@@ -66,11 +68,14 @@ export default function FAB() {
         )}
 
         <button
+          type="button"
+          aria-label={t('nav.quickAdd')}
+          aria-expanded={open}
           onClick={() => setOpen(o => !o)}
           className={`w-14 h-14 rounded-full shadow-2xl flex items-center justify-center transition-all duration-200 active:scale-95
             ${open ? 'bg-neutral-800 border border-neutral-600 rotate-45' : 'bg-blue-600 hover:bg-blue-500 shadow-blue-900/40'}`}
         >
-          {open ? <X size={22} className="text-white" /> : <Plus size={22} className="text-white" />}
+          <Plus size={22} className="text-white" aria-hidden="true" />
         </button>
       </div>
     </>
