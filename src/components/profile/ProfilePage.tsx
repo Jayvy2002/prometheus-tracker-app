@@ -132,8 +132,9 @@ export default function ProfilePage() {
     <div className="px-4 pt-6 pb-4">
       <h1 className="text-2xl font-bold text-white mb-6">{t('profile.title')}</h1>
 
+      {/* Desktop already has the switcher in the side nav. */}
       {canCoach && context.personalToolsAvailable && (
-        <div className="mb-6">
+        <div className="mb-6 md:hidden">
           <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-2">{t('accountSpaces.label')}</p>
           <WorkspaceSwitcher />
         </div>
