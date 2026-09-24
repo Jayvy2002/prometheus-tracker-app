@@ -91,13 +91,13 @@ export default function StepsTracker() {
           onChange={e => setDraft(e.target.value)}
           placeholder={consumed > 0 ? String(consumed) : undefined}
           aria-label={t('nutrition.steps.title')}
-          className="flex-1 bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-sm text-white placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+          className="flex-1 min-w-0 min-h-11 bg-neutral-950 border border-neutral-800 rounded-lg px-3 text-sm text-white placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
         />
         <button
           type="button"
           onClick={() => void handleSave()}
           disabled={saving}
-          className="px-3 py-2 rounded-lg bg-emerald-500/15 text-emerald-300 text-xs font-medium hover:bg-emerald-500/25 disabled:opacity-50"
+          className="min-h-11 px-3 rounded-lg bg-emerald-500/15 text-emerald-300 text-xs font-medium hover:bg-emerald-500/25 disabled:opacity-50"
         >
           {t('nutrition.steps.save')}
         </button>
@@ -109,18 +109,20 @@ export default function StepsTracker() {
             type="button"
             onClick={() => void handleAdd(n)}
             disabled={saving}
-            className="flex-1 py-2 rounded-lg bg-emerald-500/10 text-emerald-400 text-xs font-medium hover:bg-emerald-500/20 transition-transform active:scale-90 disabled:opacity-50"
+            className="flex-1 min-h-11 rounded-lg bg-emerald-500/10 text-emerald-400 text-xs font-medium hover:bg-emerald-500/20 transition-transform active:scale-90 disabled:opacity-50"
           >
-            +{n.toLocaleString()}
+            +{formatNumber(n, { maxDigits: 0 })}
           </button>
         ))}
         <button
           type="button"
           onClick={() => void handleClear()}
-          className="p-2 rounded-lg bg-neutral-800 text-neutral-400 hover:text-rose-400 transition-colors"
+          aria-label={t('nutrition.steps.reset')}
+          title={t('nutrition.steps.reset')}
+          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg bg-neutral-800 text-neutral-400 hover:text-rose-400 transition-colors disabled:opacity-50"
           disabled={saving || consumed <= 0}
         >
-          <Minus size={14} />
+          <Minus size={16} aria-hidden="true" />
         </button>
       </div>
     </Card>

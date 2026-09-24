@@ -61,6 +61,7 @@ export default function EditFoodModal({ log, onClose }: Props) {
       return;
     }
     setSaving(true);
+    const before = useNutritionStore.getState().logs.find(l => l.id === log.id);
     await updateLog(log.id, {
       name,
       quantity: qty,
@@ -70,8 +71,12 @@ export default function EditFoodModal({ log, onClose }: Props) {
       carbs: +carbs,
       fat: +fat,
     });
-    toast(t('nutrition.editModal.updated'));
+    // A confirmed write replaces the row in the store; an unchanged row means the store
+    // already reported the error. « Updated » only after the write is confirmed.
+    const after = useNutritionStore.getState().logs.find(l => l.id === log.id);
     setSaving(false);
+    if (before && after === before) return;
+    toast(t('nutrition.editModal.updated'));
     onClose();
   };
 

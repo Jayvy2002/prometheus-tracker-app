@@ -37,7 +37,7 @@ import ScoreSlider from './ScoreSlider';
 import CheckinFilledScores from './CheckinFilledScores';
 import CheckinHistoryList from './CheckinHistoryList';
 import { adherencePercentFromScore, adherenceScoreFromPercent } from '../../lib/checkinScale';
-import { parseDecimalInput } from '../../features/workout/domain/workoutSetComplete';
+import { parseSleepHours } from '../../features/checkins/domain/sleepHours';
 import { useCheckinPlan } from '../../features/checkins/hooks/useCheckinPlan';
 import { missingRequired, snapshotAnswers, visibleQuestions, type AnswerValue } from '../../features/checkins/domain/checkinTemplate';
 import { nextDueDate } from '../../features/checkins/domain/checkinSchedule';
@@ -89,6 +89,7 @@ export default function CheckInPage() {
   const [moreOpen, setMoreOpen] = useState(false);
   const [askOpen, setAskOpen] = useState(false);
   const [sleepHours, setSleepHours] = useState('');
+  const [sleepTouched, setSleepTouched] = useState(false);
   const [notes, setNotes] = useState('');
   const [scales, setScales] = useState<Record<CheckinScaleKey, number | null>>({
     sleep_quality: null,
@@ -165,14 +166,15 @@ export default function CheckInPage() {
   const handleSave = async () => {
     if (!user) return;
     setSaving(true);
-    // « 7,5 » and « 7.5 » are the same night. An invalid value is refused, never dropped silently.
-    const parsedHours = parseDecimalInput(sleepHours);
-    const hours = sleepHours.trim() === '' ? null : parsedHours;
-    if (hours != null && (!Number.isFinite(hours) || hours < 0 || hours > 24)) {
+    // « 7,5 », « 7.5 » and « 7h30 » are the same night. An invalid value is refused, never dropped silently.
+    const sleep = parseSleepHours(sleepHours);
+    if (!sleep.ok) {
       setSaving(false);
+      setSleepTouched(true);
       toast(t('checkin.sleepHoursInvalid'), 'error');
       return;
     }
+    const hours = sleep.hours;
     const allQuestions = template?.questions ?? [];
     if (missingRequired(allQuestions, answers).length > 0) {
       setSaving(false);
@@ -192,7 +194,7 @@ export default function CheckInPage() {
         ? notes
         : (todayCheckin?.notes || ''),
       sleep_hours: showCheckinField(tracking, 'sleep_hours')
-        ? (hours != null && !Number.isNaN(hours) ? hours : null)
+        ? hours
         : todayCheckin?.sleep_hours ?? null,
       hunger: clampCheckinScore(scales.hunger),
       fatigue: clampCheckinScore(scales.fatigue),
@@ -240,6 +242,8 @@ export default function CheckInPage() {
   }
 
   const extraCount = extraVars.length;
+  const sleepParse = parseSleepHours(sleepHours);
+  const sleepError = sleepTouched && !sleepParse.ok ? t('checkin.sleepHoursInvalid') : undefined;
   const showExtras = moreOpen;
 
   // One control for every 0–10 score, with its meaning at both ends. A grid of
@@ -268,7 +272,7 @@ export default function CheckInPage() {
     <PageTransition>
       <div className="px-4 pt-6 pb-8">
         <PageHeader title={t('checkin.title')} subtitle={solo ? t('checkin.subtitleSolo') : t('checkin.subtitle')} />
-        <p className="text-xs text-neutral-600 -mt-4 mb-3">{t('checkin.scaleHint')}</p>
+        <p className="text-xs text-neutral-500 -mt-4 mb-3">{t('checkin.scaleHint')}</p>
         <p className="text-xs text-neutral-400 mb-6" data-testid="checkin-plan-summary">
           {t(`checkinPlan.frequencies.${plan?.frequency ?? 'daily'}`)}
           {plan && plan.frequency !== 'daily'
@@ -297,41 +301,36 @@ export default function CheckInPage() {
           </div>
         ) : null}
 
-        {solo && (
-          <button
-            type="button"
-            aria-expanded={askOpen}
-            className="mb-3 inline-flex min-h-11 items-center gap-2 rounded-xl border border-neutral-800 px-3 text-sm text-neutral-200 hover:border-neutral-700"
-            onClick={() => setAskOpen(v => !v)}
-          >
-            <Sparkles size={16} className="text-blue-300" aria-hidden="true" /> {t('soloAsk.label')}
-          </button>
-        )}
-        {askOpen && solo && (
-        <SoloAskBar
-          context={soloAskFromProfile('checkin', profile)}
-          onApplyOnce={() => undefined}
-          onSave={(proposal) => {
-            const note = proposal.sessionNote.trim();
-            if (!note) return;
-            setNotes(prev => prev.trim() ? `${prev.trim()}\n${note}` : note);
-            setMoreOpen(true);
-            toast(t('soloAsk.saveNote'));
-          }}
-        />
-        )}
-
         <div className="space-y-5">
           <div className="space-y-5" data-testid="checkin-core">
             {coreVars.includes('sleep_hours') && (
-              <Input
-                type="text"
-                inputMode="decimal"
-                autoComplete="off"
-                value={sleepHours}
-                onChange={e => setSleepHours(e.target.value)}
-                label={t('checkin.sleepHours')}
-              />
+              // Unit always visible, an example, a decimal keypad; « 7,5 » is accepted.
+              <div data-testid="checkin-sleep-hours">
+                <label htmlFor="checkin-sleep-hours" className="block text-sm font-medium text-white mb-1.5">
+                  {t('checkin.sleepHours')}
+                </label>
+                <div className="flex items-start gap-2">
+                  <div className="w-32">
+                    <Input
+                      id="checkin-sleep-hours"
+                      type="text"
+                      inputMode="decimal"
+                      autoComplete="off"
+                      value={sleepHours}
+                      placeholder={t('checkin.sleepHoursPlaceholder')}
+                      aria-describedby={sleepError ? 'checkin-sleep-hours-hint checkin-sleep-hours-error' : 'checkin-sleep-hours-hint'}
+                      aria-invalid={sleepError ? true : undefined}
+                      onChange={e => setSleepHours(e.target.value)}
+                      onBlur={() => setSleepTouched(true)}
+                    />
+                  </div>
+                  <span className="min-h-11 inline-flex items-center text-sm text-neutral-300" aria-hidden="true">{t('checkin.sleepHoursUnit')}</span>
+                </div>
+                <p id="checkin-sleep-hours-hint" className="mt-1 text-xs text-neutral-500">{t('checkin.sleepHoursHint')}</p>
+                {sleepError && (
+                  <p id="checkin-sleep-hours-error" role="alert" className="mt-1 text-sm text-amber-300">{sleepError}</p>
+                )}
+              </div>
             )}
             {coreVars.includes('sleep_hours') && plan?.habit_reasons?.sleep_hours && (
               <p className="-mt-3 text-xs text-neutral-500">{t('checkinPlan.whyPrefix')} {plan.habit_reasons.sleep_hours}</p>
@@ -375,13 +374,14 @@ export default function CheckInPage() {
             </div>
           )}
 
-          {(showCheckinField(tracking, 'notes') || !solo) && (
+          {(showCheckinField(tracking, 'notes') || !solo || notes.trim() !== '') && (
             <div>
-              <label className="text-sm font-medium text-white block mb-1.5">
+              <label htmlFor="checkin-notes" className="text-sm font-medium text-white block mb-1.5">
                 {t('checkin.notes')}
                 <span className="text-neutral-500 font-normal"> · {t('checkin.optional')}</span>
               </label>
               <textarea
+                id="checkin-notes"
                 value={notes}
                 onChange={e => setNotes(e.target.value)}
                 rows={3}
@@ -392,8 +392,37 @@ export default function CheckInPage() {
           )}
 
           <Button onClick={handleSave} loading={saving} className="w-full">
-            <Check size={16} /> {t('checkin.save')}
+            <Check size={16} aria-hidden="true" /> {t('checkin.save')}
           </Button>
+
+          {/* A secondary action, after the daily form: it never gets in the way of the check-in. */}
+          {solo && (
+            <div data-testid="checkin-ask">
+              <button
+                type="button"
+                aria-expanded={askOpen}
+                className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-neutral-800 px-3 text-sm text-neutral-300 hover:border-neutral-700"
+                onClick={() => setAskOpen(v => !v)}
+              >
+                <Sparkles size={16} className="text-blue-300" aria-hidden="true" /> {t('soloAsk.label')}
+              </button>
+              {askOpen && (
+                <div className="mt-3">
+                  <SoloAskBar
+                    context={soloAskFromProfile('checkin', profile)}
+                    onApplyOnce={() => undefined}
+                    onSave={(proposal) => {
+                      const note = proposal.sessionNote.trim();
+                      if (!note) return;
+                      setNotes(prev => prev.trim() ? `${prev.trim()}\n${note}` : note);
+                      // Added to the form only: the check-in is not saved yet, and the toast says so.
+                      toast(t('checkin.askNoteAdded'));
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <CheckinHistoryList checkins={checkins} today={todayStr()} focusId={focusId} />

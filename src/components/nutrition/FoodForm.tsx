@@ -277,14 +277,15 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
           </div>
           <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={() => setShowScanner(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white hover:border-neutral-700 text-sm transition-colors"
+              className="flex min-h-11 items-center gap-1.5 px-3 rounded-xl bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white hover:border-neutral-700 text-sm transition-colors"
               title={t('nutrition.foodForm.openScanner')}
             >
-              <ScanLine size={14} />
+              <ScanLine size={14} aria-hidden="true" />
               {t('nutrition.foodForm.scanner')}
             </button>
-            <button onClick={onClose} className="text-neutral-400 hover:text-white text-sm transition-colors">{t('common.cancel')}</button>
+            <button type="button" onClick={onClose} className="min-h-11 px-2 text-neutral-400 hover:text-white text-sm transition-colors">{t('common.cancel')}</button>
           </div>
         </div>
 
@@ -384,8 +385,9 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
                 ))}
                 {recentProducts.length > recentDisplayCount && (
                   <button
+                    type="button"
                     onClick={() => setRecentDisplayCount(c => c + LIST_PAGE)}
-                    className="w-full py-2 text-xs text-neutral-500 hover:text-blue-400 transition-colors text-center"
+                    className="w-full min-h-11 text-xs text-neutral-400 hover:text-blue-400 transition-colors text-center"
                   >
                     {t('nutrition.foodForm.showMore', { count: recentProducts.length - recentDisplayCount })}
                   </button>
@@ -419,8 +421,9 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
                 ))}
                 {favorites.length > favDisplayCount && (
                   <button
+                    type="button"
                     onClick={() => setFavDisplayCount(c => c + LIST_PAGE)}
-                    className="w-full py-2 text-xs text-neutral-500 hover:text-blue-400 transition-colors text-center"
+                    className="w-full min-h-11 text-xs text-neutral-400 hover:text-blue-400 transition-colors text-center"
                   >
                     {t('nutrition.foodForm.showMore', { count: favorites.length - favDisplayCount })}
                   </button>
@@ -434,8 +437,8 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
           <div className="mb-5">
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm text-neutral-400">{t('nutrition.foodForm.yourRecipes')}</span>
-              <button onClick={() => setShowNewRecipe(true)} className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors">
-                <Plus size={13} /> {t('common.new')}
+              <button type="button" onClick={() => setShowNewRecipe(true)} className="min-h-11 px-2 -mr-2 text-sm text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors">
+                <Plus size={14} aria-hidden="true" /> {t('common.new')}
               </button>
             </div>
             {recipes.length === 0 ? (
@@ -454,7 +457,7 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
                       <ChefHat size={13} className="text-blue-400 shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-white text-sm truncate">{r.name}</p>
-                        <p className="text-xs text-neutral-500">{r.calories_per_serving} kcal/serving</p>
+                        <p className="text-xs text-neutral-500">{t('nutrition.kcalPerServing', { value: r.calories_per_serving })}</p>
                       </div>
                     </div>
                   </button>
@@ -524,11 +527,15 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
             </div>
             {selectedProduct?.id && (
               <button
+                type="button"
                 onClick={toggleFavorite}
-                className={`mb-0.5 p-2.5 rounded-xl border transition-all ${isFavorited ? 'bg-amber-500/20 border-amber-500/40 text-amber-400' : 'bg-neutral-900 border-neutral-700 text-neutral-500 hover:text-amber-400'}`}
+                aria-pressed={isFavorited}
+                aria-label={t(isFavorited ? 'nutrition.foodForm.removeFavorite' : 'nutrition.foodForm.addFavorite')}
+                title={t(isFavorited ? 'nutrition.foodForm.removeFavorite' : 'nutrition.foodForm.addFavorite')}
+                className={`inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border transition-all ${isFavorited ? 'bg-amber-500/20 border-amber-500/40 text-amber-400' : 'bg-neutral-900 border-neutral-700 text-neutral-400 hover:text-amber-400'}`}
               >
-                <Heart size={16} className={isFavorited ? 'fill-current' : ''} />
-            </button>
+                <Heart size={16} className={isFavorited ? 'fill-current' : ''} aria-hidden="true" />
+              </button>
             )}
           </div>
 
@@ -562,7 +569,8 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
                 setUnit(nextUnit);
                 applyRescale(qty, nextUnit);
               }}
-              className="text-xs text-blue-400 hover:text-blue-300 transition-colors -mt-1"
+              type="button"
+              className="inline-flex min-h-11 items-center text-sm text-blue-400 hover:text-blue-300 transition-colors -my-2"
             >
               {t('nutrition.foodForm.oneServing', { size: selectedProduct.serving_size, unit: selectedProduct.serving_unit })}
             </button>
@@ -638,7 +646,7 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
                   {t('nutrition.foodForm.macroLine', { cal: itemCal, p: itemP, c: itemC, f: itemF })}
                 </p>
                 <p className="text-xs text-neutral-400">
-                  {t('nutrition.foodForm.remainingAfter')}: {remainCal} kcal · P {Math.round(remainP)}g · C {Math.round(remainC)}g · F {Math.round(remainF)}g
+                  {t('nutrition.foodForm.remainingAfter')}: {t('nutrition.kcalValue', { value: remainCal })} · {t('nutrition.macrosShort', { p: Math.round(remainP), c: Math.round(remainC), f: Math.round(remainF) })}
                 </p>
               </div>
             );

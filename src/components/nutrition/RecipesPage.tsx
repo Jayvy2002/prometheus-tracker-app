@@ -70,15 +70,15 @@ export default function RecipesPage() {
             type="button"
             onClick={() => navigate('/nutrition')}
             aria-label={t('common.back')}
-            className="p-2 -ml-2 text-neutral-400 hover:text-white transition-colors"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center -ml-3 rounded-xl text-neutral-400 hover:text-white transition-colors"
           >
-            <ArrowLeft size={20} />
+            <ArrowLeft size={20} aria-hidden="true" />
           </button>
           <h1 className="text-2xl font-bold text-white flex-1">{t('nutrition.recipes.title')}</h1>
           <button
             type="button"
             onClick={() => setShowNew(true)}
-            className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-xl transition-colors"
+            className="flex min-h-11 items-center gap-1.5 px-3 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-xl transition-colors"
           >
             <Plus size={15} />
             {t('common.new')}
@@ -141,21 +141,15 @@ export default function RecipesPage() {
                     {recipe.description ? (
                       <p className="text-xs text-neutral-500 mt-0.5 truncate">{recipe.description}</p>
                     ) : null}
-                    <div className="flex items-center gap-3 mt-2">
+                    {/* Wraps on a narrow phone; macros use the shared P · G · L wording. */}
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2">
+                      <span className="text-xs font-medium text-white">
+                        {t('nutrition.kcalPerServing', { value: recipe.calories_per_serving })}
+                      </span>
                       <span className="text-xs text-neutral-400">
-                        <span className="font-medium text-white">{recipe.calories_per_serving}</span> kcal
+                        {t('nutrition.macrosShort', { p: recipe.protein_per_serving, c: recipe.carbs_per_serving, f: recipe.fat_per_serving })}
                       </span>
-                      <span className="text-xs text-neutral-600">·</span>
-                      <span className="text-xs text-blue-400">
-                        P <span className="font-medium">{recipe.protein_per_serving}g</span>
-                      </span>
-                      <span className="text-xs text-amber-400">
-                        C <span className="font-medium">{recipe.carbs_per_serving}g</span>
-                      </span>
-                      <span className="text-xs text-rose-400">
-                        F <span className="font-medium">{recipe.fat_per_serving}g</span>
-                      </span>
-                      <span className="text-xs text-neutral-600 ml-auto">
+                      <span className="text-xs text-neutral-500">
                         {recipe.servings} {t(recipe.servings === 1 ? 'nutrition.recipes.serving' : 'nutrition.recipes.servings')}
                       </span>
                     </div>
@@ -165,17 +159,17 @@ export default function RecipesPage() {
                       type="button"
                       onClick={() => setEditing(recipe)}
                       aria-label={`${t('common.edit')} ${recipe.name}`}
-                      className="p-2 text-neutral-500 hover:text-white rounded-lg hover:bg-neutral-800 transition-colors"
+                      className="inline-flex min-h-11 min-w-11 items-center justify-center text-neutral-400 hover:text-white rounded-xl hover:bg-neutral-800 transition-colors"
                     >
-                      <Pencil size={14} />
+                      <Pencil size={16} aria-hidden="true" />
                     </button>
                     <button
                       type="button"
                       onClick={() => setConfirmDelete(recipe.id)}
                       aria-label={`${t('common.delete')} ${recipe.name}`}
-                      className="p-2 text-neutral-500 hover:text-rose-400 rounded-lg hover:bg-neutral-800 transition-colors"
+                      className="inline-flex min-h-11 min-w-11 items-center justify-center text-neutral-400 hover:text-rose-400 rounded-xl hover:bg-neutral-800 transition-colors"
                     >
-                      <Trash2 size={14} />
+                      <Trash2 size={16} aria-hidden="true" />
                     </button>
                   </div>
                 </div>

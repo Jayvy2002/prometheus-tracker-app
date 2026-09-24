@@ -52,19 +52,22 @@ export default function WaterTracker() {
         {QUICK_ADD.map(ml => (
           <button
             key={ml}
+            type="button"
             onClick={() => handleAdd(ml)}
-            className="flex-1 py-2 rounded-lg bg-sky-500/10 text-sky-400 text-xs font-medium hover:bg-sky-500/20 transition-transform active:scale-90"
+            className="flex-1 min-h-11 rounded-lg bg-sky-500/10 text-sky-400 text-xs font-medium hover:bg-sky-500/20 transition-transform active:scale-90"
           >
-            +{ml}ml
+            +{ml} ml
           </button>
         ))}
         <button
+          type="button"
           onClick={handleRemoveLast}
-          className="p-2 rounded-lg bg-neutral-800 text-neutral-400 hover:text-rose-400 transition-colors"
+          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg bg-neutral-800 text-neutral-400 hover:text-rose-400 transition-colors disabled:opacity-50"
           disabled={waterLogs.length === 0}
           aria-label={t('nutrition.water.removeLast')}
+          title={t('nutrition.water.removeLast')}
         >
-          <Minus size={14} aria-hidden="true" />
+          <Minus size={16} aria-hidden="true" />
         </button>
       </div>
     </Card>

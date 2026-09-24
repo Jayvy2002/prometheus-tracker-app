@@ -78,14 +78,44 @@ export function measureErrors(form: SoloOnboardingForm, today = new Date()): Mea
   return errors;
 }
 
-export function canContinueSoloOnboarding(step: number, form: SoloOnboardingForm): boolean {
+/** What still blocks « Continue », in screen order — said out loud, never a silent grey button. */
+export type OnboardingMissing =
+  | 'firstName'
+  | 'goal'
+  | 'experience'
+  | 'frequency'
+  | 'equipment'
+  | 'modules'
+  | 'measures';
+
+export function missingSoloOnboarding(step: number, form: SoloOnboardingForm): OnboardingMissing[] {
+  const missing: OnboardingMissing[] = [];
   switch (step) {
-    case 0: return form.full_name.trim().length > 0 && form.goal !== '';
-    case 1: return form.training_experience !== '' && form.training_frequency != null && form.training_equipment !== '';
-    case 2: return Object.values(normalizePersonalModules(form.modules)).some(Boolean);
-    case 3: return measureErrors(form).length === 0;
-    default: return false;
+    case 0:
+      if (form.full_name.trim().length === 0) missing.push('firstName');
+      if (form.goal === '') missing.push('goal');
+      break;
+    case 1:
+      if (form.training_experience === '') missing.push('experience');
+      if (form.training_frequency == null) missing.push('frequency');
+      if (form.training_equipment === '') missing.push('equipment');
+      break;
+    case 2:
+      if (!Object.values(normalizePersonalModules(form.modules)).some(Boolean)) missing.push('modules');
+      break;
+    case 3:
+      // Measurements are optional: only a typed, implausible value blocks.
+      if (measureErrors(form).length > 0) missing.push('measures');
+      break;
+    default:
+      break;
   }
+  return missing;
+}
+
+export function canContinueSoloOnboarding(step: number, form: SoloOnboardingForm): boolean {
+  if (step < 0 || step >= SOLO_ONBOARDING_STEPS) return false;
+  return missingSoloOnboarding(step, form).length === 0;
 }
 
 /** Frequency stands in for the activity question we no longer ask. */
