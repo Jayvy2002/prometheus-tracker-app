@@ -547,6 +547,19 @@ const common = {
     viewProgress: 'Progress',
     progressDesc: 'PRs & performance',
     programHint: 'Your plans and templates',
+    planProgram: 'Plan a program',
+    planProgramHint: 'Your sessions over several weeks, at your pace',
+    startHero: {
+      title: 'No session planned yet',
+      body: 'Start a free session now, or create a routine you can start again in one tap.',
+      createRoutine: 'Create my first routine',
+    },
+    reviewCompact: {
+      insufficient: 'Not enough data to conclude yet',
+      noChange: 'Nothing to change for now',
+      moreData: 'A few more days of data are needed to conclude',
+      guarded: 'No automatic adjustment for your profile',
+    },
     reminders: {
       weight: "Last weigh-in was {{days}} days ago.",
       meal: "Lunch has not been recorded.",

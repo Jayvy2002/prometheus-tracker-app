@@ -8,6 +8,8 @@ import { useAccountContext } from '@/features/account/hooks/useAccountContext';
 import { desktopSections, navPersona, pathMatchesItem, quickAddActions } from '@/app/navigation/navConfig';
 import WorkspaceSwitcher from './WorkspaceSwitcher';
 import { useClientTracking } from '@/features/coaching/hooks/useClientTracking';
+import { useResourcePermissions } from '@/features/account/hooks/useResourcePermissions';
+import { checkinHasAnyField } from '../../lib/clientTracking';
 
 export default function SideNav() {
   const { t } = useTranslation();
@@ -16,8 +18,13 @@ export default function SideNav() {
   const tracking = useClientTracking();
   const context = useAccountContext();
   const { pathname } = useLocation();
+  const { canOpenPersonalCalendarRoute, canReadOwnHistory } = useResourcePermissions();
   const persona = navPersona(context);
-  const sections = desktopSections(persona, tracking);
+  // Same sub-pages as the mobile Corps and Suivi tabs, under the same rules.
+  const sections = desktopSections(persona, tracking, {
+    checkinHasFields: checkinHasAnyField(tracking),
+    suivi: { calendar: canOpenPersonalCalendarRoute, history: canReadOwnHistory },
+  });
   const quickActions = persona === 'coaching' ? [] : quickAddActions(tracking);
 
   return (

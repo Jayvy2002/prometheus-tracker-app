@@ -21,7 +21,11 @@ export function nextBlankSetId(
   return later.find(isBlankWorkoutSet)?.id ?? null;
 }
 
-/** Fill empty gym-floor fields from last / suggested placeholders when the athlete checks the set. */
+/**
+ * Fill empty gym-floor fields from last / suggested / prescribed placeholders
+ * when the athlete checks the set. Only a positive number is ever copied: a
+ * hint such as « kg » or an unknown « 0 » leaves the field empty.
+ */
 export function applySetPlaceholders(input: {
   weight: string;
   reps: string;
@@ -32,7 +36,7 @@ export function applySetPlaceholders(input: {
   weightPlaceholder: string;
   repsPlaceholder: string;
 }): { weight: string; reps: string; duration: string } {
-  const usable = (value: string) => value !== '' && value !== '0';
+  const usable = (value: string) => parseDecimalInput(value) > 0;
   return {
     weight: input.showLoad && !usable(input.weight) && usable(input.weightPlaceholder)
       ? input.weightPlaceholder

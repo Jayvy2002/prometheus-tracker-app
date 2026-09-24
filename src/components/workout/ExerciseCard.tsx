@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Plus, ChevronDown, ChevronUp, Award, Weight, TrendingUp } from 'lucide-react';
+import { Plus, ChevronDown, ChevronUp, Award, Disc3, TrendingUp } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { usePreferencesStore } from '../../stores/preferencesStore';
 import { useClientTracking } from '../../lib/useClientTracking';
-import { formatExercisePrescription, showTrainingField } from '../../lib/clientTracking';
+import { repsInputMode, showTrainingField } from '../../lib/clientTracking';
 import { showLoggingRir } from '../../lib/clientGym';
 import { isCoachedAthlete, isSoloAthlete } from '../../lib/coachRole';
 import { useCoachingStore } from '../../stores/coachingStore';
@@ -31,6 +31,8 @@ import DeclareConstraintForm from '../constraints/DeclareConstraintForm';
 import { SetRow, SupersetLinkPicker } from './SetRow';
 import { getOverloadSuggestion, SUGGESTION_KEY } from '../../features/workout/domain/overloadSuggestion';
 import { useExerciseHistory } from '../../features/workout/hooks/useExerciseHistory';
+import { prescriptionBadgeParts } from '../../features/workout/domain/prescriptionBadge';
+import { repsColumnKind, timedExerciseShowsLoad } from '../../features/workout/domain/timedExercise';
 export type { OverloadSuggestionKind } from '../../features/workout/domain/overloadSuggestion';
 
 // --- Main ExerciseCard ---
@@ -58,7 +60,8 @@ export default function ExerciseCard({
   const hasCoach = isCoachedAthlete(coachingRole, myCoach);
   const solo = isSoloAthlete(coachingRole, myCoach);
   const showRir = showLoggingRir(showTrainingField(tracking, 'rir'), prefRir, hasCoach);
-  const showLoad = showTrainingField(tracking, 'load');
+  // A timed hold (isometric sets) shows time, and a load only when one is known.
+  const showLoad = showTrainingField(tracking, 'load') && timedExerciseShowsLoad(exercise);
   const showReps = showTrainingField(tracking, 'reps') || showTrainingField(tracking, 'reps_range');
   const showSets = showTrainingField(tracking, 'sets');
   const restOn = showTrainingField(tracking, 'rest');
@@ -150,6 +153,25 @@ export default function ExerciseCard({
 
   const completedCount = exercise.sets?.filter(s => s.completed).length ?? 0;
   const totalSets = exercise.sets?.length ?? 0;
+  const prescriptionText = prescriptionBadgeParts({
+    sets: exercise.prescribed_sets,
+    reps: exercise.prescribed_reps,
+    repsMin: exercise.prescribed_reps_min,
+    rir: exercise.prescribed_rir,
+    restSeconds: exercise.prescribed_rest_seconds,
+    weightKg: exercise.prescribed_weight_kg,
+  }, {
+    sets: showSets,
+    reps: repsInputMode(tracking),
+    load: showTrainingField(tracking, 'load'),
+    rir: showTrainingField(tracking, 'rir'),
+    rest: restOn,
+  })
+    .map(part => (part.key === 'load'
+      ? formatWeight(part.params.kg, weightUnit)
+      : t(`workout.prescription.${part.key}`, part.params)))
+    .join(' · ');
+  const repsColumn = repsColumnKind(exercise.sets);
   const plateKg = exercise.sets?.find(s => s.weight_kg > 0)?.weight_kg
     ?? exercise.prescribed_weight_kg
     ?? 0;
@@ -231,19 +253,12 @@ export default function ExerciseCard({
           {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
         </button>
         <div className="flex-1 min-w-0 pt-2">
-          <p className="text-white font-semibold truncate">{localName || t('workout.exerciseCard.exerciseNamePlaceholder')}</p>
+          {/* Long names wrap on two lines instead of « Soulevé de terre ro… ». */}
+          <p className="text-white font-semibold leading-snug line-clamp-2 break-words">{localName || t('workout.exerciseCard.exerciseNamePlaceholder')}</p>
           <div className="mt-1 flex flex-wrap items-center gap-1">
-            {exercise.prescribed_sets || exercise.prescribed_reps ? (
-              <span className="text-[10px] text-blue-400/80 bg-blue-500/10 px-1.5 py-0.5 rounded">
-                {formatExercisePrescription({
-                  default_sets: exercise.prescribed_sets ?? 0,
-                  default_reps: exercise.prescribed_reps ?? 0,
-                  default_reps_min: exercise.prescribed_reps_min,
-                  default_rir: exercise.prescribed_rir,
-                  default_rest_seconds: exercise.prescribed_rest_seconds,
-                  default_weight_kg: exercise.prescribed_weight_kg,
-                }, tracking, weightUnit) || t('workout.prescribedShort', { sets: exercise.prescribed_sets ?? 0, reps: exercise.prescribed_reps ?? 0 })}
-                {' → '}{completedCount}
+            {prescriptionText ? (
+              <span className="text-xs text-blue-300/90 bg-blue-500/10 px-1.5 py-0.5 rounded" data-prescription-badge="true">
+                {prescriptionText}
               </span>
             ) : null}
             {isPR && (
@@ -253,8 +268,11 @@ export default function ExerciseCard({
               </span>
             )}
             {totalSets > 0 && (
-              <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${completedCount === totalSets ? 'text-emerald-400 bg-emerald-400/10' : 'text-neutral-500 bg-neutral-800/50'}`}>
-                {completedCount}/{totalSets}
+              <span
+                className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${completedCount === totalSets ? 'text-emerald-400 bg-emerald-400/10' : 'text-neutral-500 bg-neutral-800/50'}`}
+                aria-label={t('workout.exerciseCard.setsProgress', { done: completedCount, total: totalSets })}
+              >
+                <span aria-hidden="true">{completedCount}/{totalSets}</span>
               </span>
             )}
           </div>
@@ -266,15 +284,18 @@ export default function ExerciseCard({
               onClose={() => setShowLinkPicker(false)}
             />
           )}
+          {/* Plate calculator (barbell only): a disc with its name, not a mute padlock-like icon. */}
           {showLoad && catalog?.equipment === 'barbell' && (
             <button
               type="button"
               data-plates-open="true"
               onClick={() => setPlateOpen(true)}
-              className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-xl text-neutral-400 hover:text-white hover:bg-neutral-800"
-              aria-label={t('workout.plates.title')}
+              className="min-h-11 min-w-11 px-1 inline-flex flex-col items-center justify-center gap-0.5 rounded-xl text-neutral-400 hover:text-white hover:bg-neutral-800"
+              aria-label={t('workout.plates.open')}
+              title={t('workout.plates.open')}
             >
-              <Weight size={18} />
+              <Disc3 size={16} aria-hidden="true" />
+              <span className="text-[10px] leading-none" aria-hidden="true">{t('workout.plates.title')}</span>
             </button>
           )}
           <OverflowMenu label={t('workout.exerciseCard.moreActions')} actions={overflowActions} />
@@ -381,7 +402,11 @@ export default function ExerciseCard({
                 {showLoad && <div className="text-center">{t(weightUnit === 'lbs' ? 'workout.exerciseCard.weightLbs' : 'workout.exerciseCard.weight')}</div>}
                 {showReps && (
                   <div className="text-center">
-                    {exercise.sets?.some(s => s.set_type === 'isometric') ? t('workout.exerciseCard.reps') + '/s' : t('workout.exerciseCard.reps')}
+                    {repsColumn === 'duration'
+                      ? t('workout.exerciseCard.durationColumn')
+                      : repsColumn === 'mixed'
+                        ? t('workout.exerciseCard.repsOrDurationColumn')
+                        : t('workout.exerciseCard.reps')}
                   </div>
                 )}
                 {showRir && <div className="text-center">{t('workout.exerciseCard.rir')}</div>}
@@ -405,6 +430,11 @@ export default function ExerciseCard({
                   showSets={showSets}
                   weightUnit={weightUnit}
                   suggestedWeight={suggestion?.suggestedWeight}
+                  prescription={{
+                    reps: exercise.prescribed_reps,
+                    repsMin: exercise.prescribed_reps_min,
+                    weightKg: exercise.prescribed_weight_kg,
+                  }}
                   prevSet={matchingPrev}
                   previousSet={previousSetInList}
                   onSetComplete={handleSetComplete}

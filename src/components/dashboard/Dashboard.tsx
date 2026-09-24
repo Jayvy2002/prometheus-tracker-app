@@ -1,6 +1,6 @@
 import IconButton from '../ui/IconButton';
 import { openGlobalSearch } from '../../features/search/openSearch';
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Droplets, Dumbbell, ChevronRight, Play, Scale, AlertCircle, ClipboardCheck, MessageSquare, CalendarRange, Search } from 'lucide-react';
@@ -14,6 +14,10 @@ import { useCheckinStore } from '../../stores/checkinStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { useProgramStore } from '../../stores/programStore';
 import { useDashboardBootstrap } from '../../features/dashboard/hooks/useDashboardBootstrap';
+import { useSettledReveal } from '../../features/dashboard/hooks/useSettledReveal';
+import { programRowCopy, showSoloStartHero } from '../../features/dashboard/domain/dashboardHome';
+import ProfileAvatarLink from '../../app/layout/ProfileAvatarLink';
+import { CardSkeleton } from '../ui/PageSkeleton';
 import { startWorkoutFromTemplate } from '../../lib/startWorkout';
 import { toWorkoutTemplateExercise } from '../../lib/programSetPrescription';
 import { toLocalDateStr, kgToLbs, programWeekNumber, formatWeekdayDate } from '../../lib/utils';
@@ -75,7 +79,7 @@ export default function Dashboard() {
   const { logs, waterLogs } = useNutritionStore();
   const { measurements } = useWeightStore();
   const { workouts, loading: workoutsLoading } = useWorkoutStore();
-  const { routines, fetchRoutineWithExercises } = useRoutineStore();
+  const { routines, fetchRoutineWithExercises, loading: routinesLoading } = useRoutineStore();
   const { todayCheckin, checkins, loading: checkinLoading } = useCheckinStore();
   const { myCoach, coachingRole, latestCoachMessage, unreadMessageCount } = useCoachingStore();
   const { canUpdateOwnAssignedProgram: canEditOwnPlan } = useResourcePermissions();
@@ -161,7 +165,9 @@ export default function Dashboard() {
     .filter(w => w.completed && w.date)
     .sort((a, b) => b.date.localeCompare(a.date))[0];
   const lastCheckin = todayCheckin ?? checkins[0] ?? null;
-  const activityPending = !!user && (nutritionHistoryCount === null || workoutsLoading || checkinLoading || !assignmentReady);
+  // Everything that decides the first screen (hero, day view) is known before
+  // anything shows: routines too, or the « first routine » card could flash.
+  const activityPending = !!user && (nutritionHistoryCount === null || workoutsLoading || checkinLoading || routinesLoading || !assignmentReady);
   const firstRun = !activityPending && isClientFirstRun({
     completedWorkoutCount,
     nutritionLogCount: (nutritionHistoryCount ?? 0) + logs.length,
@@ -201,8 +207,17 @@ export default function Dashboard() {
   const dueGymHero = showGymHero && isProgramDayDue(gymCard);
   const restGymCard = showGymHero && !dueGymHero;
   const showRoutineHero = !showGymHero && !!nextRoutine && showModule(tracking, 'workouts');
-  const showNextActionHero = !activityPending && !showGymHero && !showRoutineHero && nextAction !== null;
-  const hasPrimaryHero = dueGymHero || showRoutineHero || showNextActionHero;
+  // A Solo with neither program nor routine: a clear first move, not a vague link.
+  const showStartHero = showSoloStartHero({
+    activityPending,
+    hasCoach,
+    tracksWorkouts: showModule(tracking, 'workouts'),
+    hasProgram,
+    hasGymCard,
+    routineCount: routines.length,
+  });
+  const showNextActionHero = !activityPending && !showGymHero && !showRoutineHero && !showStartHero && nextAction !== null;
+  const hasPrimaryHero = dueGymHero || showRoutineHero || showStartHero || showNextActionHero;
   // Vision §11.2: « due » follows the athlete's rhythm (daily when none was chosen).
   const checkinSchedule = useCheckinPlan(user?.id);
   const checkinDue = !firstRun && showModule(tracking, 'checkins') && !activityPending && !checkinSchedule.loading && (
@@ -228,7 +243,9 @@ export default function Dashboard() {
   const hasAttention = attention.unreadMessage || attention.checkinDue || attention.reminder !== null;
 
   const showRestGym = restGymCard;
-  const showEmptyToday = !activityPending && !hasPrimaryHero && !showRestGym && !hasAttention;
+  // Said whenever nothing is prescribed, whatever the attention rows below: the
+  // top line never depends on what loads later (check-in rhythm, a new message).
+  const showEmptyToday = !activityPending && !hasPrimaryHero && !showRestGym;
   // The sparkline draws the 7-day trend, not the daily noise.
   const weightPoints = rollingWeightTrend(measurements).slice(-14).map(m => ({
     date: m.day.slice(5, 10),
@@ -238,6 +255,11 @@ export default function Dashboard() {
     ? null
     : +(weightUnit === 'lbs' ? weightDelta * 2.20462 : weightDelta).toFixed(1);
   const showNutritionRings = anyMacroField(tracking) && !activityPending;
+  // The attention rows wait for the check-in rhythm too: a late « check-in dû »
+  // row would otherwise push the cards under it.
+  const attentionReady = !activityPending && !checkinSchedule.loading;
+  const waitingProgramHero = showNextActionHero && nextAction === 'waiting_program';
+  const programRow = programRowCopy({ programName: assignment?.program?.name ?? null, hasCoach });
 
   const startProgramDay = async (day: ProgramDay) => {
     if (!user || startingRoutine || !assignment?.program) return;
@@ -260,25 +282,42 @@ export default function Dashboard() {
     }
   };
 
+  const startRoutine = async () => {
+    if (!user || startingRoutine || !nextRoutine) return;
+    setStartingRoutine(true);
+    try {
+      const routine = await fetchRoutineWithExercises(nextRoutine.id);
+      if (!routine) {
+        toast(t('workout.startRoutineFailed'), 'error');
+        return;
+      }
+      const workoutId = await startWorkoutFromTemplate({
+        userId: user.id,
+        name: routine.name,
+        routineId: nextRoutine.id,
+        exercises: (routine.exercises ?? []).map(ex => ({
+          name: ex.name,
+          default_sets: ex.default_sets,
+          default_reps: ex.default_reps,
+          order_index: ex.order_index,
+        })),
+      });
+      if (workoutId) navigate(`/workout/${workoutId}`);
+      else toast(t('workout.startRoutineFailed'), 'error');
+    } catch {
+      toast(t('workout.startRoutineFailed'), 'error');
+    } finally {
+      setStartingRoutine(false);
+    }
+  };
+
   return (
     <PageTransition>
       <div className="px-4 pt-6 pb-28">
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
-          {/* The avatar opens the profile: on mobile the coached athlete has no Profil tab. */}
-          <Link
-            to="/profile"
-            aria-label={t('nav.profile')}
-            className="w-11 h-11 rounded-xl overflow-hidden flex-shrink-0 ring-2 ring-neutral-800 hover:ring-neutral-600"
-          >
-            {profile?.avatar_url ? (
-              <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full bg-blue-600/20 flex items-center justify-center text-blue-400 text-sm font-bold">
-                {firstName[0]?.toUpperCase() || 'U'}
-              </div>
-            )}
-          </Link>
+          {/* The avatar opens the profile — the same avatar the coached athlete finds on every main page. */}
+          <ProfileAvatarLink />
           <div className="flex-1">
             <p className="text-neutral-400 text-xs">
               {t('nav.today')} · {formatWeekdayDate(new Date(), i18n.language)}
@@ -292,10 +331,28 @@ export default function Dashboard() {
 
         <LinkEndedBanner />
 
-        {/* Desktop: today (priority, alerts, decision) beside the overview. Mobile: one column. */}
-        <div className="lg:grid lg:grid-cols-2 lg:gap-6 lg:items-start">
-        <div className="min-w-0" data-testid="dashboard-column-today">
+        {/*
+          Today first (Vision §12), and nothing jumps once shown:
+          1. priority — the one thing to do now (session, routine, first move);
+          2. overview — the day (nutrition, weight, week, program);
+          3. attention — compact points, then the cards that load on their own
+             (Prometheus watch, program proposal, two-week review), revealed
+             together at the end of their column once each has answered.
+          Mobile stacks 1 → 2 → 3, so nothing loaded late sits above the day.
+          Desktop keeps two columns: priority then attention on the left, the
+          overview on the right (rows `auto 1fr`: attention sits right under the
+          priority whatever the overview's height).
+        */}
+        <div className="flex flex-col lg:grid lg:grid-cols-2 lg:grid-rows-[auto_1fr] lg:gap-x-6 lg:items-start">
+        <div className="min-w-0 lg:col-start-1 lg:row-start-1" data-testid="dashboard-column-today">
         <div data-testid="dashboard-priority">
+        {activityPending && (
+          <div className="mb-4" role="status">
+            <span className="sr-only">{t('common.loading')}</span>
+            <CardSkeleton rows={1} />
+          </div>
+        )}
+
         {dueGymHero && assignment?.program && (
           <ClientGymCard
             card={gymCard}
@@ -329,42 +386,37 @@ export default function Dashboard() {
               </div>
             </div>
             <div className="mt-3">
-              <Button
-                type="button"
-                size="sm"
-                loading={startingRoutine}
-                onClick={async () => {
-                  if (!user || startingRoutine) return;
-                  setStartingRoutine(true);
-                  try {
-                    const routine = await fetchRoutineWithExercises(nextRoutine.id);
-                    if (!routine) {
-                      toast(t('workout.startRoutineFailed'), 'error');
-                      return;
-                    }
-                    const workoutId = await startWorkoutFromTemplate({
-                      userId: user.id,
-                      name: routine.name,
-                      routineId: nextRoutine.id,
-                      exercises: (routine.exercises ?? []).map(ex => ({
-                        name: ex.name,
-                        default_sets: ex.default_sets,
-                        default_reps: ex.default_reps,
-                        order_index: ex.order_index,
-                      })),
-                    });
-                    if (workoutId) navigate(`/workout/${workoutId}`);
-                    else toast(t('workout.startRoutineFailed'), 'error');
-                  } catch {
-                    toast(t('workout.startRoutineFailed'), 'error');
-                  } finally {
-                    setStartingRoutine(false);
-                  }
-                }}
-              >
+              <Button type="button" size="sm" loading={startingRoutine} onClick={() => void startRoutine()}>
                 {t('dashboard.gym.startCta')}
                 <ChevronRight size={14} />
               </Button>
+            </div>
+          </div>
+        )}
+
+        {showStartHero && (
+          <div className="w-full bg-gradient-to-r from-blue-600/20 to-blue-500/5 border border-blue-500/30 rounded-2xl p-4 mb-4" data-testid="dashboard-start">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-xl bg-blue-500/20 flex items-center justify-center shrink-0">
+                <Dumbbell size={18} className="text-blue-400" aria-hidden="true" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-blue-300 font-medium">{t('dashboard.gym.kindToday')}</p>
+                <p className="text-sm font-semibold text-white">{t('dashboard.startHero.title')}</p>
+                <p className="text-xs text-neutral-400 mt-0.5">{t('dashboard.startHero.body')}</p>
+              </div>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button type="button" size="sm" onClick={() => navigate('/workout/new')}>
+                {t('nav.addWorkoutOffPlan')}
+                <ChevronRight size={14} />
+              </Button>
+              <Link
+                to="/routines"
+                className="inline-flex items-center justify-center gap-2 font-medium rounded-xl min-h-11 px-3 text-sm bg-surface-hover text-ink-secondary border border-line hover:bg-surface-active hover:border-ink-disabled transition-all duration-200"
+              >
+                {t('dashboard.startHero.createRoutine')}
+              </Link>
             </div>
           </div>
         )}
@@ -375,7 +427,7 @@ export default function Dashboard() {
               {t('dashboard.firstRun.startSession')}
             </Button>
           </div>
-        ) : showNextActionHero && nextAction === 'waiting_program' ? (
+        ) : waitingProgramHero && nextAction === 'waiting_program' ? (
           <ListRow
             className="mb-4"
             title={t(clientHomeNextActionKey(nextAction))}
@@ -385,89 +437,21 @@ export default function Dashboard() {
           <ListRow className="mb-4" title={t('dashboard.nothingToday')} />
         ) : null}
         </div>
-
-        {hasAttention && (
-          <p className="text-[10px] font-semibold text-neutral-600 uppercase tracking-widest mb-2">
-            {t('dashboard.attentionTitle')}
-          </p>
-        )}
-        {attention.unreadMessage && (
-          <ListRow
-            className="mb-4"
-            tone="info"
-            icon={<MessageSquare size={16} />}
-            title={t('dashboard.coachMessageTitle')}
-            badge={unreadMessageCount > 1 ? unreadMessageCount : undefined}
-            subtitle={latestCoachMessage?.body || (latestCoachMessage?.attachments?.length ? t('messages.attachments.one') : t('coaching.messages.openInbox'))}
-            to="/messages"
-            onDismiss={() => {
-              dismissHomeMessage(user?.id, latestCoachMessage?.id);
-              setHomeDismissTick(n => n + 1);
-            }}
-            dismissLabel={t('common.dismiss')}
-          />
-        )}
-
-        {attention.checkinDue && (
-          <ListRow
-            className="mb-4"
-            tone="info"
-            icon={<ClipboardCheck size={16} />}
-            title={t('checkin.dashboardCta')}
-            subtitle={!hasCoach ? t('checkin.dashboardHintSolo') : undefined}
-            to="/checkin"
-          />
-        )}
-
-        {attention.reminder === 'meal' && (
-          <ListRow
-            className="mb-4"
-            tone="warning"
-            icon={<AlertCircle size={16} />}
-            title={t('dashboard.reminders.meal')}
-            onClick={() => navigate('/nutrition')}
-            onDismiss={() => dismissReminder('meal')}
-            dismissLabel={t('common.dismiss')}
-          />
-        )}
-        {attention.reminder === 'water' && (
-          <ListRow
-            className="mb-4"
-            tone="info"
-            icon={<Droplets size={16} />}
-            title={t('dashboard.reminders.water')}
-            onClick={() => navigate('/nutrition')}
-            onDismiss={() => dismissReminder('water')}
-            dismissLabel={t('common.dismiss')}
-          />
-        )}
-        {attention.reminder === 'weight' && (
-          <ListRow
-            className="mb-4"
-            tone="info"
-            icon={<Scale size={16} />}
-            title={t('dashboard.reminders.weight', { days: daysSinceWeighIn ?? 0 })}
-            onClick={() => navigate('/weight')}
-            onDismiss={() => dismissReminder('weight')}
-            dismissLabel={t('common.dismiss')}
-          />
-        )}
-
-        {!activityPending && !firstRun && <WatchSummaryRow athleteId={user?.id} />}
-
-        {/* One AI card, only when a decision waits. The weekly review also
-            persists the solo's weekly cycle (signals, review) on mount. */}
-        {!hasCoach && !activityPending && !firstRun && <SoloWeeklyReview />}
-        <SoloProgramProposal variant="notice" />
-
         </div>
-        <div className="min-w-0" data-testid="dashboard-column-overview">
+
+        <div className="min-w-0 lg:col-start-2 lg:row-start-1 lg:row-span-2" data-testid="dashboard-column-overview">
         {!activityPending && (
           <p className="text-[10px] font-semibold text-neutral-600 uppercase tracking-widest mb-2 mt-1">
             {t('dashboard.overviewTitle')}
           </p>
         )}
         <div data-testid="dashboard-overview">
+        {activityPending && (
+          <div className="mb-4" aria-hidden="true">
+            <CardSkeleton rows={2} />
+          </div>
+        )}
+
         {showRestGym && assignment?.program && (
           <ClientGymCard
             card={gymCard}
@@ -484,17 +468,6 @@ export default function Dashboard() {
           />
         )}
 
-        {showModule(tracking, 'workouts') && !activityPending && !hasGymCard && (
-          <ListRow
-            className="mb-4"
-            data-testid="dashboard-program"
-            icon={<CalendarRange size={16} />}
-            title={t('nav.myProgram')}
-            subtitle={assignment?.program?.name
-              ?? (hasCoach ? t('dashboard.firstRun.waitingProgram') : t('dashboard.programHint'))}
-            to="/programs"
-          />
-        )}
         {/* Adding a meal or a weigh-in goes through the quick-add button. */}
         {showNutritionRings && (
           <CardLink to="/nutrition" className="mb-4">
@@ -545,9 +518,8 @@ export default function Dashboard() {
           </div>
         )}
 
-        {!activityPending && (hasCoach || (showModule(tracking, 'checkins') && todayCheckin) || (showModule(tracking, 'workouts') && !firstRun)) && (
-        <div className="grid grid-cols-2 gap-3 mb-4">
-          {showModule(tracking, 'checkins') && todayCheckin && (
+        {!activityPending && showModule(tracking, 'checkins') && todayCheckin && (
+          <div className="grid grid-cols-2 gap-3 mb-4">
             <CardLink to="/checkin">
               <div className="flex items-center gap-2 mb-1">
                 <ClipboardCheck size={16} className="text-blue-400" />
@@ -555,13 +527,138 @@ export default function Dashboard() {
               </div>
               <p className="text-sm font-semibold text-white">{t('dashboard.checkinDone')}</p>
             </CardLink>
-          )}
-        </div>
+          </div>
+        )}
+
+        {/* The program row names what it opens; it never repeats the « waiting for your coach » line above. */}
+        {showModule(tracking, 'workouts') && !activityPending && !hasGymCard && !waitingProgramHero && (
+          <ListRow
+            className="mb-4"
+            data-testid="dashboard-program"
+            icon={<CalendarRange size={16} />}
+            title={t(programRow.titleKey)}
+            subtitle={assignment?.program?.name ?? (programRow.subtitleKey ? t(programRow.subtitleKey) : undefined)}
+            to="/programs"
+          />
         )}
         </div>
+        </div>
+
+        <div className="min-w-0 lg:col-start-1 lg:row-start-2" data-testid="dashboard-attention">
+        {attentionReady && hasAttention && (
+          <p className="text-[10px] font-semibold text-neutral-600 uppercase tracking-widest mb-2 mt-1">
+            {t('dashboard.attentionTitle')}
+          </p>
+        )}
+        {attentionReady && attention.unreadMessage && (
+          <ListRow
+            className="mb-4"
+            tone="info"
+            icon={<MessageSquare size={16} />}
+            title={t('dashboard.coachMessageTitle')}
+            badge={unreadMessageCount > 1 ? unreadMessageCount : undefined}
+            subtitle={latestCoachMessage?.body || (latestCoachMessage?.attachments?.length ? t('messages.attachments.one') : t('coaching.messages.openInbox'))}
+            to="/messages"
+            onDismiss={() => {
+              dismissHomeMessage(user?.id, latestCoachMessage?.id);
+              setHomeDismissTick(n => n + 1);
+            }}
+            dismissLabel={t('common.dismiss')}
+          />
+        )}
+
+        {attentionReady && attention.checkinDue && (
+          <ListRow
+            className="mb-4"
+            tone="info"
+            icon={<ClipboardCheck size={16} />}
+            title={t('checkin.dashboardCta')}
+            subtitle={!hasCoach ? t('checkin.dashboardHintSolo') : undefined}
+            to="/checkin"
+          />
+        )}
+
+        {attentionReady && attention.reminder === 'meal' && (
+          <ListRow
+            className="mb-4"
+            tone="warning"
+            icon={<AlertCircle size={16} />}
+            title={t('dashboard.reminders.meal')}
+            onClick={() => navigate('/nutrition')}
+            onDismiss={() => dismissReminder('meal')}
+            dismissLabel={t('common.dismiss')}
+          />
+        )}
+        {attentionReady && attention.reminder === 'water' && (
+          <ListRow
+            className="mb-4"
+            tone="info"
+            icon={<Droplets size={16} />}
+            title={t('dashboard.reminders.water')}
+            onClick={() => navigate('/nutrition')}
+            onDismiss={() => dismissReminder('water')}
+            dismissLabel={t('common.dismiss')}
+          />
+        )}
+        {attentionReady && attention.reminder === 'weight' && (
+          <ListRow
+            className="mb-4"
+            tone="info"
+            icon={<Scale size={16} />}
+            title={t('dashboard.reminders.weight', { days: daysSinceWeighIn ?? 0 })}
+            onClick={() => navigate('/weight')}
+            onDismiss={() => dismissReminder('weight')}
+            dismissLabel={t('common.dismiss')}
+          />
+        )}
+
+        {/* Mounted once the day is known; each card fetches on its own and they
+            appear together (see DashboardInsights). The weekly review also
+            persists the solo's weekly cycle (signals, review) on mount. */}
+        {attentionReady && (
+          <DashboardInsights
+            athleteId={user?.id}
+            showWatch={!firstRun}
+            showReview={!hasCoach && !firstRun}
+          />
+        )}
         </div>
         </div>
       </div>
     </PageTransition>
+  );
+}
+
+/**
+ * Cards that load on their own, in a fixed order: a program proposal waiting
+ * for the Solo, what Prometheus is watching (one line), then the two-week
+ * review (a full card only when a decision waits, otherwise a folded line).
+ * They stay hidden until each one has answered, then show at once: none of
+ * them pushes another as it arrives.
+ */
+function DashboardInsights({
+  athleteId,
+  showWatch,
+  showReview,
+}: {
+  athleteId: string | undefined;
+  showWatch: boolean;
+  showReview: boolean;
+}) {
+  const expected = useMemo(
+    () => ['proposal', ...(showWatch ? ['watch'] : []), ...(showReview ? ['review'] : [])],
+    [showWatch, showReview],
+  );
+  const { revealed, settle } = useSettledReveal(expected);
+  const settleProposal = useCallback(() => settle('proposal'), [settle]);
+  const settleWatch = useCallback(() => settle('watch'), [settle]);
+  const settleReview = useCallback(() => settle('review'), [settle]);
+
+  return (
+    <div hidden={!revealed} data-testid="dashboard-insights">
+      <SoloProgramProposal variant="notice" onSettled={settleProposal} />
+      {showWatch && <WatchSummaryRow athleteId={athleteId} onSettled={settleWatch} />}
+      {showReview && <SoloWeeklyReview onSettled={settleReview} />}
+    </div>
   );
 }

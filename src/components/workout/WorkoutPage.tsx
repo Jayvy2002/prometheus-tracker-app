@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, ChevronRight, Dumbbell, Trash2, Sparkles } from 'lucide-react';
+import { Plus, ChevronRight, ChevronDown, ChevronUp, Dumbbell, Trash2, Sparkles, Play, Repeat } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { toast, toastWithUndo } from '../ui/Toast';
 import { useAuthStore } from '../../stores/authStore';
 import { useWorkoutStore } from '../../stores/workoutStore';
-import { formatDate, formatDuration, formatWeight, programWeekNumber } from '../../lib/utils';
+import { formatDate, formatDuration, programWeekNumber } from '../../lib/utils';
 import { supabase } from '../../lib/supabase';
 import { lastCompletedWorkout, lastSessionFromWorkout } from '../../lib/coachLastSession';
 import { startWorkoutFromTemplate } from '../../lib/startWorkout';
@@ -30,6 +30,7 @@ import Card from '../ui/Card';
 import Button from '../ui/Button';
 import Modal from '../ui/Modal';
 import { canUndoWorkoutDelete } from '../../features/workout/domain/workoutUndo';
+import { pickNextRoutine, routineTemplateExercises } from '../../features/workout/domain/nextRoutine';
 import { useRoutineStore } from '../../stores/routineStore';
 import PageTransition from '../ui/PageTransition';
 import SessionReadout from './SessionReadout';
@@ -54,9 +55,13 @@ export default function WorkoutPage() {
   const [filter, setFilter] = useState<'all' | 'completed'>('all');
   const [askOpen, setAskOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<Workout | null>(null);
-  const [summaries, setSummaries] = useState<Record<string, { volume: number; names: string[] }>>({});
+  const [summaries, setSummaries] = useState<Record<string, { names: string[] }>>({});
   const routines = useRoutineStore(s => s.routines);
   const fetchRoutines = useRoutineStore(s => s.fetchRoutines);
+  const fetchRoutineWithExercises = useRoutineStore(s => s.fetchRoutineWithExercises);
+  const [routinesReady, setRoutinesReady] = useState(false);
+  const [startingRoutine, setStartingRoutine] = useState(false);
+  const [lastDetailOpen, setLastDetailOpen] = useState(false);
   const [startingGym, setStartingGym] = useState(false);
   const [displayCount, setDisplayCount] = useState(20);
   const [lastFull, setLastFull] = useState<Workout | null>(null);
@@ -74,9 +79,43 @@ export default function WorkoutPage() {
     if (user) {
       fetchWorkouts(user.id);
       void fetchMyAssignment(user.id);
-      void fetchRoutines(user.id);
+      void fetchRoutines(user.id).finally(() => setRoutinesReady(true));
     }
   }, [user, coached]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Solo without a plan for today: offer the next routine, same rule as the Dashboard.
+  const hasActiveProgram = !!assignment?.program && assignment.status === 'active';
+  const showsGymCard = !!assignment?.program && gymCard.kind !== 'none';
+  const soloWithoutPlan = !coached && !hasActiveProgram && !showsGymCard;
+  const alreadyTrainedToday = workouts.some(w => w.completed && w.date?.startsWith(programClock.today));
+  const nextRoutine = soloWithoutPlan ? pickNextRoutine(routines, programClock.weekday, alreadyTrainedToday) : null;
+  const showRoutineIntro = soloWithoutPlan && routinesReady && routines.length === 0;
+  const otherRoutines = nextRoutine ? routines.filter(r => r.id !== nextRoutine.routine.id) : routines;
+
+  // A refused start is always said (toast), never a button that silently does nothing.
+  const startRoutine = async (routineId: string) => {
+    if (!user || startingRoutine) return;
+    setStartingRoutine(true);
+    try {
+      const routine = await fetchRoutineWithExercises(routineId);
+      if (!routine) {
+        toast(t('workout.startRoutineFailed'), 'error');
+        return;
+      }
+      const workoutId = await startWorkoutFromTemplate({
+        userId: user.id,
+        name: routine.name,
+        routineId,
+        exercises: routineTemplateExercises(routine.exercises),
+      });
+      if (workoutId) navigate(`/workout/${workoutId}`);
+      else toast(t('workout.startRoutineFailed'), 'error');
+    } catch {
+      toast(t('workout.startRoutineFailed'), 'error');
+    } finally {
+      setStartingRoutine(false);
+    }
+  };
 
   const lastCompleted = lastCompletedWorkout(workouts, programClock.today);
   const lastCompletedId = lastCompleted?.id ?? '';
@@ -227,17 +266,15 @@ export default function WorkoutPage() {
     let cancelled = false;
     void supabase
       .from('workout_exercises')
-      .select('workout_id, name, order_index, workout_sets(weight_kg, reps, completed)')
+      .select('workout_id, name, order_index')
       .in('workout_id', ids)
+      .order('order_index')
       .then(({ data }) => {
         if (cancelled || !data) return;
-        const grouped: Record<string, { volume: number; names: string[] }> = {};
-        for (const row of data as Array<{ workout_id: string; name: string; order_index: number; workout_sets: Array<{ weight_kg: number; reps: number; completed: boolean }> | null }>) {
-          const bucket = grouped[row.workout_id] ?? { volume: 0, names: [] };
+        const grouped: Record<string, { names: string[] }> = {};
+        for (const row of data as Array<{ workout_id: string; name: string; order_index: number }>) {
+          const bucket = grouped[row.workout_id] ?? { names: [] };
           bucket.names.push(row.name);
-          for (const set of row.workout_sets ?? []) {
-            if (set.completed && set.weight_kg > 0 && set.reps > 0) bucket.volume += Number(set.weight_kg) * Number(set.reps);
-          }
           grouped[row.workout_id] = bucket;
         }
         setSummaries(grouped);
@@ -265,6 +302,7 @@ export default function WorkoutPage() {
         <Button
           onClick={() => navigate('/workout/new', { state: isProgramDayDue(gymCard) ? { offPlan: true } : undefined })}
           size="sm"
+          variant={showsGymCard || nextRoutine ? 'secondary' : 'primary'}
           className="shrink-0"
         >
           <Plus size={16} aria-hidden="true" /> {t('nav.addWorkoutOffPlan')}
@@ -392,7 +430,52 @@ export default function WorkoutPage() {
         />
       )}
 
-      {/* Routines stay available with a program, coached or not (Vision §7.1). */}
+      {nextRoutine && (
+        <Card className="mb-4 !p-4 !border-blue-500/30 !bg-blue-600/10">
+          <div className="flex items-start gap-3" data-testid="workout-next-routine">
+            <div className="w-11 h-11 rounded-xl bg-blue-500/20 flex items-center justify-center shrink-0" aria-hidden="true">
+              <Play size={18} className="text-blue-400 ml-0.5" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium text-blue-300">
+                {t(nextRoutine.scheduledToday ? 'workout.nextRoutine.scheduledToday' : 'workout.nextRoutine.next')}
+              </p>
+              <p className="text-base font-semibold text-white line-clamp-2 break-words">{nextRoutine.routine.name}</p>
+              {(nextRoutine.routine.exercises?.length ?? 0) > 0 ? (
+                <p className="text-xs text-neutral-400 mt-0.5">
+                  {t('workout.exerciseCount', { count: nextRoutine.routine.exercises?.length ?? 0 })}
+                </p>
+              ) : null}
+            </div>
+          </div>
+          <Button
+            type="button"
+            className="mt-3 w-full"
+            loading={startingRoutine}
+            onClick={() => void startRoutine(nextRoutine.routine.id)}
+          >
+            {t('workout.nextRoutine.start')}
+          </Button>
+        </Card>
+      )}
+
+      {showRoutineIntro ? (
+        <Card className="mb-4 !p-4">
+          <div className="flex items-start gap-3" data-testid="workout-routine-intro">
+            <div className="w-10 h-10 rounded-xl bg-neutral-800 text-neutral-300 flex items-center justify-center shrink-0" aria-hidden="true">
+              <Repeat size={18} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-sm font-semibold text-white">{t('workout.routineIntro.title')}</h2>
+              <p className="text-sm text-neutral-400 mt-1">{t('workout.routineIntro.body')}</p>
+            </div>
+          </div>
+          <Button type="button" variant="secondary" className="mt-3 w-full" onClick={() => navigate('/routines')}>
+            <Plus size={16} aria-hidden="true" /> {t('routines.createFirstRoutine')}
+          </Button>
+        </Card>
+      ) : (
+      /* Routines stay available with a program, coached or not (Vision §7.1). */
       <div className="mb-4" data-testid="workout-routines">
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-sm font-semibold text-neutral-300">{t('nav.routines')}</h2>
@@ -400,9 +483,9 @@ export default function WorkoutPage() {
             {routines.length > 0 ? t('workout.seeAllRoutines') : t('routines.createFirstRoutine')}
           </button>
         </div>
-        {routines.length > 0 && (
+        {otherRoutines.length > 0 && (
           <div className="flex gap-2 overflow-x-auto pb-1">
-            {routines.slice(0, 6).map(routine => (
+            {otherRoutines.slice(0, 6).map(routine => (
               <button
                 key={routine.id}
                 type="button"
@@ -415,28 +498,58 @@ export default function WorkoutPage() {
           </div>
         )}
       </div>
+      )}
 
-      {lastCompleted && (
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-3">
+      {lastCompleted && (() => {
+        const detail = lastFull && lastFull.id === lastCompleted.id ? lastFull : null;
+        const exerciseCount = detail?.exercises?.length ?? summaries[lastCompleted.id]?.names.length ?? 0;
+        const facts = [
+          formatDate(lastCompleted.date),
+          exerciseCount > 0 ? t('workout.exerciseCount', { count: exerciseCount }) : '',
+          lastCompleted.duration_seconds > 0 ? formatDuration(lastCompleted.duration_seconds) : '',
+        ].filter(Boolean).join(' · ');
+        return (
+        <div className="mb-6" data-testid="workout-last-session">
+          <div className="flex items-center justify-between mb-2">
             <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider">{t('workout.lastSession')}</h2>
+            {/* Opens that finished session (its recap); it does not start a new one. */}
             <button
               type="button"
               onClick={() => navigate(`/workout/${lastCompleted.id}`)}
-              className="text-xs text-blue-400 hover:text-blue-300"
+              className="min-h-11 px-2 text-xs text-blue-400 hover:text-blue-300"
             >
               {t('workout.lastSessionOpen')}
             </button>
           </div>
-          <Card className="!p-4">
-            <p className="text-sm font-medium text-white truncate">{lastCompleted.name || t('workout.title')}</p>
-            <p className="text-xs text-neutral-500 mb-3">{formatDate(lastCompleted.date)}</p>
-            {lastFull && lastFull.id === lastCompleted.id ? (
-              <SessionReadout session={lastSessionFromWorkout(lastFull)} />
-            ) : null}
+          <Card padding={false}>
+            <button
+              type="button"
+              onClick={() => setLastDetailOpen(v => !v)}
+              aria-expanded={lastDetailOpen}
+              className="flex w-full min-h-11 items-center gap-3 px-4 py-3 text-left"
+            >
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-white truncate">{lastCompleted.name || t('workout.unnamed')}</p>
+                <p className="text-xs text-neutral-500">{facts}</p>
+              </div>
+              <span className="shrink-0 inline-flex items-center gap-1 text-xs text-blue-400">
+                {t(lastDetailOpen ? 'workout.lastSessionHideDetail' : 'workout.lastSessionShowDetail')}
+                {lastDetailOpen ? <ChevronUp size={14} aria-hidden="true" /> : <ChevronDown size={14} aria-hidden="true" />}
+              </span>
+            </button>
+            {lastDetailOpen && (
+              <div className="px-4 pb-4">
+                {detail ? (
+                  <SessionReadout session={lastSessionFromWorkout(detail)} />
+                ) : (
+                  <div className="h-16 rounded-xl bg-neutral-800/60 animate-pulse" aria-busy="true" />
+                )}
+              </div>
+            )}
           </Card>
         </div>
-      )}
+        );
+      })()}
 
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
         <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider">{t('workout.history')}</h2>
@@ -487,11 +600,11 @@ export default function WorkoutPage() {
             const names = summary?.names ?? [];
             const preview = names.slice(0, 3).join(', ');
             const extra = names.length > 3 ? t('workout.historyMore', { count: names.length - 3 }) : '';
-            const unit = profile?.unit_weight === 'lbs' ? 'lbs' : 'kg';
             return (
             <Card key={w.id} className="flex items-center gap-3">
-              <div
-                className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
+              <button
+                type="button"
+                className="flex items-center gap-3 flex-1 min-w-0 min-h-11 text-left"
                 onClick={() => navigate(`/workout/${w.id}`)}
               >
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0
@@ -500,15 +613,15 @@ export default function WorkoutPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-white truncate">{w.name || t('workout.unnamed')}</p>
+                  {/* Date, duration and exercises; the tonnage stays in the session detail. */}
                   <p className="text-sm text-neutral-400">
                     {formatDate(w.date)}
                     {w.duration_seconds > 0 ? ` · ${formatDuration(w.duration_seconds)}` : ''}
-                    {summary && summary.volume > 0 ? ` · ${formatWeight(summary.volume, unit)}` : ''}
                   </p>
                   {preview ? <p className="text-sm text-neutral-500 truncate">{preview}{extra ? ` ${extra}` : ''}</p> : null}
                 </div>
-                <ChevronRight size={16} className="text-neutral-600 shrink-0" />
-              </div>
+                <ChevronRight size={16} className="text-neutral-600 shrink-0" aria-hidden="true" />
+              </button>
               <button
                 type="button"
                 aria-label={t('common.delete')}
