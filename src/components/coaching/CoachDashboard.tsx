@@ -1,13 +1,16 @@
+import { openGlobalSearch } from '../../features/search/openSearch';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   Copy,
+  Inbox,
   Link2,
   Plus,
   Search,
-  Upload,
+  Sparkles,
 } from 'lucide-react';
+import { countRequestsAwaitingCoach } from '../../features/marketplace/domain/marketplaceApi';
 import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import Button from '../ui/Button';
@@ -29,16 +32,24 @@ export default function CoachDashboard() {
   const {
     opsRows, opsLoading, opsPartialError, invites,
     fetchCoachOps, fetchInvites, createInvite, fetchCoachSettings,
-    runFleetRound, fleetRunning, coachingRoleError, fetchMyRole,
+    coachingRoleError, fetchMyRole,
   } = useCoachingStore();
   const [creating, setCreating] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
+  const [prospects, setProspects] = useState(0);
 
   useEffect(() => {
     if (!user) return;
     fetchCoachOps();
     fetchInvites();
     fetchCoachSettings();
+    let cancelled = false;
+    // A prospect waiting on the coach is a decision (Vision §15.1). A failed
+    // count hides the row; it never pretends there is nobody waiting elsewhere.
+    countRequestsAwaitingCoach(user.id)
+      .then(n => { if (!cancelled) setProspects(n); })
+      .catch(() => { if (!cancelled) setProspects(0); });
+    return () => { cancelled = true; };
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const activeInvites = invites.filter(i => new Date(i.expires_at) > new Date() && i.use_count < i.max_uses);
@@ -65,18 +76,6 @@ export default function CoachDashboard() {
     await copyUrl(result.token);
   };
 
-  const handleFleet = async () => {
-    const result = await runFleetRound();
-    if (result.error) {
-      toast(t('coaching.fleet.failed'), 'error');
-      return;
-    }
-    toast(t('coaching.fleet.done', {
-      flagged: result.clients_flagged ?? 0,
-      skipped: result.clients_skipped ?? 0,
-    }));
-  };
-
   return (
     <PageTransition>
       <div className="px-4 pt-6 pb-28 md:px-6">
@@ -94,33 +93,28 @@ export default function CoachDashboard() {
             ) : null}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {opsRows.length > 0 && (
-            <Button type="button" size="sm" variant="secondary" loading={fleetRunning} onClick={() => void handleFleet()}>
-              {t('coaching.fleet.refresh')}
-            </Button>
-            )}
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              onClick={() => navigate('/prometheus')}
-            >
-              <Search size={14} />
-              {t('coaching.ask.shortcut')}
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              onClick={() => navigate('/coach/import')}
-            >
-              <Upload size={14} />
-              {t('coaching.importCsv.title')}
-            </Button>
+            <IconButton label={t('common.search')} onClick={openGlobalSearch}>
+              <Search size={18} />
+            </IconButton>
+            <IconButton label={t('coaching.ask.shortcut')} onClick={() => navigate('/prometheus')}>
+              <Sparkles size={18} />
+            </IconButton>
           </div>
         </div>
 
         <CoachRelationshipNotices />
+
+        {prospects > 0 && (
+          <div className="mb-4" data-testid="coach-prospects-waiting">
+            <ListRow
+              icon={<Inbox size={16} />}
+              tone="info"
+              title={t('coaching.command.prospectsWaiting', { count: prospects })}
+              subtitle={t('coaching.command.prospectsWaitingHint')}
+              to="/coaching-requests"
+            />
+          </div>
+        )}
 
         {opsLoading ? (
           <ListSkeleton />

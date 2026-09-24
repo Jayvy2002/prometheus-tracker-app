@@ -14,6 +14,7 @@ export interface PersonalDataExport {
   nutrition_logs: unknown[];
   water_logs: unknown[];
   weight_measurements: unknown[];
+  body_measurements: unknown[];
   daily_checkins: unknown[];
   progress_photos: unknown[];
   recipes: unknown[];
@@ -30,6 +31,7 @@ export async function exportPersonalData(userId: string): Promise<PersonalDataEx
     nutritionRes,
     waterRes,
     weightRes,
+    bodyRes,
     checkinRes,
     photosRes,
     recipesRes,
@@ -39,13 +41,14 @@ export async function exportPersonalData(userId: string): Promise<PersonalDataEx
     supabase.from('nutrition_logs').select('id, logged_at, category, name, calories, protein, carbs, fat, quantity, unit').eq('user_id', userId).order('logged_at', { ascending: false }).limit(2000),
     supabase.from('water_logs').select('id, logged_at, amount_ml').eq('user_id', userId).order('logged_at', { ascending: false }).limit(1000),
     supabase.from('weight_measurements').select('id, weight_kg, measured_at, notes').eq('user_id', userId).order('measured_at', { ascending: false }).limit(1000),
+    supabase.from('body_measurements').select('id, measured_at, site, value_cm, note').eq('user_id', userId).order('measured_at', { ascending: false }).limit(2000),
     supabase.from('daily_checkins').select('id, checked_at, sleep_hours, sleep_quality, energy_level, stress, notes').eq('user_id', userId).order('checked_at', { ascending: false }).limit(1000),
     supabase.from('progress_photos').select('id, taken_at, created_at').eq('user_id', userId).order('taken_at', { ascending: false }).limit(500),
     supabase.from('recipes').select('id, name, created_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(500),
   ]);
 
   const firstError = [
-    profileRes, workoutsRes, nutritionRes, waterRes, weightRes, checkinRes, photosRes, recipesRes,
+    profileRes, workoutsRes, nutritionRes, waterRes, weightRes, bodyRes, checkinRes, photosRes, recipesRes,
   ].find(result => result.error);
   if (firstError?.error) throw new Error(firstError.error.message);
 
@@ -58,6 +61,7 @@ export async function exportPersonalData(userId: string): Promise<PersonalDataEx
     nutrition_logs: rows(nutritionRes.data),
     water_logs: rows(waterRes.data),
     weight_measurements: rows(weightRes.data),
+    body_measurements: rows(bodyRes.data),
     daily_checkins: rows(checkinRes.data),
     progress_photos: rows(photosRes.data),
     recipes: rows(recipesRes.data),

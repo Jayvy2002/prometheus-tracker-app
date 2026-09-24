@@ -16,6 +16,7 @@ export interface AdminExerciseProposal {
   description: string;
   suggestion_name_fr: string;
   created_at: string;
+  updated_at: string;
 }
 
 export interface AdminExerciseDuplicate {
@@ -38,6 +39,15 @@ export interface AdminProblemImport {
   subject_kind: 'account' | 'provisional';
   coach_label: string;
   error_codes: string[] | null;
+}
+
+/** A failed import attempt with no import row: parse failure or unexpected error. */
+export interface AdminImportIncident {
+  id: string;
+  kind: 'workout' | 'body_weight' | null;
+  error_code: string;
+  created_at: string;
+  coach_label: string;
 }
 
 export interface AdminReport {

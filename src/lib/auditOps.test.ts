@@ -109,7 +109,9 @@ test('Q04: dialog and switches are accessible primitives', () => {
 
 test('Q03: weights render in profile units; fallback speaks the user language', () => {
   const card = src('src/components/workout/ExerciseCard.tsx') + src('src/components/workout/SetRow.tsx') + src('src/features/workout/domain/overloadSuggestion.ts') + src('src/features/workout/hooks/useExerciseHistory.ts');
-  assert.match(card, /formatWeight\(s\.weight_kg, weightUnit\)/);
+  // Previous set shown in the profile unit, in its own column.
+  assert.match(card, /data-prev-set="true"/);
+  assert.match(card, /displayPrev = prevSet\?\.weight_kg \? toDisplay\(prevSet\.weight_kg\)/);
   assert.match(card, /SUGGESTION_KEY\[suggestion\.kind\]/);
   assert.doesNotMatch(card, /Stagnant 3\\u00d7/);
   assert.doesNotMatch(card, /\$\{s\.weight_kg\}kg/);

@@ -41,11 +41,11 @@ function exercise(partial: Partial<Exercise> & { name: string }): Exercise {
 const squat = exercise({ name: 'Squat', name_fr: 'Squat', equipment: 'barbell', primary_muscles: ['quadriceps'] });
 const hack = exercise({ name: 'Hack Squat', name_fr: 'Hack squat', equipment: 'machine', primary_muscles: ['quadriceps'] });
 const bulgarian = exercise({ name: 'Bulgarian Split Squat', name_fr: 'Squat bulgare', equipment: 'dumbbell', primary_muscles: ['quadriceps'] });
-const bench = exercise({ name: 'Bench Press', name_fr: 'Developpe couche', equipment: 'barbell' });
+const bench = exercise({ name: 'Bench Press', name_fr: 'Développé couché', equipment: 'barbell' });
 const incline = exercise({ name: 'Incline Bench Press', name_fr: 'Developpe incline', equipment: 'barbell' });
 const dbPress = exercise({ name: 'Dumbbell Press', name_fr: 'Developpe halteres', equipment: 'dumbbell' });
-const deadlift = exercise({ name: 'Deadlift', name_fr: 'Souleve de terre', equipment: 'barbell', primary_muscles: ['hamstrings'] });
-const rdl = exercise({ name: 'Romanian Deadlift', name_fr: 'Souleve de terre roumain', equipment: 'barbell', primary_muscles: ['hamstrings'] });
+const deadlift = exercise({ name: 'Deadlift', name_fr: 'Soulevé de terre', equipment: 'barbell', primary_muscles: ['hamstrings'] });
+const rdl = exercise({ name: 'Romanian Deadlift', name_fr: 'Soulevé de terre roumain', equipment: 'barbell', primary_muscles: ['hamstrings'] });
 const facePull = exercise({ name: 'Face Pull', name_fr: 'Face pull', equipment: 'cable', primary_muscles: ['rear_delts'] });
 const bicep = exercise({ name: 'Bicep Curl', name_fr: 'Curl biceps', equipment: 'dumbbell', primary_muscles: ['biceps'] });
 const legCurl = exercise({ name: 'Leg Curl', name_fr: 'Curl jambes', equipment: 'machine', primary_muscles: ['hamstrings'] });

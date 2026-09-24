@@ -16,7 +16,17 @@ const ADMIN_ERROR_CODES = [
   'last_operator',
   'already_merged',
   'winner_merged',
+  'request_changed',
 ] as const;
+
+/** Civil YYYY-MM-DD stays on that calendar day in every timezone. */
+export function formatCivilDate(value: string, language: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return value;
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  const locale = language.toLowerCase().startsWith('en') ? 'en' : 'fr';
+  return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeZone: 'UTC' }).format(date);
+}
 
 export type AdminErrorCode = (typeof ADMIN_ERROR_CODES)[number] | 'generic';
 

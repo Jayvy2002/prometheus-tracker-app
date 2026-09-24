@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { track } from '../lib/telemetryClient';
+import { getCacheItem, setCacheItem, clearCacheItem } from '../lib/offlineCache';
+import { isTransportError } from '../lib/offlineQueue';
 import type {
   Program,
   ProgramAssignment,
@@ -15,6 +17,7 @@ import { programExerciseRpcFields } from '../lib/programSetPrescription';
 import { snapshotToDayDrafts, parseRevisionOrganization, parseRevisionMeta, snapshotToPhaseDrafts, programFromFrozenRevision, type ProgramRevisionRow } from '../lib/programRevisionDiff';
 import { normalizeSessionOrganization } from '../features/programs/domain/sessionOrganization';
 import type { ProgramPhase, ProgramPhaseDraft } from '../features/programs/domain/programPhases';
+import { programUsageById, type ProgramUsage } from '../features/programs/domain/programListStatus';
 
 type ProgramDayDraft = {
   id?: string;
@@ -23,6 +26,7 @@ type ProgramDayDraft = {
   phase_id?: string | null;
   exercises: Array<{
     name: string;
+    catalog_exercise_id?: string | null;
     default_sets: number;
     default_reps: number;
     default_reps_min?: number | null;
@@ -72,6 +76,7 @@ function programDaysToSavePayload(days: ProgramDay[] | undefined): ProgramDayDra
     phase_id: day.phase_id ?? null,
     exercises: (day.exercises ?? []).map(ex => ({
       name: ex.name,
+      catalog_exercise_id: ex.catalog_exercise_id ?? null,
       default_sets: ex.default_sets,
       default_reps: ex.default_reps,
       default_reps_min: ex.default_reps_min,
@@ -96,6 +101,8 @@ interface ProgramState {
   assignment: ProgramAssignment | null;
   loading: boolean;
   fetchPrograms: (ownerId: string) => Promise<void>;
+  /** Coach list: how many clients follow each program (active / paused). */
+  fetchProgramUsage: (programIds: string[]) => Promise<Record<string, ProgramUsage>>;
   fetchProgram: (programId: string) => Promise<Program | null>;
   createProgram: (
     program: Omit<Partial<Program>, 'phases'> & { phases?: ProgramPhaseDraft[] },
@@ -249,6 +256,17 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
     }
   },
 
+  fetchProgramUsage: async (programIds) => {
+    if (programIds.length === 0) return {};
+    const { data, error } = await supabase
+      .from('program_assignments')
+      .select('program_id, status')
+      .in('program_id', programIds)
+      .in('status', ['active', 'paused']);
+    if (error) return {};
+    return programUsageById((data ?? []) as Array<{ program_id: string; status: string }>);
+  },
+
   fetchProgram: async (programId) => {
     try {
       const { data, error } = await supabase
@@ -375,13 +393,22 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
   },
 
   fetchMyAssignment: async (clientId) => {
+    // Vision §26: the plan already synced stays readable (and startable) offline.
+    const cacheKey = `assignment:${clientId}`;
+    const fromCache = () => {
+      const cached = getCacheItem<ProgramAssignment>(cacheKey);
+      if (cached) set({ assignment: cached });
+      return cached;
+    };
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return fromCache();
     const { data: { user } } = await supabase.auth.getUser();
-    const { data: active } = await supabase
+    const { data: active, error: activeError } = await supabase
       .from('program_assignments')
       .select('*')
       .eq('client_id', clientId)
       .eq('status', 'active')
       .maybeSingle();
+    if (activeError && isTransportError(activeError)) return fromCache();
     let row = active;
     // After unlink the assignment is paused; the athlete must still read it.
     if (!row && user?.id === clientId) {
@@ -396,6 +423,7 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
       row = paused;
     }
     if (!row) {
+      clearCacheItem(cacheKey);
       set({ assignment: null });
       return null;
     }
@@ -408,6 +436,7 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
       ...assignmentRow,
       program: program ?? undefined,
     };
+    if (assignment.program) setCacheItem(cacheKey, assignment);
     set({ assignment });
     return assignment;
   },

@@ -28,6 +28,8 @@ interface Props {
   athleteId: string;
   viewer: 'self' | 'coach';
   hasActiveRelationship?: boolean;
+  /** The /watch page already carries the title: the panel does not repeat it. */
+  showHeader?: boolean;
 }
 
 type WatchLoadState =
@@ -56,7 +58,7 @@ interface DecisionDraft {
   evidence: Record<string, unknown>;
 }
 
-export default function PrometheusWatchPanel({ athleteId, viewer, hasActiveRelationship }: Props) {
+export default function PrometheusWatchPanel({ athleteId, viewer, hasActiveRelationship, showHeader = true }: Props) {
   const { t } = useTranslation();
   const { user } = useAuthStore();
   const { canReadAthleteWatch, canCorrectAthleteWatchContext, canDecideAthleteWatchProposal } = useResourcePermissions();
@@ -114,6 +116,7 @@ export default function PrometheusWatchPanel({ athleteId, viewer, hasActiveRelat
   return (
     <div data-testid="prometheus-watch">
       <Card className="mb-4">
+        {showHeader && (
         <div className="flex items-start gap-2 mb-2">
           <div className="w-8 h-8 rounded-lg bg-blue-500/15 flex items-center justify-center shrink-0">
             <Eye size={15} className="text-blue-300" />
@@ -123,6 +126,7 @@ export default function PrometheusWatchPanel({ athleteId, viewer, hasActiveRelat
             <p className="text-[11px] text-neutral-500">{t('prometheusWatch.subtitle')}</p>
           </div>
         </div>
+        )}
 
         {load.phase === 'loading' ? (
           <p className="text-sm text-neutral-400">
@@ -210,34 +214,15 @@ function WatchRow({
       <details className="rounded-xl border border-neutral-800 bg-neutral-950/60 px-3 py-1">
         <summary className="cursor-pointer min-h-11 flex items-center justify-between gap-2 list-none [&::-webkit-details-marker]:hidden">
           <span className="min-w-0">
-            <span className="block text-[10px] uppercase tracking-wide text-neutral-500">
+            <span className="block text-xs uppercase tracking-wide text-neutral-400">
               {t(item.domainKey)} · {t(item.statusKey)}
             </span>
             <span className="block text-sm text-white truncate">{t(item.headlineKey)}</span>
           </span>
-          <span className="text-[11px] text-blue-300 shrink-0">{t('prometheusWatch.more')}</span>
+          <span className="text-xs text-blue-300 shrink-0">{t('prometheusWatch.more')}</span>
         </summary>
         <dl className="pb-3 pt-1 space-y-2 text-sm">
-          {observed ? (
-            <WatchField label={t('prometheusWatch.observed')} value={observed} />
-          ) : null}
-          {item.dataPoints.length > 0 ? (
-            <WatchField
-              label={t('prometheusWatch.data.label')}
-              value={item.dataPoints.map((row) => t(row.key, row.params)).join(' · ')}
-            />
-          ) : null}
-          {period ? <WatchField label={t('prometheusWatch.period')} value={period} /> : null}
-          {item.lastDataPoints.length > 0 ? (
-            <WatchField
-              label={t('prometheusWatch.lastData')}
-              value={item.lastDataPoints.map((row) => t(row.key, row.params)).join(' · ')}
-            />
-          ) : null}
-          {lastPeriod ? <WatchField label={t('prometheusWatch.lastPeriod')} value={lastPeriod} /> : null}
           <WatchField label={t('prometheusWatch.why')} value={t(item.whyKey)} />
-          <WatchField label={t('prometheusWatch.certainty')} value={t(item.confidenceKey)} />
-          <WatchField label={t('prometheusWatch.evolution.label')} value={t(item.evolutionKey)} />
           <WatchField
             label={t('prometheusWatch.proposal.label')}
             value={item.currentProposalKey ? t(item.currentProposalKey) : t('prometheusWatch.proposal.none')}
@@ -248,22 +233,6 @@ function WatchRow({
               value={t(item.currentProposalDetail.key, item.currentProposalDetail.params)}
             />
           ) : null}
-          {item.lastProposalKey ? (
-            <WatchField label={t('prometheusWatch.proposal.last')} value={t(item.lastProposalKey)} />
-          ) : null}
-          {item.lastDecisionKey ? (
-            <WatchField
-              label={t('prometheusWatch.lastDecision')}
-              value={`${t(item.lastDecisionKey)}${actorLabel ? ` ${actorLabel}` : ''}`}
-            />
-          ) : null}
-          {item.humanReason ? (
-            <WatchField label={t('prometheusWatch.humanReason')} value={item.humanReason} />
-          ) : null}
-          {item.whyHiddenKey ? (
-            <WatchField label={t('prometheusWatch.more')} value={t(item.whyHiddenKey)} />
-          ) : null}
-          <WatchField label={t('prometheusWatch.reevaluate.label')} value={t(item.reevaluateKey)} />
         </dl>
         {showDecide ? (
           <div className="pb-3 flex flex-col sm:flex-row gap-2">
@@ -328,6 +297,45 @@ function WatchRow({
             </Button>
           </div>
         ) : null}
+        <details className="pb-3">
+          <summary className="min-h-11 cursor-pointer text-sm text-neutral-300">{t('prometheusWatch.evidence')}</summary>
+        <dl className="pb-3 pt-1 space-y-2 text-sm">
+          {observed ? (
+            <WatchField label={t('prometheusWatch.observed')} value={observed} />
+          ) : null}
+          {item.dataPoints.length > 0 ? (
+            <WatchField
+              label={t('prometheusWatch.data.label')}
+              value={item.dataPoints.map((row) => t(row.key, row.params)).join(' · ')}
+            />
+          ) : null}
+          {period ? <WatchField label={t('prometheusWatch.period')} value={period} /> : null}
+          {item.lastDataPoints.length > 0 ? (
+            <WatchField
+              label={t('prometheusWatch.lastData')}
+              value={item.lastDataPoints.map((row) => t(row.key, row.params)).join(' · ')}
+            />
+          ) : null}
+          {lastPeriod ? <WatchField label={t('prometheusWatch.lastPeriod')} value={lastPeriod} /> : null}
+          <WatchField label={t('prometheusWatch.certainty')} value={t(item.confidenceKey)} />
+          <WatchField label={t('prometheusWatch.evolution.label')} value={t(item.evolutionKey)} />
+          {item.lastProposalKey ? (
+            <WatchField label={t('prometheusWatch.proposal.last')} value={t(item.lastProposalKey)} />
+          ) : null}
+          {item.lastDecisionKey ? (
+            <WatchField
+              label={t('prometheusWatch.lastDecision')}
+              value={`${t(item.lastDecisionKey)}${actorLabel ? ` ${actorLabel}` : ''}`}
+            />
+          ) : null}
+          {item.humanReason ? (
+            <WatchField label={t('prometheusWatch.humanReason')} value={item.humanReason} />
+          ) : null}
+          {item.whyHiddenKey ? (
+            <WatchField label={t('prometheusWatch.more')} value={t(item.whyHiddenKey)} />
+          ) : null}
+          <WatchField label={t('prometheusWatch.reevaluate.label')} value={t(item.reevaluateKey)} />
+        </dl>
         {showCorrection ? (
           <div className="pb-3 flex flex-col sm:flex-row gap-2">
             <Button
@@ -362,6 +370,7 @@ function WatchRow({
             </Button>
           </div>
         ) : null}
+        </details>
       </details>
       {draft ? (
         <WatchCorrectionModal

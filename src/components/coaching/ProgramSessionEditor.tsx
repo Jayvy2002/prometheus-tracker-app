@@ -860,16 +860,15 @@ export default function ProgramSessionEditor({
       <ExercisePicker
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
-        onSelect={exName => {
+        onSelect={(exName, catalogId) => {
           if (pickerMode === 'replace' && selected != null && day) {
-            updateExercise(selected, { name: exName });
+            updateExercise(selected, { name: exName, catalog_exercise_id: catalogId ?? null });
           } else if (day) {
             const nextIndex = day.exercises.length;
-            updateDay(safeIndex, { exercises: [...day.exercises, { ...emptyEx(), name: exName }] });
+            updateDay(safeIndex, { exercises: [...day.exercises, { ...emptyEx(), name: exName, catalog_exercise_id: catalogId ?? null }] });
             setSelected(nextIndex);
             setAnalyzed(null);
           }
-          setPickerOpen(false);
         }}
       />
     </div>

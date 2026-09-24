@@ -1,6 +1,9 @@
+import { userFacingError } from '../../lib/userFacingError';
+import { ACCOUNT_DELETION_WINDOW_DAYS } from '../../features/account/domain/accountDeletion';
+import { notifyAccountDeletionChanged } from '../../features/account/hooks/useAccountDeletion';
 import { useEffect, useState } from 'react';
-import { User, Target, Ruler, Lock, LogOut, ChevronDown, MessageSquare, Bell, Trash2, Globe, Users, SlidersHorizontal, Camera, CalendarRange, CalendarDays, Apple, Scale, ClipboardList, Inbox, Search, BarChart2, Shield } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { User, Target, Ruler, Lock, LogOut, ChevronDown, MessageSquare, Bell, Trash2, Globe, Users, SlidersHorizontal, ClipboardList, Inbox, Shield, Sparkles, Upload, FolderOpen, LayoutList, Activity, ClipboardCheck } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
@@ -10,8 +13,6 @@ import { useAccountContext } from '../../lib/useAccountContext';
 import { deleteConfirmToken } from '../../lib/dataControl';
 import { toast } from '../ui/Toast';
 import { setAppLanguage } from '../../i18n';
-import { userFacingError } from '../../lib/userFacingError';
-import { COACH_HAS_ACTIVE_CLIENTS } from '../../lib/coachModeGuard';
 import { supabase } from '../../lib/supabase';
 
 import Card from '../ui/Card';
@@ -20,6 +21,9 @@ import Modal from '../ui/Modal';
 import PageTransition from '../ui/PageTransition';
 import PersonalInfoForm from './PersonalInfoForm';
 import GoalsForm from './GoalsForm';
+import GoalPanel from '../goals/GoalPanel';
+import ConstraintsPanel from '../constraints/ConstraintsPanel';
+import PersonalModulesForm from './PersonalModulesForm';
 import UnitsForm from './UnitsForm';
 import PasswordForm from './PasswordForm';
 import FeedbackForm from './FeedbackForm';
@@ -32,7 +36,7 @@ import SoloHub from './SoloHub';
 import AccessCard from './AccessCard';
 import WorkspaceSwitcher from '../layout/WorkspaceSwitcher';
 
-type Section = 'personal' | 'goals' | 'units' | 'password' | 'feedback' | 'notifications' | 'language' | 'coachPrefs';
+type Section = 'personal' | 'goals' | 'constraints' | 'modules' | 'units' | 'password' | 'feedback' | 'notifications' | 'language' | 'coachPrefs';
 
 interface AccordionSectionProps {
   id: Section;
@@ -73,24 +77,26 @@ function AccordionSection({ icon: Icon, label, isOpen, onToggle, children, anima
 
 export default function ProfilePage() {
   const { t, i18n } = useTranslation();
-  const navigate = useNavigate();
   const { signOut, deleteAccount, user } = useAuthStore();
   const { profile, updateProfile } = useProfileStore();
   const {
-    myCoach, enableCoachMode, disableCoachMode, countActiveCoachLinks, selectAccountWorkspace, myTrackingConfig: tracking,
+    myCoach, myTrackingConfig: tracking,
   } = useCoachingStore();
   const context = useAccountContext();
   const inCoaching = context.activeWorkspace === 'coaching';
   const canCoach = context.capabilities.coach;
   const coached = context.personalCoaching === 'coached';
 
-  const [openSection, setOpenSection] = useState<Section | null>(null);
+  // « Définir un objectif » from Nutrition lands on the right section.
+  const [searchParams] = useSearchParams();
+  const requestedSection = searchParams.get('section');
+  const [openSection, setOpenSection] = useState<Section | null>(
+    requestedSection === 'goals' || requestedSection === 'modules' || requestedSection === 'constraints' ? requestedSection : null,
+  );
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [coachModeDialog, setCoachModeDialog] = useState<{ count: number } | null>(null);
-  const [coachModeBusy, setCoachModeBusy] = useState(false);
   const [operator, setOperator] = useState(false);
   const confirmWord = deleteConfirmToken(i18n.language);
 
@@ -121,10 +127,13 @@ export default function ProfilePage() {
     setDeleteError(null);
     const { error } = await deleteAccount();
     if (error) {
-      setDeleteError(error === 'storage_cleanup_failed' ? t('profile.deleteModal.storageCleanupFailed') : error);
+      setDeleteError(error === 'last_operator' ? t('profile.deleteModal.lastOperator') : userFacingError(error, t('profile.deleteModal.failed')));
       setDeleting(false);
     } else {
-      navigate('/auth');
+      setShowDeleteModal(false);
+      setDeleting(false);
+      // The router now shows the recovery screen instead of the app.
+      notifyAccountDeletionChanged();
     }
   };
 
@@ -132,55 +141,14 @@ export default function ProfilePage() {
     setOpenSection(prev => prev === section ? null : section);
   };
 
-  const handleCoachModeToggle = async () => {
-    if (coachModeBusy) return;
-    if (!canCoach) {
-      setCoachModeBusy(true);
-      const result = await enableCoachMode();
-      setCoachModeBusy(false);
-      if (result.error) toast(userFacingError(result.error, t('errors.generic')), 'error');
-      else toast(t('coaching.coachModeOn'), 'success');
-      return;
-    }
-    setCoachModeBusy(true);
-    const counted = await countActiveCoachLinks();
-    setCoachModeBusy(false);
-    if (counted.error || counted.count == null) {
-      toast(t('coaching.disableMode.errorCount'), 'error');
-      return;
-    }
-    setCoachModeDialog({ count: counted.count });
-  };
-
-  const confirmDisableCoachMode = async () => {
-    if (coachModeBusy || (coachModeDialog?.count ?? 0) > 0) return;
-    setCoachModeBusy(true);
-    const result = await disableCoachMode();
-    setCoachModeBusy(false);
-    if (result.error === COACH_HAS_ACTIVE_CLIENTS) {
-      toast(t('coaching.disableMode.errorBlocked'), 'error');
-      return;
-    }
-    if (result.error) {
-      toast(userFacingError(result.error, t('errors.generic')), 'error');
-      return;
-    }
-    setCoachModeDialog(null);
-  };
-
-  const openCoachRoster = () => {
-    selectAccountWorkspace('coaching');
-    setCoachModeDialog(null);
-    navigate('/clients');
-  };
-
   return (
     <PageTransition>
     <div className="px-4 pt-6 pb-4">
       <h1 className="text-2xl font-bold text-white mb-6">{t('profile.title')}</h1>
 
+      {/* Desktop already has the switcher in the side nav. */}
       {canCoach && context.personalToolsAvailable && (
-        <div className="mb-6">
+        <div className="mb-6 md:hidden">
           <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-2">{t('accountSpaces.label')}</p>
           <WorkspaceSwitcher />
         </div>
@@ -201,42 +169,12 @@ export default function ProfilePage() {
         </div>
       </Card>
 
-      {operator && (
-        <Card className="mb-6">
-          <Link to="/admin" className="w-full flex items-center gap-3 px-1 py-2.5 min-h-11 text-left text-sm text-white">
-            <Shield size={16} className="text-blue-400" /> {t('admin.profileLink')}
-          </Link>
-        </Card>
-      )}
-
       {(coached || inCoaching) && (
         <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-2">{t('profile.groups.coaching')}</p>
       )}
       {coached && (
         <Card className="mb-6 space-y-1">
-          <Link to="/photos" className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
-            <Camera size={16} className="text-blue-400" /> {t('nav.photos')}
-          </Link>
-          <Link to="/programs" className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
-            <CalendarRange size={16} className="text-blue-400" /> {t('nav.myProgram')}
-          </Link>
-          <Link to="/stats" className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
-            <BarChart2 size={16} className="text-blue-400" /> {t('nav.stats')}
-          </Link>
-          <Link to="/calendar" className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
-            <CalendarDays size={16} className="text-blue-400" /> {t('nav.calendar')}
-          </Link>
-          {tracking.track_nutrition && (
-            <Link to="/nutrition" className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
-              <Apple size={16} className="text-blue-400" /> {t('nav.nutrition')}
-            </Link>
-          )}
-          {tracking.track_weight && (
-            <Link to="/weight" className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
-              <Scale size={16} className="text-blue-400" /> {t('nav.weight')}
-            </Link>
-          )}
-          <Link to="/questionnaire" className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
+          <Link to="/questionnaire" className="w-full flex items-center gap-3 px-1 py-2.5 min-h-11 text-left text-sm text-white">
             <ClipboardList size={16} className="text-blue-400" /> {t('coachQuestionnaire.myTitle')}
           </Link>
           {!isIntakeAlreadyFilled(profile) && (
@@ -259,14 +197,25 @@ export default function ProfilePage() {
 
       {inCoaching && (
         <Card className="mb-6 space-y-1 md:hidden">
-          <Link to="/coach/profile" className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
+          <Link to="/coach/profile" className="w-full flex min-h-11 items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
             <User size={16} className="text-blue-400" /> {t('marketplace.profile')}
           </Link>
-          <Link to="/coaching-requests" className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
+          <Link to="/coaching-requests" className="w-full flex min-h-11 items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
             <Inbox size={16} className="text-blue-400" /> {t('marketplace.requests')}
           </Link>
-          <Link to="/coaches" className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
-            <Search size={16} className="text-blue-400" /> {t('marketplace.directory')}
+          {/* « Trouver un coach » is a personal step: it lives in the personal space, not here. */}
+          <Link to="/prometheus" className="w-full flex min-h-11 items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
+            <Sparkles size={16} className="text-blue-400" /> {t('nav.copilot')}
+          </Link>
+          <Link to="/coach/checkins" className="w-full flex min-h-11 items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
+            <ClipboardCheck size={16} className="text-blue-400" aria-hidden="true" />
+            {t('checkinPlan.templatesTitle')}
+          </Link>
+          <Link to="/coach/import" className="w-full flex min-h-11 items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
+            <Upload size={16} className="text-blue-400" /> {t('nav.importCsv')}
+          </Link>
+          <Link to="/coach/dossiers" className="w-full flex min-h-11 items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
+            <FolderOpen size={16} className="text-blue-400" /> {t('nav.provisionalDossiers')}
           </Link>
         </Card>
       )}
@@ -285,7 +234,24 @@ export default function ProfilePage() {
 
         {!inCoaching && (
         <AccordionSection id="goals" icon={Target} label={t('profile.sections.goalsTargets')} isOpen={openSection === 'goals'} onToggle={() => toggle('goals')} animationDelay="120ms">
+          {user && (
+            <div className="mb-6">
+              <GoalPanel userId={user.id} unit={profile?.unit_weight === 'lbs' ? 'lbs' : 'kg'} recomputeSoloTargets={!coached} talkHref={myCoach ? '/messages' : undefined} />
+            </div>
+          )}
           <GoalsForm onBack={() => setOpenSection(null)} inline />
+        </AccordionSection>
+        )}
+
+        {!inCoaching && user && (
+        <AccordionSection id="constraints" icon={Activity} label={t('constraints.title')} isOpen={openSection === 'constraints'} onToggle={() => toggle('constraints')} animationDelay="135ms">
+          <ConstraintsPanel userId={user.id} viewer="athlete" />
+        </AccordionSection>
+        )}
+
+        {!inCoaching && !coached && (
+        <AccordionSection id="modules" icon={LayoutList} label={t('modules.title')} isOpen={openSection === 'modules'} onToggle={() => toggle('modules')} animationDelay="150ms">
+          <PersonalModulesForm onDone={() => setOpenSection(null)} />
         </AccordionSection>
         )}
 
@@ -323,25 +289,16 @@ export default function ProfilePage() {
         </AccordionSection>
 
         {!inCoaching && (
-        <Card className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-neutral-800 flex items-center justify-center text-neutral-300">
-            <Users size={16} />
-          </div>
-          <div className="flex-1">
-            <p className="text-sm font-medium text-white">{t('coaching.coachMode')}</p>
-            <p className="text-[11px] text-neutral-500">{t('coaching.coachModeHint')}</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => { void handleCoachModeToggle(); }}
-            disabled={coachModeBusy}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium ${
-              canCoach ? 'bg-blue-600 text-white' : 'bg-neutral-800 text-neutral-300'
-            }`}
-          >
-            {canCoach ? t('common.on') : t('common.off')}
-          </button>
-        </Card>
+        <Link to="/import" className="flex min-h-11 items-center gap-3 rounded-2xl bg-neutral-900 px-4 text-sm text-white" data-testid="personal-import-link">
+          <Upload size={16} className="text-neutral-300" aria-hidden="true" />
+          {t('coaching.importCsv.personalTitle')}
+        </Link>
+        )}
+        {!inCoaching && (
+        <Link to="/become-coach" className="flex min-h-11 items-center gap-3 rounded-2xl bg-neutral-900 px-4 text-sm text-white">
+          <Users size={16} className="text-neutral-300" />
+          {canCoach ? t('coaching.coachMode') : t('coaching.becomeCoach')}
+        </Link>
         )}
 
       </div>
@@ -354,6 +311,11 @@ export default function ProfilePage() {
       </Button>
 
       <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mt-6 mb-2">{t('profile.groups.advanced')}</p>
+      {operator && (
+        <Link to="/admin" className="mb-3 flex min-h-11 items-center gap-3 text-sm text-neutral-400">
+          <Shield size={16} /> {t('admin.profileLink')}
+        </Link>
+      )}
       <AccessCard userId={user?.id} isCoach={canCoach} />
       <DataControlPanel
         hasCoach={!!myCoach}
@@ -368,42 +330,13 @@ export default function ProfilePage() {
         {t('profile.deleteAccount')}
       </button>
 
-      <Modal
-        open={coachModeDialog != null}
-        onClose={() => setCoachModeDialog(null)}
-        title={coachModeDialog && coachModeDialog.count > 0
-          ? t('coaching.disableMode.blockedTitle')
-          : t('coaching.disableMode.title')}
-      >
-        {coachModeDialog && (
-          <div className="space-y-4">
-            <p className="text-sm text-neutral-300">
-              {coachModeDialog.count > 0
-                ? t('coaching.disableMode.blockedBody', { count: coachModeDialog.count })
-                : t('coaching.disableMode.bodyZero')}
-            </p>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Button variant="secondary" onClick={() => setCoachModeDialog(null)} className="flex-1" disabled={coachModeBusy}>
-                {coachModeDialog.count > 0 ? t('coaching.disableMode.understood') : t('common.cancel')}
-              </Button>
-              {coachModeDialog.count > 0 ? (
-                <Button onClick={openCoachRoster} className="flex-1">
-                  {t('coaching.disableMode.seeClients')}
-                </Button>
-              ) : (
-                <Button onClick={() => { void confirmDisableCoachMode(); }} className="flex-1" disabled={coachModeBusy} loading={coachModeBusy}>
-                  {t('coaching.disableMode.confirmZero')}
-                </Button>
-              )}
-            </div>
-          </div>
-        )}
-      </Modal>
-
       <Modal open={showDeleteModal} onClose={() => setShowDeleteModal(false)} title={t('profile.deleteModal.title')}>
         <div className="space-y-4">
           <p className="text-sm text-neutral-300">
-            {t('profile.deleteModal.confirmText')} <span className="text-rose-400 font-medium">{t('common.cannotBeUndone')}</span>
+            {t('profile.deleteModal.confirmText')}
+          </p>
+          <p className="text-sm text-neutral-400" data-testid="delete-window">
+            {t('profile.deleteModal.window', { count: ACCOUNT_DELETION_WINDOW_DAYS })}
           </p>
           <div>
             <label className="block text-xs text-neutral-500 mb-1.5">

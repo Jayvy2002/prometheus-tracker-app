@@ -1,51 +1,22 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Dumbbell, Scale, Flame, X, ClipboardCheck } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useClientTracking } from '@/features/coaching/hooks/useClientTracking';
-import { useProgramStore } from '../../stores/programStore';
-import { useWorkoutStore } from '../../stores/workoutStore';
-import { useProgramCivilClock } from '../../features/programs/hooks/useProgramCivilClock';
-import { isProgramDayDue, resolveAssignmentGymCard } from '../../lib/clientGym';
+import { quickAddActions } from '@/app/navigation/navConfig';
 
-interface FABAction {
-  label: string;
-  icon: typeof Dumbbell;
-  onClick: () => void;
-}
-
-export default function FAB() {
+export default function FAB({ raised = false }: { raised?: boolean }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const tracking = useClientTracking();
   const [open, setOpen] = useState(false);
-  const assignment = useProgramStore(s => s.assignment);
-  const workouts = useWorkoutStore(s => s.workouts);
-  const programClock = useProgramCivilClock();
-  const gymDue = isProgramDayDue(resolveAssignmentGymCard({
-    assignment,
-    workouts,
-    todayWeekday: programClock.weekday,
-    todayDate: programClock.today,
-  }));
 
-  const actions: FABAction[] = [
-    ...(tracking.track_workouts ? [{
-      label: gymDue ? t('nav.addWorkoutOffPlan') : t('nav.addWorkout'),
-      icon: Dumbbell,
-      onClick: () => {
-        navigate('/workout/new', { state: gymDue ? { offPlan: true } : undefined });
-        setOpen(false);
-      },
-    }] : []),
-    ...(tracking.track_checkins ? [{
-      label: t('nav.addCheckin'),
-      icon: ClipboardCheck,
-      onClick: () => { navigate('/checkin'); setOpen(false); },
-    }] : []),
-    ...(tracking.track_weight ? [{ label: t('nav.addWeight'), icon: Scale, onClick: () => { navigate('/weight?log=1'); setOpen(false); } }] : []),
-    ...(tracking.track_nutrition ? [{ label: t('nav.addMeal'), icon: Flame, onClick: () => { navigate('/nutrition?add=1'); setOpen(false); } }] : []),
-  ];
+  // One source for mobile and desktop quick add (navConfig), not a second list.
+  const actions = quickAddActions(tracking).map(action => ({
+    label: t(action.labelKey),
+    icon: action.icon,
+    onClick: () => { navigate(action.path, action.state ? { state: action.state } : undefined); setOpen(false); },
+  }));
 
   if (actions.length === 0) return null;
 
@@ -58,7 +29,9 @@ export default function FAB() {
         />
       )}
 
-      <div className="md:hidden fixed left-1/2 z-50 flex -translate-x-1/2 flex-col items-center gap-2 bottom-[calc(4.75rem+env(safe-area-inset-bottom))]">
+      <div className={`md:hidden fixed left-1/2 z-50 flex -translate-x-1/2 flex-col items-center gap-2 ${raised
+        ? 'bottom-[calc(8.25rem+env(safe-area-inset-bottom))]'
+        : 'bottom-[calc(4.75rem+env(safe-area-inset-bottom))]'}`}>
         {open && (
           <div className="flex flex-col items-center gap-2 mb-1 animate-fade-in-up">
             {actions.map((action, i) => {
@@ -81,11 +54,14 @@ export default function FAB() {
         )}
 
         <button
+          type="button"
+          aria-label={t('nav.quickAdd')}
+          aria-expanded={open}
           onClick={() => setOpen(o => !o)}
           className={`w-14 h-14 rounded-full shadow-2xl flex items-center justify-center transition-all duration-200 active:scale-95
             ${open ? 'bg-neutral-800 border border-neutral-600 rotate-45' : 'bg-blue-600 hover:bg-blue-500 shadow-blue-900/40'}`}
         >
-          {open ? <X size={22} className="text-white" /> : <Plus size={22} className="text-white" />}
+          <Plus size={22} className="text-white" aria-hidden="true" />
         </button>
       </div>
     </>

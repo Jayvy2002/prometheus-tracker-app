@@ -42,3 +42,10 @@ Mutex `20014507` : une confirmation et un commit du même dossier se sérialisen
 ## Provenance
 
 `coach_provisional_claims` conserve le coach (`user:<uuid>`), l’e-mail, les comptes et le statut de coaching. Les identifiants provisoires restent dans les tables de rattachement même après suppression du staging.
+
+## Passage d’audit (PR #221, pending)
+
+- Confirmer exige la révision de l’aperçu vu par la personne. Si le Coach a changé le dossier depuis, ou si aucune révision n’est fournie, `confirm_provisional_claim` échoue `content_changed` et n’écrit rien.
+- Après rattachement, le Coach ne lit les lignes CSV du dossier que si un suivi est actif avec cette personne. Rattacher sans suivi ne donne aucun accès.
+- Supprimer le compte rattaché (trigger `account_deletion_guard` sur `auth.users`) supprime ses copies provisoires restantes et ferme le dossier (`revoked`). Les lignes de `coach_provisional_claim_sources` restent comme provenance.
+- Supprimer un dossier ne supprime pas l’import commité : `provisional_dossier_id` passe à null et la provenance reste.

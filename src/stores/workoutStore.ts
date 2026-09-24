@@ -21,9 +21,10 @@ import { migrateFieldDraftIds } from '../lib/fieldDraftKeys';
 import { parseDate, toLocalDateStr } from '../lib/utils';
 import { track } from '../lib/telemetryClient';
 import { useStreakStore } from './streakStore';
-import { offlineTempId, isOfflineTempId } from '../features/workout/data/offlineIds';
+import { offlineTempId, isOfflineTempId, referencesOfflineTempId } from '../features/workout/data/offlineIds';
 import { loadFullWorkout, type ExerciseSession, type PreviousSet } from '../features/workout/data/loadFullWorkout';
 import { replayOfflineOp } from '../features/workout/data/replayOfflineOp';
+import { buildOfflineStartedWorkout, type OfflineStartInput } from '../features/workout/domain/offlineStart';
 
 export { offlineTempId, isOfflineTempId } from '../features/workout/data/offlineIds';
 export type { ExerciseSession } from '../features/workout/data/loadFullWorkout';
@@ -88,6 +89,10 @@ async function guardedMutation(
     return { error: null as string | null, queued: true };
   };
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return queueIt();
+  // A temporary id only exists locally until its create op replays: sending it
+  // now would fail on the server and lose the edit. It waits in the queue,
+  // behind the op that will give it a real id.
+  if (referencesOfflineTempId(payload)) return queueIt();
   try {
     const { error } = await send();
     if (!error) {
@@ -123,6 +128,8 @@ interface WorkoutState {
   fetchWorkout: (workoutId: string) => Promise<void>;
   peekWorkout: (workoutId: string) => Promise<Workout | null>;
   createWorkout: (workout: Partial<Workout>) => Promise<string | null>;
+  /** Vision §26 : séance prévue démarrée sans réseau, rejouée plus tard sans doublon. */
+  startTemplateOffline: (input: Omit<OfflineStartInput, 'opId' | 'userId'>) => string | null;
   updateWorkout: (id: string, data: Partial<Workout>) => Promise<{ error: string | null }>;
   reset: () => void;
   deleteWorkout: (id: string) => Promise<void>;
@@ -133,6 +140,7 @@ interface WorkoutState {
     prescribed_rir?: number | null;
     prescribed_rest_seconds?: number | null;
     prescribed_weight_kg?: number | null;
+    catalog_exercise_id?: string | null;
   }) => Promise<WorkoutExercise | null>;
   updateExercise: (id: string, data: Partial<WorkoutExercise>) => Promise<void>;
   deleteExercise: (id: string) => Promise<void>;
@@ -144,8 +152,8 @@ interface WorkoutState {
   setCurrentWorkout: (w: Workout | null) => void;
   linkSuperset: (exerciseIds: string[]) => Promise<void>;
   unlinkSuperset: (exerciseId: string) => Promise<void>;
-  fetchPreviousSets: (userId: string, exerciseName: string, currentWorkoutId: string) => Promise<PreviousSet[]>;
-  fetchExerciseHistory: (userId: string, exerciseName: string, currentWorkoutId: string, limit?: number) => Promise<ExerciseSession[]>;
+  fetchPreviousSets: (userId: string, exerciseName: string, currentWorkoutId: string, catalogExerciseId?: string | null) => Promise<PreviousSet[]>;
+  fetchExerciseHistory: (userId: string, exerciseName: string, currentWorkoutId: string, limit?: number, catalogExerciseId?: string | null) => Promise<ExerciseSession[]>;
 }
 
 let drainInFlight = false;
@@ -316,6 +324,24 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
     return full;
   },
 
+  startTemplateOffline: (input) => {
+    const owner = getSessionOwner();
+    if (!owner) return null;
+    const op = takeQueuedOp('workout.startTemplate', {
+      name: input.name,
+      date: input.date,
+      routineId: input.routineId ?? null,
+      programAssignmentId: input.programAssignmentId ?? null,
+      programDayId: input.programDayId ?? null,
+      exercises: input.exercises,
+    }, owner);
+    if (!op) return null;
+    const temp = buildOfflineStartedWorkout({ ...input, opId: op.id, userId: owner });
+    setCacheItem(workoutCacheKey(temp.id), temp);
+    set(s => ({ workouts: [temp, ...s.workouts], currentWorkout: temp, ...queueCounts(owner) }));
+    return temp.id;
+  },
+
   createWorkout: async (workout) => {
     // D07 : op créée d'abord (client_op_id stable) — succès serveur = on la retire.
     const owner = getSessionOwner();
@@ -425,6 +451,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
       prescribed_rest_seconds: extras?.prescribed_rest_seconds ?? null,
       prescribed_weight_kg: extras?.prescribed_weight_kg ?? null,
       prescription_source: 'user' as const,
+      catalog_exercise_id: extras?.catalog_exercise_id ?? null,
     };
     const op = takeQueuedOp('exercise.add', { workoutId, exercise: { ...exercise } }, owner);
     const { data, error } = await supabase
@@ -790,13 +817,17 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
     );
   },
 
-  fetchPreviousSets: async (userId, exerciseName, currentWorkoutId) => {
-    const { data: exercises } = await supabase
+  fetchPreviousSets: async (userId, exerciseName, currentWorkoutId, catalogExerciseId) => {
+    const base = supabase
       .from('workout_exercises')
       .select('id, workout_id, workouts!inner(user_id, date)')
       .eq('workouts.user_id', userId)
-      .ilike('name', exerciseName)
       .neq('workout_id', currentWorkoutId);
+    // A catalog exercise is matched by its catalog id, so accents or case in the
+    // logged name never split its history (« Developpe couche » / « Développé couché »).
+    const { data: exercises } = await (catalogExerciseId
+      ? base.eq('catalog_exercise_id', catalogExerciseId)
+      : base.ilike('name', exerciseName));
 
     if (!exercises || exercises.length === 0) return [];
 
@@ -817,13 +848,17 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
     return (sets ?? []) as PreviousSet[];
   },
 
-  fetchExerciseHistory: async (userId, exerciseName, currentWorkoutId, limit = 5) => {
-    const { data: exercises } = await supabase
+  fetchExerciseHistory: async (userId, exerciseName, currentWorkoutId, limit = 5, catalogExerciseId) => {
+    const base = supabase
       .from('workout_exercises')
       .select('id, workout_id, workouts!inner(user_id, date)')
       .eq('workouts.user_id', userId)
-      .ilike('name', exerciseName)
       .neq('workout_id', currentWorkoutId);
+    // A catalog exercise is matched by its catalog id, so accents or case in the
+    // logged name never split its history (« Developpe couche » / « Développé couché »).
+    const { data: exercises } = await (catalogExerciseId
+      ? base.eq('catalog_exercise_id', catalogExerciseId)
+      : base.ilike('name', exerciseName));
 
     if (!exercises || exercises.length === 0) return [];
 

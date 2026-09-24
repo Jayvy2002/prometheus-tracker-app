@@ -108,7 +108,7 @@ export function parseCsvText(input: string, delimiter?: ',' | ';' | '\t'): Parse
     if (ch === '\n') {
       cells.push(cell);
       cell = '';
-      if (cells.some((value) => value.trim() !== '') || rows.length === 0) {
+      if (cells.some((value) => value.trim() !== '')) {
         rows.push(cells);
       }
       cells = [];
@@ -122,7 +122,7 @@ export function parseCsvText(input: string, delimiter?: ',' | ';' | '\t'): Parse
     throw new CsvParseError('malformed_csv', 'unclosed quote');
   }
   cells.push(cell);
-  if (cells.some((value) => value.trim() !== '') || rows.length === 0) {
+  if (cells.some((value) => value.trim() !== '')) {
     rows.push(cells);
   }
   if (rows.length < 2) {

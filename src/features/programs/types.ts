@@ -8,6 +8,7 @@ export type { ProgramPhaseDraft } from './domain/programPhases';
 
 export interface ProgramExerciseDraft {
   name: string;
+  catalog_exercise_id?: string | null;
   default_sets: number;
   default_reps: number;
   default_reps_min?: number | null;
@@ -109,6 +110,7 @@ export interface ProgramDayExercise {
   id: string;
   program_day_id: string;
   name: string;
+  catalog_exercise_id?: string | null;
   default_sets: number;
   default_reps: number;
   default_reps_min?: number | null;

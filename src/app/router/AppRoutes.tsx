@@ -1,4 +1,6 @@
-import { lazy, Suspense } from 'react';
+import { useAccountDeletion } from '../../features/account/hooks/useAccountDeletion';
+import { blocksApp } from '../../features/account/domain/accountDeletion';
+import { lazy, Suspense, useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
@@ -17,7 +19,6 @@ import { useAuthenticatedSession } from '../bootstrap/useAuthenticatedSession';
 import {
   CoachOnly,
   CoachTrackerRedirect,
-  CoachedAthleteRedirect,
   RouteFallback,
 } from '../guards/RouteGuards';
 
@@ -26,7 +27,10 @@ const OnboardingFlow = lazy(() => import('../../components/onboarding/Onboarding
 const KinesiologyIntakeFlow = lazy(() => import('../../components/onboarding/KinesiologyIntakeFlow'));
 const EntryIntentionPage = lazy(() => import('../../components/onboarding/EntryIntentionPage'));
 const WorkoutPage = lazy(() => import('../../components/workout/WorkoutPage'));
-const WorkoutForm = lazy(() => import('../../components/workout/WorkoutForm'));
+// Vision §26: the session logger must open without network. Its chunk is
+// fetched once the app is idle so the service worker already holds it.
+const loadWorkoutForm = () => import('../../components/workout/WorkoutForm');
+const WorkoutForm = lazy(loadWorkoutForm);
 const ExerciseProgressPage = lazy(() => import('../../components/workout/ExerciseProgressPage'));
 const StatsPage = lazy(() => import('../../components/stats/StatsPage'));
 const RoutinesPage = lazy(() => import('../../components/routines/RoutinesPage'));
@@ -34,8 +38,13 @@ const WeightPage = lazy(() => import('../../components/weight/WeightPage'));
 const NutritionPage = lazy(() => import('../../components/nutrition/NutritionPage'));
 const ScannerPage = lazy(() => import('../../components/scanner/ScannerPage'));
 const ProfilePage = lazy(() => import('../../components/profile/ProfilePage'));
+const BecomeCoachPage = lazy(() => import('../../components/profile/BecomeCoachPage'));
 const AdminPage = lazy(() => import('../../components/admin/AdminPage'));
 const CalendarPage = lazy(() => import('../../components/calendar/CalendarPage'));
+const AccountDeletionPendingPage = lazy(() => import('../../components/profile/AccountDeletionPendingPage'));
+const BodyHub = lazy(() => import('../../components/navigation/BodyHub'));
+const SuiviHub = lazy(() => import('../../components/navigation/SuiviHub'));
+const WatchPage = lazy(() => import('../../components/navigation/WatchPage'));
 const RecipesPage = lazy(() => import('../../components/nutrition/RecipesPage'));
 const CheckInPage = lazy(() => import('../../components/checkin/CheckInPage'));
 const ClientsPage = lazy(() => import('../../components/coaching/ClientsPage'));
@@ -51,6 +60,8 @@ const CoachInboxPage = lazy(() => import('../../components/coaching/CoachInboxPa
 const ClientMessagesPage = lazy(() => import('../../components/coaching/ClientMessagesPage'));
 const ClientPhotosPage = lazy(() => import('../../components/coaching/ClientPhotosPage'));
 const CoachQuestionnairePage = lazy(() => import('../../components/coaching/CoachQuestionnairePage'));
+const CheckinTemplatesPage = lazy(() => import('../../components/checkin/CheckinTemplatesPage'));
+const CheckinSettingsPage = lazy(() => import('../../components/checkin/CheckinSettingsPage'));
 const ClientQuestionnairePanel = lazy(() => import('../../components/onboarding/ClientQuestionnairePanel'));
 const CoachLearnedPage = lazy(() => import('../../components/coaching/CoachLearnedPage'));
 const CoachImportPage = lazy(() => import('../../components/coaching/CoachImportPage'));
@@ -113,6 +124,16 @@ export default function AppRoutes() {
     pendingInvite,
     pendingDossier,
   } = session;
+  // Vision §30: a pending deletion shows only the recovery screen.
+  const deletion = useAccountDeletion(user?.id);
+
+  useEffect(() => {
+    if (!user) return;
+    const w = window as Window & { requestIdleCallback?: (cb: () => void) => number };
+    const prefetch = () => { void loadWorkoutForm().catch(() => undefined); };
+    if (w.requestIdleCallback) w.requestIdleCallback(prefetch);
+    else window.setTimeout(prefetch, 1500);
+  }, [user]);
 
   if (authLoading || !initialized) {
     return (
@@ -193,6 +214,18 @@ export default function AppRoutes() {
     );
   }
 
+  if (user && !deletion.ready) {
+    return <RouteFallback />;
+  }
+
+  if (user && blocksApp(deletion.state)) {
+    return (
+      <Suspense fallback={<RouteFallback />}>
+        <AccountDeletionPendingPage state={deletion.state} busy={deletion.busy} onCancel={deletion.cancel} />
+      </Suspense>
+    );
+  }
+
   if (
     profile
     && 'entry_intent' in profile
@@ -268,14 +301,20 @@ export default function AppRoutes() {
       <Route element={<AppLayout />}>
         <Route path="/dashboard" element={<HomeDashboard />} />
         <Route path="/workout" element={<CoachTrackerRedirect><TrackingGate module="workouts"><WorkoutPage /></TrackingGate></CoachTrackerRedirect>} />
+        <Route path="/body" element={<CoachTrackerRedirect><BodyHub /></CoachTrackerRedirect>} />
+        <Route path="/suivi" element={<CoachTrackerRedirect><SuiviHub /></CoachTrackerRedirect>} />
+        <Route path="/watch" element={<CoachTrackerRedirect><WatchPage /></CoachTrackerRedirect>} />
         <Route path="/nutrition" element={<CoachTrackerRedirect><TrackingGate module="nutrition"><NutritionPage /></TrackingGate></CoachTrackerRedirect>} />
         <Route path="/weight" element={<CoachTrackerRedirect><TrackingGate module="weight"><WeightPage /></TrackingGate></CoachTrackerRedirect>} />
         <Route path="/calendar" element={<CoachTrackerRedirect><CalendarPage /></CoachTrackerRedirect>} />
         <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/become-coach" element={<BecomeCoachPage />} />
         <Route path="/admin" element={<AdminPage />} />
         <Route path="/exercise-progress" element={<CoachTrackerRedirect><ExerciseProgressPage /></CoachTrackerRedirect>} />
+        <Route path="/progress/exercise/:exerciseName" element={<CoachTrackerRedirect><ExerciseProgressPage /></CoachTrackerRedirect>} />
         <Route path="/stats" element={<CoachTrackerRedirect><StatsPage /></CoachTrackerRedirect>} />
         <Route path="/checkin" element={<CoachTrackerRedirect><TrackingGate module="checkins"><CheckInPage /></TrackingGate></CoachTrackerRedirect>} />
+        <Route path="/checkin/settings" element={<CoachTrackerRedirect><TrackingGate module="checkins"><CheckinSettingsPage /></TrackingGate></CoachTrackerRedirect>} />
         <Route path="/clients" element={<CoachOnly><ClientsPage /></CoachOnly>} />
         <Route path="/clients/:id" element={<CoachOnly><ActiveRelationshipBoundary><ClientDetailPage /></ActiveRelationshipBoundary></CoachOnly>} />
         <Route path="/clients/:id/setup" element={<CoachOnly><ActiveRelationshipBoundary><ClientSetupPage /></ActiveRelationshipBoundary></CoachOnly>} />
@@ -286,20 +325,22 @@ export default function AppRoutes() {
         <Route path="/photos" element={<CoachTrackerRedirect><ClientPhotosPage /></CoachTrackerRedirect>} />
         <Route path="/prometheus" element={<CoachOnly><AskPrometheusPage /></CoachOnly>} />
         <Route path="/coach/questionnaire" element={<CoachOnly><CoachQuestionnairePage key={user.id} /></CoachOnly>} />
+        <Route path="/coach/checkins" element={<CoachOnly><CheckinTemplatesPage key={user.id} /></CoachOnly>} />
         <Route path="/questionnaire" element={<AthleteQuestionnairePage key={user.id} />} />
         <Route path="/coach/learned" element={<CoachOnly><CoachLearnedPage /></CoachOnly>} />
         <Route path="/coach/import" element={<CoachOnly><CoachImportPage /></CoachOnly>} />
+        {/* Vision §24.1: same engine, « pour moi », for Solo, Coaché and Coach alike. */}
+        <Route path="/import" element={<CoachImportPage personal />} />
         <Route path="/coach/dossiers" element={<CoachOnly><CoachDossiersPage /></CoachOnly>} />
         <Route path="/programs" element={<ProgramsHome />} />
         <Route path="/programs/new" element={<CoachOnly><ProgramEditorPage /></CoachOnly>} />
         <Route path="/programs/:id" element={<CoachOnly><ProgramEditorPage /></CoachOnly>} />
+        {/* Routines: Solo and Coaché alike (Vision §7.1). A coach's program never forbids another routine. */}
+        <Route path="/routines" element={<CoachTrackerRedirect><TrackingGate module="workouts"><RoutinesPage /></TrackingGate></CoachTrackerRedirect>} />
         <Route path="/recipes" element={<CoachTrackerRedirect><TrackingGate module="nutrition"><RecipesPage /></TrackingGate></CoachTrackerRedirect>} />
       </Route>
       <Route path="/workout/new" element={<CoachTrackerRedirect><TrackingGate module="workouts"><WorkoutForm /></TrackingGate></CoachTrackerRedirect>} />
       <Route path="/workout/:id" element={<CoachTrackerRedirect><TrackingGate module="workouts"><WorkoutForm /></TrackingGate></CoachTrackerRedirect>} />
-      <Route path="/routines" element={<AppLayout />}>
-        <Route index element={<CoachTrackerRedirect><CoachedAthleteRedirect><RoutinesPage /></CoachedAthleteRedirect></CoachTrackerRedirect>} />
-      </Route>
       <Route path="/scanner" element={<CoachTrackerRedirect><TrackingGate module="nutrition"><ScannerPage /></TrackingGate></CoachTrackerRedirect>} />
       <Route path="/intake" element={<KinesiologyIntakeFlow allowExit />} />
       <Route path="/invite/:token" element={<InvitePage />} />

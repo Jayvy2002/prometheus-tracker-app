@@ -6,6 +6,9 @@ import type { ClientLiftProgress } from '../../lib/types';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { liftChartPoints } from '../../lib/coachProgress';
 import { isCompletedSet } from '../../lib/performedSets';
+import { displayBestSet } from '../../lib/coachLifts';
+import { formatLoad } from '../../lib/utils';
+import { useProfileStore } from '../../stores/profileStore';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import { toast } from '../ui/Toast';
@@ -28,6 +31,7 @@ export default function ExerciseWorkspace({
   const { t } = useTranslation();
   const navigate = useNavigate();
   const askCoachAgent = useCoachingStore(s => s.askCoachAgent);
+  const unit = useProfileStore(s => s.profile?.unit_weight === 'lbs' ? 'lbs' : 'kg');
   const [saving, setSaving] = useState<CopilotAction | null>(null);
 
   const sessions = lift.sessions.slice(0, 6);
@@ -91,11 +95,11 @@ export default function ExerciseWorkspace({
         {sessions.map(s => (
           <Card key={`${s.workoutId}-${s.date}`} className="!p-3">
             <p className="text-xs text-neutral-500">{s.date} · {s.workoutName}</p>
-            <p className="text-sm text-white mt-1">{s.bestSet}{s.avgRir != null ? ` · RIR ${s.avgRir}` : ''}</p>
+            <p className="text-sm text-white mt-1">{displayBestSet(s, unit)}{s.avgRir != null ? ` · RIR ${s.avgRir}` : ''}</p>
             <div className="mt-1 space-y-0.5">
               {s.sets.filter(isCompletedSet).map((set, i) => (
                 <p key={i} className="text-[11px] text-neutral-400">
-                  {i + 1}. {set.weight_kg}kg × {set.reps}{set.rir ? ` @ RIR ${set.rir}` : ''}
+                  {i + 1}. {formatLoad(set.weight_kg, unit)} × {set.reps}{set.rir ? ` @ RIR ${set.rir}` : ''}
                 </p>
               ))}
             </div>
@@ -112,7 +116,7 @@ export default function ExerciseWorkspace({
           <p className="text-sm text-neutral-200">
             {t('coaching.workspace.observation', {
               lift: lift.displayName,
-              last: last?.bestSet ?? '—',
+              last: last ? displayBestSet(last, unit) : '—',
               n: sessions.length,
             })}
           </p>

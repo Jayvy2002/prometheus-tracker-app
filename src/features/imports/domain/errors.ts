@@ -43,9 +43,34 @@ const IMPORT_ERROR_KEYS = [
 
 export type ImportErrorCode = (typeof IMPORT_ERROR_KEYS)[number];
 
+export function importErrorCode(message: string | null | undefined): string {
+  if (!message) return 'generic';
+  const exact = IMPORT_ERROR_KEYS.find((code) => message === code);
+  if (exact) return exact;
+  const contained = IMPORT_ERROR_KEYS.find((code) => message.includes(code));
+  return contained ?? 'generic';
+}
+
 export function importErrorI18nKey(code: string | null | undefined): string {
   if (code && (IMPORT_ERROR_KEYS as readonly string[]).includes(code)) {
     return `coaching.importCsv.errors.${code}`;
   }
   return 'coaching.importCsv.errors.generic';
+}
+
+/** Failures worth an operator's look. Business outcomes are not incidents. */
+const INCIDENT_CODES: readonly string[] = [
+  'generic',
+  'file_too_large',
+  'too_many_rows',
+  'too_many_columns',
+  'cell_too_long',
+  'header_missing',
+  'malformed_csv',
+  'duplicate_header',
+  'invalid_mapping',
+];
+
+export function isImportIncident(code: string): boolean {
+  return INCIDENT_CODES.includes(code);
 }

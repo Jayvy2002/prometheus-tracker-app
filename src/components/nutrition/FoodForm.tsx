@@ -20,6 +20,7 @@ import { useFoodCatalogSearch } from '../../lib/useFoodCatalogSearch';
 import { kcalFromEnergyValue, productLogDraft, rescaleNutritionMacros } from '../../lib/foodEnergy';
 import { foodProvenanceKey, foodProvenanceKind } from '../../lib/foodProvenance';
 import { optionLabel } from '../../lib/optionLabels';
+import { formatDateShort, todayStr } from '../../lib/utils';
 
 type Tab = 'search' | 'recent' | 'favorites' | 'recipes';
 
@@ -44,7 +45,9 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
   const tracking = useClientTracking();
   const { recipes, fetchRecipes } = useRecipeStore();
 
-  const [tab, setTab] = useState<Tab>('search');
+  // A new user has no recent food: open on search, not on an empty list.
+  const [tab, setTab] = useState<Tab>(() => (recentProducts.length > 0 ? 'recent' : 'search'));
+  const [portionOpen, setPortionOpen] = useState(Boolean(prefill));
   const catalog = useFoodCatalogSearch(tab === 'search', i18n.language);
   // D04 : état initial cohérent avec le contrat produit → saisie (pas de flash per-100g).
   const [name, setName] = useState(prefill?.name ?? '');
@@ -141,6 +144,7 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
     setUnit(draft.unit);
     snapshotBasis(draft.quantity, draft.unit, draft.calories, draft.protein, draft.carbs, draft.fat);
     catalog.resetSearch();
+    setPortionOpen(true);
   };
 
   const selectFavorite = (f: FoodFavorite) => {
@@ -172,7 +176,7 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
     setUnit('serving');
     snapshotBasis(1, 'serving', r.calories_per_serving, r.protein_per_serving, r.carbs_per_serving, r.fat_per_serving);
     setSelectedProduct(null);
-    setTab('search');
+    setPortionOpen(true);
   };
 
   const handleScannerResult = (product: FoodProduct, confidence?: number) => {
@@ -262,7 +266,15 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
     <div className="fixed inset-0 z-50 bg-black overflow-y-auto animate-fade-in">
       <div className="max-w-lg mx-auto px-4 py-6 animate-fade-in-up">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-xl font-bold text-white">{t('nutrition.foodForm.title')}</h2>
+          <div className="min-w-0">
+            <h2 className="text-xl font-bold text-white">{t('nutrition.foodForm.title')}</h2>
+            {/* Which meal (and which day) this food goes to, before anything is picked. */}
+            <p className="text-sm text-neutral-400" data-testid="food-form-meal">
+              {date === todayStr()
+                ? t('nutrition.foodForm.forMeal', { meal: optionLabel(t, 'meals', activeCategory, activeCategory) })
+                : t('nutrition.foodForm.forMealOn', { meal: optionLabel(t, 'meals', activeCategory, activeCategory), date: formatDateShort(date, i18n.language) })}
+            </p>
+          </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowScanner(true)}
@@ -270,18 +282,20 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
               title={t('nutrition.foodForm.openScanner')}
             >
               <ScanLine size={14} />
-              Scanner
+              {t('nutrition.foodForm.scanner')}
             </button>
             <button onClick={onClose} className="text-neutral-400 hover:text-white text-sm transition-colors">{t('common.cancel')}</button>
           </div>
         </div>
 
+        {!portionOpen && (
+        <>
         <div className="flex gap-1 mb-5 bg-neutral-900 rounded-xl p-1">
           {tabList.map(tabItem => (
             <button
               key={tabItem.id}
               onClick={() => setTab(tabItem.id)}
-              className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-medium transition-all
+              className={`flex-1 flex items-center justify-center gap-1 min-h-11 rounded-lg text-sm font-medium transition-all
                 ${tab === tabItem.id ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
             >
               <tabItem.Icon size={11} />
@@ -358,7 +372,7 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
                 {recentProducts.slice(0, recentDisplayCount).map((p, i) => (
                   <button
                     key={i}
-                    onClick={() => { selectProduct(p); setTab('search'); }}
+                    onClick={() => { void selectProduct(p); }}
                     className="w-full text-left px-3 py-2.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 transition-colors border border-neutral-800"
                   >
                     <div className="flex items-center gap-2">
@@ -450,7 +464,24 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
           </div>
         )}
 
+        <button
+          type="button"
+          className="mb-4 min-h-11 w-full rounded-xl border border-neutral-800 text-sm text-neutral-200"
+          onClick={() => {
+            setSelectedProduct(null);
+            setPortionOpen(true);
+          }}
+        >
+          {t('nutrition.foodForm.quickAdd')}
+        </button>
+        </>
+        )}
+
+        {portionOpen && (
         <div className="space-y-4">
+          <button type="button" className="min-h-11 text-sm text-neutral-300" onClick={() => setPortionOpen(false)}>
+            {t('nutrition.foodForm.backToList')}
+          </button>
           <div>
             <p className="text-xs font-medium text-neutral-400 mb-2">{t('nutrition.foodForm.addToMeal')}</p>
             <div className="grid grid-cols-4 gap-1">
@@ -458,7 +489,7 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
                 <button
                   key={c.value}
                   onClick={() => setActiveCategory(c.value)}
-                  className={`py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  className={`min-h-11 rounded-lg text-sm font-medium transition-all ${
                     activeCategory === c.value
                       ? 'bg-blue-600 text-white'
                       : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 border border-neutral-800'
@@ -533,7 +564,7 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
               }}
               className="text-xs text-blue-400 hover:text-blue-300 transition-colors -mt-1"
             >
-              → 1 serving ({selectedProduct.serving_size} {selectedProduct.serving_unit})
+              {t('nutrition.foodForm.oneServing', { size: selectedProduct.serving_size, unit: selectedProduct.serving_unit })}
             </button>
           )}
 
@@ -604,7 +635,7 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
             return (
               <div className="bg-blue-600/10 border border-blue-500/30 rounded-xl p-3 text-sm space-y-1">
                 <p className="text-blue-400 font-medium">
-                  {t('nutrition.foodForm.total')} {itemCal} cal | P: {itemP}g | C: {itemC}g | F: {itemF}g
+                  {t('nutrition.foodForm.macroLine', { cal: itemCal, p: itemP, c: itemC, f: itemF })}
                 </p>
                 <p className="text-xs text-neutral-400">
                   {t('nutrition.foodForm.remainingAfter')}: {remainCal} kcal · P {Math.round(remainP)}g · C {Math.round(remainC)}g · F {Math.round(remainF)}g
@@ -615,6 +646,7 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
 
           <Button onClick={handleSave} loading={saving} className="w-full">{t('common.save')}</Button>
         </div>
+        )}
       </div>
     </div>
   );

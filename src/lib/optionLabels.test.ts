@@ -93,7 +93,8 @@ test('0A leftover toasts and unit ranges come from i18n keys, not English fragme
   assert.doesNotMatch(weight, /label: 'All'/);
   assert.doesNotMatch(weight, /value: 'Goal'/);
   assert.match(goals, /profile\.goals\.errors\.waterInvalidRange/);
-  assert.match(goals, /profile\.goals\.errors\.weightInvalidRange/);
+  // The target weight now lives with the goal it belongs to (Vision §6).
+  assert.match(src('src/components/goals/GoalPanel.tsx'), /goals\.errors\.targetWeight/);
   assert.doesNotMatch(goals, /500–10 000 ml/);
   assert.match(units, /userFacingError/);
   assert.match(intake, /userFacingError/);

@@ -253,8 +253,20 @@ BEGIN
   END IF;
   SELECT count(*) INTO n FROM public.fetch_thread_messages('c4300000-0000-4000-8000-000000000002');
   IF n <> 3 THEN RAISE EXCEPTION 'active thread lost prospect messages'; END IF;
+  -- Vision §14.4: activation alone does not open the photos; they stay private.
+  IF EXISTS (SELECT 1 FROM public.progress_photos WHERE user_id = 'c4300000-0000-4000-8000-000000000002') THEN
+    RAISE EXCEPTION 'active coach reads photos the athlete never shared';
+  END IF;
+END $$;
+
+SELECT pg_temp.as_user('c4300000-0000-4000-8000-000000000002');
+SELECT public.set_progress_photo_sharing(true);
+
+SELECT pg_temp.as_user('c4300000-0000-4000-8000-000000000001');
+DO $$
+BEGIN
   IF NOT EXISTS (SELECT 1 FROM public.progress_photos WHERE user_id = 'c4300000-0000-4000-8000-000000000002') THEN
-    RAISE EXCEPTION 'active coach still cannot read photos';
+    RAISE EXCEPTION 'active coach cannot read photos the athlete shared';
   END IF;
 END $$;
 

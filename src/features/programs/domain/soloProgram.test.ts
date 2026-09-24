@@ -125,7 +125,9 @@ test('solo home and /programs show the proposal; refuse is not auto-apply', () =
   const hub = src('src/components/profile/SoloHub.tsx');
   assert.doesNotMatch(hub, /\/routines/);
   const routines = src('src/components/routines/RoutinesPage.tsx');
-  assert.match(routines, /Navigate to="\/programs"/);
+  assert.doesNotMatch(routines, /<Navigate/);
+  assert.doesNotMatch(routines, /isSoloAthlete|isCoachedAthlete/);
+  assert.match(routines, /startWorkoutFromTemplate/);
 });
 
 test('assigned program days convert to the session-editor draft', () => {
@@ -164,7 +166,8 @@ test('Entraînements is the séance du jour, not a second program editor', () =>
   const page = src('src/components/workout/WorkoutPage.tsx');
   assert.match(page, /ClientGymCard/);
   assert.match(page, /startProgramDay/);
-  assert.match(page, /to="\/programs"/);
+  assert.match(page, /nav\.routines/);
+  assert.doesNotMatch(page, /to="\/programs"/);
   assert.doesNotMatch(page, /ProgramEditorPage/);
   assert.doesNotMatch(page, /workout\.myRoutines/);
   const profile = src('src/components/profile/ProfilePage.tsx');

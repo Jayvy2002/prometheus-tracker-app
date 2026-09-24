@@ -49,12 +49,14 @@ test('disable coach mode counts coach_id links and never calls none while they e
 });
 
 test('profile confirms disable with the client count and does not dump nav.clients', () => {
+  const page = src('src/components/profile/BecomeCoachPage.tsx');
+  assert.match(page, /coaching\.disableMode/);
+  assert.match(page, /countActiveCoachLinks/);
+  assert.match(page, /selectAccountWorkspace\('coaching'\)/);
+  assert.match(page, /navigate\('\/clients'\)/);
   const profile = src('src/components/profile/ProfilePage.tsx');
-  assert.match(profile, /coaching\.disableMode/);
-  assert.match(profile, /countActiveCoachLinks/);
-  assert.match(profile, /selectAccountWorkspace\('coaching'\)/);
-  assert.match(profile, /navigate\('\/clients'\)/);
   assert.doesNotMatch(profile, /nav\.clients/);
+  assert.match(profile, /\/become-coach/);
   assert.match(src('src/i18n/locales/fr.ts'), /disableMode:/);
   assert.match(src('src/i18n/locales/en.ts'), /disableMode:/);
   assert.match(src('.github/workflows/ci.yml'), /set_coaching_role_roster\.sql/);

@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { ArrowLeft, TrendingUp, Trophy, Search, ChevronRight, Dumbbell, Scale, CalendarDays, BarChart2 } from 'lucide-react';
+import { ArrowLeft, TrendingUp, Trophy, Search, ChevronRight, Dumbbell, Scale, CalendarDays, BarChart2, MessageCircle } from 'lucide-react';
+import { objectRefHref } from '../../features/messages/domain/messageContent';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../lib/supabase';
 import { parseDate, toLocalDateStr, formatChartDate, formatWeekdayShort, formatWeight, kgToLbs } from '../../lib/utils';
@@ -19,11 +20,16 @@ import Card from '../ui/Card';
 import CardLink from '../ui/CardLink';
 import PageTransition from '../ui/PageTransition';
 
-export default function ExerciseProgressPage() {
+export default function ExerciseProgressPage({ embedded = false }: { embedded?: boolean }) {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const { exerciseName } = useParams();
+  const selectedExercise = exerciseName ? decodeURIComponent(exerciseName) : null;
+  const openExercise = (name: string) => navigate(`/progress/exercise/${encodeURIComponent(name)}`);
   const { user } = useAuthStore();
-  const { canReadOwnHistory, canOpenPersonalCalendarRoute } = useResourcePermissions();
+  const { actor, canReadOwnHistory, canOpenPersonalCalendarRoute } = useResourcePermissions();
+  // Only a coached athlete has a thread to talk in (Vision §19).
+  const hasCoach = actor.personalCoaching === 'coached';
   const unit = useProfileStore(s => s.profile?.unit_weight) ?? 'kg';
   const showKg = (kg: number) => formatWeight(kg, unit);
   const chartKg = (kg: number) => (unit === 'lbs' ? kgToLbs(kg) : Math.round(kg * 10) / 10);
@@ -32,7 +38,6 @@ export default function ExerciseProgressPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [retry, setRetry] = useState(0);
-  const [selectedExercise, setSelectedExercise] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const loadSeq = useRef(0);
   const appliedUser = useRef<string | null>(null);
@@ -112,24 +117,33 @@ export default function ExerciseProgressPage() {
       <PageTransition>
         <div className="px-4 pt-6 pb-28">
           <div className="flex items-center gap-3 mb-5 animate-fade-in-down">
-            <button onClick={() => setSelectedExercise(null)} className="p-2 -ml-2 text-neutral-400 hover:text-white transition-colors">
+            <button onClick={() => navigate('/exercise-progress')} className="min-h-11 min-w-11 -ml-2 text-neutral-400 hover:text-white transition-colors">
               <ArrowLeft size={20} />
             </button>
             <h1 className="text-lg font-bold text-white flex-1 truncate">{detail.name}</h1>
+            {hasCoach ? (
+              <Link
+                to={objectRefHref('/messages', { kind: 'exercise', name: detail.name })}
+                className="inline-flex min-h-11 items-center gap-1.5 rounded-xl px-2 text-sm text-blue-300 hover:text-blue-200"
+                data-testid="exercise-talk"
+              >
+                <MessageCircle size={16} aria-hidden="true" />
+                <span>{t('messages.refs.talkAbout')}</span>
+              </Link>
+            ) : null}
           </div>
 
-          {/* Big 1RM display */}
           <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-5 mb-4 text-center animate-fade-in-up">
-            <p className="text-xs text-neutral-500 mb-1">{t('progress.estimated1RM')}</p>
+            <p className="text-sm text-neutral-400 mb-1">{t('progress.bestEver')}</p>
             <div className="flex items-center justify-center gap-2">
-              <span className="text-4xl font-bold text-white">{chartKg(detail.latest1RM)}</span>
-              <span className="text-lg text-neutral-500">{unit}</span>
+              <span className="text-4xl font-bold text-white">{showKg(detail.entries.reduce((max, entry) => Math.max(max, entry.maxWeight), 0))}</span>
               {isNewPR && (
                 <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-400 text-xs font-bold ml-2">
                   <Trophy size={12} /> PR
                 </span>
               )}
             </div>
+            <p className="text-sm text-neutral-400 mt-2">{t('progress.estimated1RM')} · {showKg(detail.latest1RM)}</p>
             {detail.trend !== 0 && (
               <div className={`inline-flex items-center gap-1 mt-2 text-xs font-medium px-2 py-0.5 rounded-lg
                 ${detail.trend > 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
@@ -182,11 +196,11 @@ export default function ExerciseProgressPage() {
                       <p className="text-sm font-medium text-white">
                         {formatWeekdayShort(e.date, i18n.language)}
                       </p>
-                      <p className="text-xs text-neutral-500">{e.sets} sets</p>
+                      <p className="text-xs text-neutral-500">{t('progress.setsCount', { count: e.sets })}</p>
                     </div>
                     <div className="text-right space-y-0.5">
                       <p className="text-xs font-medium text-blue-400">{showKg(e.estimated1RM)} <span className="text-neutral-600">1RM</span></p>
-                      <p className="text-[11px] text-neutral-500">{showKg(e.maxWeight)} max | {e.totalVolume} vol</p>
+                      <p className="text-[11px] text-neutral-500">{t('progress.maxAndVolume', { max: showKg(e.maxWeight), volume: showKg(e.totalVolume) })}</p>
                     </div>
                     {isRecordAtIndex(detail.entries, detail.entries.indexOf(e)) && (
                       <Trophy size={12} className="text-amber-400 shrink-0" />
@@ -224,7 +238,7 @@ export default function ExerciseProgressPage() {
           <h1 className="text-xl font-bold text-white flex-1">{t('pages.progress')}</h1>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 mb-6">
+        {!embedded && <div className="grid grid-cols-2 gap-2 mb-6">
           {canReadOwnHistory && (
             <CardLink to="/stats">
               <p className="text-sm font-medium text-white flex items-center gap-2"><BarChart2 size={16} className="text-blue-400" />{t('nav.progressSummary')}</p>
@@ -241,7 +255,7 @@ export default function ExerciseProgressPage() {
               <p className="text-sm font-medium text-white flex items-center gap-2"><CalendarDays size={16} className="text-blue-400" />{t('nav.progressHistory')}</p>
             </CardLink>
           )}
-        </div>
+        </div>}
 
         {loadError && appliedUser.current !== user?.id ? (
           <Card className="text-center py-12 space-y-3">
@@ -285,7 +299,7 @@ export default function ExerciseProgressPage() {
                 return (
                   <button
                     key={ex.name}
-                    onClick={() => setSelectedExercise(ex.name)}
+                    onClick={() => openExercise(ex.name)}
                     className="w-full text-left animate-fade-in-up"
                     style={{ animationDelay: `${i * 50}ms` }}
                   >
@@ -346,7 +360,7 @@ export default function ExerciseProgressPage() {
                   ) : listedExercises.map(ex => (
                     <button
                       key={ex.name}
-                      onClick={() => setSelectedExercise(ex.name)}
+                      onClick={() => openExercise(ex.name)}
                       className="w-full text-left"
                     >
                       <Card className="hover:border-neutral-700 transition-colors">

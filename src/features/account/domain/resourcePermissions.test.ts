@@ -30,6 +30,7 @@ import {
   canUpdateOwnPersonalData,
   canUsePersonalTools,
   canImportCoachSpreadsheet,
+  canImportPersonalHistory,
   canPrepareProvisionalDossier,
   type PermissionActor,
 } from './resourcePermissions';
@@ -208,6 +209,14 @@ test('calendar resource read and route are allowed for Solo and Coached personal
   assert.equal(canOpenPersonalCalendarRoute(blocked), false);
 });
 
+test('importing one\'s own history is personal: Solo, Coached and Coach alike', () => {
+  for (const person of [solo(), coached(), coachSolo(), coachCoached('coaching')]) {
+    assert.equal(canImportPersonalHistory(person), true);
+  }
+  const blocked = actorFromAccount(null, resolveAccountContext('none', null, true, null));
+  assert.equal(canImportPersonalHistory(blocked), false);
+});
+
 test('P5.1 import is coach-only for self or an active client; workspace does not grant', () => {
   const client = { subjectUserId: 'C', hasActiveRelationship: true };
   const ended = { subjectUserId: 'C', hasActiveRelationship: false };
@@ -249,13 +258,17 @@ test('server enforces owner writes, leftover coached save_program, nutrition tar
   assert.match(capability.sql, /client_id = auth\.uid\(\) AND status = 'active'/);
 });
 
-test('stats and calendar are personal history surfaces; routines stay persona-gated', () => {
-  const app = src('src/app/router/AppRoutes.tsx') + src('src/app/guards/RouteGuards.tsx');
+test('stats, calendar and routines are personal surfaces, not persona-gated', () => {
+  const app = src('src/app/router/AppRoutes.tsx');
   assert.match(app, /path="\/stats" element=\{<CoachTrackerRedirect><StatsPage/);
   assert.doesNotMatch(app, /path="\/stats" element=\{<CoachTrackerRedirect><CoachedAthleteRedirect>/);
   assert.match(app, /path="\/calendar" element=\{<CoachTrackerRedirect><CalendarPage/);
   assert.doesNotMatch(app, /path="\/calendar" element=\{<CoachTrackerRedirect><CoachedAthleteRedirect>/);
-  assert.match(app, /path="\/routines"[\s\S]*CoachedAthleteRedirect/);
+  // Routines are personal tools for Solo and Coaché (Vision §7.1). Checked on the
+  // route line itself so a guard elsewhere in the file cannot satisfy it.
+  const routinesRoute = app.split('\n').find(line => line.includes('path="/routines"')) ?? '';
+  assert.match(routinesRoute, /<CoachTrackerRedirect><TrackingGate module="workouts"><RoutinesPage \/>/);
+  assert.doesNotMatch(routinesRoute, /Coached/);
   assert.match(src('src/app/guards/RouteGuards.tsx'), /canUsePersonalTools/);
   assert.match(src('src/app/guards/RouteGuards.tsx'), /canActAsCoach/);
   const progress = src('src/components/workout/ExerciseProgressPage.tsx');
@@ -265,9 +278,13 @@ test('stats and calendar are personal history surfaces; routines stay persona-ga
   assert.match(nav, /persona === 'coached'/);
   assert.match(nav, /stats/);
   assert.match(nav, /calendar/);
-  const profile = src('src/components/profile/ProfilePage.tsx');
-  assert.match(profile, /to="\/stats"/);
-  assert.match(profile, /to="\/calendar"/);
+  assert.match(progress, /to="\/stats"/);
+  assert.match(progress, /to="\/calendar"/);
+  const suivi = src('src/components/navigation/SuiviHub.tsx');
+  assert.match(suivi, /CalendarPage/);
+  assert.match(suivi, /StatsPage/);
+  assert.doesNotMatch(suivi, /NutritionPage/);
+  assert.doesNotMatch(src('src/components/profile/ProfilePage.tsx'), /to="\/stats"/);
   const program = src('src/components/programs/ClientProgramPage.tsx');
   assert.match(program, /canUpdateOwnAssignedProgram/);
   assert.match(program, /canProposeAssignedProgramChange/);

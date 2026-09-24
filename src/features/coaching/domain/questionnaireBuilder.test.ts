@@ -173,8 +173,8 @@ test('builder page starts from the short template and recaps who must complete',
   assert.match(sql, /questionnaire_responses_client_version_uidx/);
   const fr = src('src/i18n/locales/fr/coaching.ts');
   const en = src('src/i18n/locales/en/coaching.ts');
-  assert.match(fr, /fromShort: 'Partir d’un modèle court'/);
-  assert.match(en, /fromShort: 'Start from a short template'/);
+  assert.match(fr, /fromShort: 'Partir d’un modèle court \(recommandé\)'/);
+  assert.match(en, /fromShort: 'Start from a short template \(recommended\)'/);
   assert.match(fr, /publishKeepAll:/);
   assert.match(en, /publishComplement:/);
 });

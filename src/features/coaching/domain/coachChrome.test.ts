@@ -53,6 +53,10 @@ test('Today keeps File du jour; drafts live in Messages, not a third inbox', () 
   const inbox = src('src/components/coaching/CoachInboxPage.tsx');
   assert.match(inbox, /InterventionInboxCard/);
   assert.match(inbox, /coaching\.inbox\.toHandle/);
+  // Messages keeps prepared messages; program and kcal decisions live in Today.
+  assert.match(inbox, /messageInboxDrafts\(pendingInterventions\)/);
+  const fleet = src('src/features/coaching/domain/coachFleet.ts');
+  assert.match(fleet, /!row\.client_id \|\| isRelanceKind\(row\.kind\)/);
 });
 
 test('Ask opens the editable draft for this question; roster chips stay local', () => {
@@ -93,18 +97,25 @@ test('Progress: no empty before/after spam; logged-exercise picker stays on Trai
   assert.match(trainingBlock, /onOpenSeries/);
 });
 
+function dashAvatar(): string {
+  const dash = src('src/components/dashboard/Dashboard.tsx');
+  return dash.slice(dash.indexOf('{/* Header */}'), dash.indexOf('<LinkEndedBanner'));
+}
+
 test('Coached client shell: photos and program in hub, messages in tabs, no coach-mode dump', () => {
   const profile = src('src/components/profile/ProfilePage.tsx');
   assert.doesNotMatch(profile, /\/recipes/);
   assert.doesNotMatch(profile, /\/routines/);
-  assert.match(profile, /\/photos/);
-  assert.match(profile, /nav\.myProgram/);
+  assert.doesNotMatch(profile, /\/photos/);
+  assert.doesNotMatch(profile, /nav\.myProgram/);
   assert.doesNotMatch(profile, /nav\.clients/);
   assert.match(profile, /!coached && !inCoaching && \(/);
-  assert.match(profile, /coaching\.coachMode/);
+  assert.match(profile, /coaching\.becomeCoach/);
+  assert.match(profile, /\/become-coach/);
 
   const app = src('src/App.tsx') + src('src/app/bootstrap/useAuthenticatedSession.ts') + src('src/app/guards/RouteGuards.tsx') + src('src/app/router/AppRoutes.tsx');
-  assert.match(app, /CoachedAthleteRedirect/);
+  // No persona page-deny left: permissions decide (CARTE_PRODUIT §19).
+  assert.doesNotMatch(app, /CoachedAthleteRedirect/);
   assert.match(app, /ProgramsHome/);
   assert.match(app, /path="\/programs"/);
   assert.doesNotMatch(app, /path="\/programs" element=\{<CoachedAthleteRedirect>/);
@@ -126,10 +137,11 @@ test('Coached client shell: photos and program in hub, messages in tabs, no coac
     mobileFn.lastIndexOf('return ['),
   );
   assert.match(coachedMobile, /\bmessages\b/);
-  assert.match(coachedMobile, /\bcheckin\b/);
-  assert.match(coachedMobile, /\bprofile\b/);
+  assert.match(coachedMobile, /\bbody\b/);
+  // Calendar is a main page for the coached athlete too; profile opens from the avatar.
+  assert.match(coachedMobile, /\bsuivi\b/);
   assert.doesNotMatch(coachedMobile, /\bphotos\b/);
-  assert.match(profile, /\/photos/);
+  assert.match(dashAvatar(), /to="\/profile"/);
   const dash = src('src/components/dashboard/Dashboard.tsx') + src('src/features/dashboard/hooks/useDashboardBootstrap.ts');
   assert.doesNotMatch(dash, /navigate\('\/photos'\)/);
   assert.doesNotMatch(dash, /dashboard\.photosCard/);
@@ -163,7 +175,10 @@ test('UX28: missing logs are not framed as the athlete’s fault', () => {
   assert.doesNotMatch(fr, /Séance manquée/);
   assert.doesNotMatch(fr, /Check-ins manqués/);
   assert.doesNotMatch(fr, /Séances manquées/);
-  assert.match(fr, /pas de check-in aujourd’hui/);
+  // Silence follows the client's rhythm, never « today » (Vision §11.2).
+  assert.match(fr, /check-in attendu non reçu/);
+  assert.doesNotMatch(fr, /pas de check-in aujourd’hui/i);
+  assert.doesNotMatch(fr, /missed_checkin: 'Check-in à relire'/);
   assert.match(fr, /Séance non loggée/);
   assert.match(fr, /Signaler une séance non loggée/);
   assert.match(fr, /Check-ins en attente/);

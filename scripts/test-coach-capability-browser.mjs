@@ -59,7 +59,10 @@ try{
   }else{
    assert.equal(await page.getByRole('group',{name:'Workspace'}).count(),0);
    if(a===coached){
-    await page.getByRole('button',{name:'Off',exact:true}).click();
+    await page.getByRole('link',{name:'Become a coach',exact:true}).click();
+    await page.getByRole('button',{name:'Enable coach mode',exact:true}).click();
+    await page.getByRole('button',{name:'View my clients',exact:true}).waitFor();
+    await page.goto(origin+'/profile');
     await group.getByRole('button',{name:'Personal',exact:true}).waitFor();
     const enabled=check(await a.client.rpc('get_my_account_context'));
     assert.equal(enabled.coach_capability,true);assert.equal(enabled.active_coach_id,coach.id);

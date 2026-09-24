@@ -58,13 +58,20 @@ test('D03: profile writes return errors; intake drafts are sequenced and visible
   const recipe = src('src/stores/recipeStore.ts');
   assert.match(recipe, /deleteRecipe: \(id: string\) => Promise<\{ error: string \| null \}>/);
   const fav = src('src/stores/nutritionStore.ts');
-  assert.match(fav, /ne retire du store qu'après suppression serveur confirmée/);
+  // D03: the favourite leaves the store only after the server delete succeeded.
+  const removeFav = fav.slice(fav.indexOf("from('food_favorites').delete()"));
+  assert.ok(removeFav.indexOf('if (error)') < removeFav.indexOf('favorites: s.favorites.filter'));
+  assert.ok(removeFav.indexOf('if (error)') >= 0);
 });
 
 test('C02: message drafts survive failure; threads paginate; sends are idempotent', () => {
   const thread = src('src/components/coaching/MessageThread.tsx');
-  assert.match(thread, /onSend: \(body: string\) => Promise<\{ error: string \| null \}>/);
-  assert.match(thread, /le texte est conservé pour réessayer/);
+  assert.match(thread, /onSend: \(body: string, extras: ThreadSendExtras\) => Promise<\{ error: string \| null \}>/);
+  // C02: on a failed send the draft is kept — the error branch returns before any clear.
+  const sendBlock = thread.slice(thread.indexOf('const result = await onSend(trimmed, extras);'));
+  assert.ok(sendBlock.length > 0 && thread.includes('const result = await onSend(trimmed, extras);'));
+  assert.ok(sendBlock.indexOf('if (result.error)') < sendBlock.indexOf("setBody('')"));
+  assert.match(sendBlock.slice(sendBlock.indexOf('if (result.error)'), sendBlock.indexOf("setBody('')")), /return;/);
   assert.match(thread, /onLoadMore/);
   const store = src('src/stores/coachingStore.ts');
   assert.match(store, /client_msg_id: msgId/);

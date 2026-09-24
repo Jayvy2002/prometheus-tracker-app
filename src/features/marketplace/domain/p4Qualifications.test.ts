@@ -10,6 +10,7 @@ import {
   qualificationEffectiveStatus,
   type CoachQualification,
 } from './marketplace';
+import { marketplaceUiSource } from '../../../lib/marketplaceUiSource';
 
 function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
@@ -55,7 +56,7 @@ test('P4.1 qualifications reuse marketplace publish and never require a verified
   assert.doesNotMatch(found, /CREATE TABLE.*rating/i);
   assert.doesNotMatch(found, /star_rating/i);
   assert.doesNotMatch(found, /subscription/);
-  assert.match(src('src/components/marketplace/MarketplacePage.tsx'), /CoachQualificationsPanel/);
+  assert.match(marketplaceUiSource(), /CoachQualificationsPanel/);
   assert.match(src('src/components/marketplace/CoachDirectoryCard.tsx'), /verifiedBadge/);
   assert.match(src('docs/CHANTIER.md'), /P4\.1/);
   assert.match(src('docs/CHANTIER.md'), /proof-<uuid>/);
@@ -63,7 +64,11 @@ test('P4.1 qualifications reuse marketplace publish and never require a verified
   assert.match(src('docs/P4_1_QUALIFICATIONS.md'), /upsert: false/);
   assert.match(src('src/i18n/locales/fr/common.ts'), /storageCleanupFailed/);
   assert.match(src('src/i18n/locales/en/common.ts'), /storageCleanupFailed/);
-  assert.match(src('src/components/profile/ProfilePage.tsx'), /storage_cleanup_failed/);
+  // Vision §30: the purge runs after the recovery window; a Storage failure puts the
+  // request back in the queue and the recovery screen says so (never a half-deleted account).
+  assert.match(src('supabase/functions/delete-account/index.ts'), /storage_cleanup_failed/);
+  assert.match(src('supabase/functions/delete-account/index.ts'), /release_account_deletion/);
+  assert.match(src('src/components/profile/AccountDeletionPendingPage.tsx'), /accountDeletion\.failed/);
   const pending = JSON.parse(src('supabase/migrations.pending.json')) as { pending: Array<{ version: string; name: string }> };
   assert.equal(pending.pending.some(row => row.version === '20260921021231'), false);
   assert.match(src('supabase/schema_migrations.lock.json'), /"version": "20260921021231"/);
@@ -111,6 +116,6 @@ test('P4.1 qualifications reuse marketplace publish and never require a verified
   assert.match(found, /coach_id = \(SELECT auth.uid\(\)\)/);
   assert.doesNotMatch(found, /verification_status <> 'rejected'\s+AND EXISTS/);
   assert.match(src('src/features/marketplace/domain/marketplaceApi.ts'), /list_public_coach_qualifications/);
-  assert.doesNotMatch(src('src/components/marketplace/MarketplacePage.tsx'), /from\('coach_qualifications'\)/);
+  assert.doesNotMatch(marketplaceUiSource(), /from\('coach_qualifications'\)/);
   assert.match(src('supabase/tests/rls_matrix.sql'), /declare_coach_qualification/);
 });

@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
 import { i18nLocaleSource } from './i18nLocaleSource';
+import { quickAddActions } from '../app/navigation/navConfig';
 
 function src(rel: string): string {
   if (rel === 'src/i18n/locales/fr.ts') return i18nLocaleSource('fr');
@@ -20,10 +21,12 @@ test('coached athlete can open Mon programme, exercise-progress, stats and calen
   assert.doesNotMatch(app, /path="\/calendar" element=\{<CoachTrackerRedirect><CoachedAthleteRedirect>/);
 
   const workout = src('src/components/workout/WorkoutPage.tsx');
-  assert.match(workout, /data-testid="workout-program"/);
-  assert.match(workout, /to="\/programs"/);
-  assert.match(workout, /to="\/exercise-progress"/);
-  assert.doesNotMatch(workout, /coached \|\| !assignment\?\.program/);
+  assert.doesNotMatch(workout, /data-testid="workout-program"/);
+  assert.doesNotMatch(workout, /to="\/programs"/);
+  assert.doesNotMatch(workout, /to="\/exercise-progress"/);
+  const nav = src('src/app/navigation/navConfig.ts');
+  assert.match(nav, /labelKey: 'nav\.myProgram'/);
+  assert.match(nav, /path: '\/exercise-progress'/);
 
   const progress = src('src/components/workout/ExerciseProgressPage.tsx');
   assert.match(progress, /canReadOwnHistory/);
@@ -38,17 +41,16 @@ test('waiting for a program goes to Messages; a due plan day is labelled hors pr
   assert.match(dash, /to="\/messages"/);
   assert.match(dash, /dashboard\.nothingToday/);
 
-  const fab = src('src/app/layout/FAB.tsx');
-  assert.match(fab, /isProgramDayDue/);
-  assert.match(fab, /nav\.addWorkoutOffPlan/);
-  assert.match(fab, /offPlan: true/);
-
-  const side = src('src/app/layout/SideNav.tsx');
-  assert.match(side, /useProgramDayDue/);
-  assert.match(side, /programDayDue/);
+  // Quick add « Séance » opens the training page, which offers the off-plan session.
+  const session = quickAddActions({ track_workouts: true, track_checkins: true, track_nutrition: true, track_weight: true }).find(a => a.id === 'session');
+  assert.equal(session?.labelKey, 'nav.quickSession');
+  assert.equal(session?.path, '/workout');
+  const workoutPage = src('src/components/workout/WorkoutPage.tsx');
+  assert.match(workoutPage, /nav\.addWorkoutOffPlan/);
 
   const fr = src('src/i18n/locales/fr.ts');
-  assert.match(fr, /addWorkoutOffPlan: 'Séance hors programme'/);
+  // Vision §7.1 vocabulary: a non-prescribed session is a « séance libre ».
+  assert.match(fr, /addWorkoutOffPlan: 'Séance libre'/);
   assert.match(fr, /nothingToday: 'Rien de prescrit aujourd’hui\.'/);
   assert.match(src('src/i18n/locales/fr/workout.ts'), /offPlanNotice/);
 });

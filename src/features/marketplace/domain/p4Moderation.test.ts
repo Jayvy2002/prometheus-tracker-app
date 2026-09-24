@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import { test } from 'node:test';
 import { latestMigrationContaining } from '../../../lib/migrationScan';
 import { reportIsOpen, type ReportStatus } from './marketplace';
+import { marketplaceUiSource } from '../../../lib/marketplaceUiSource';
 
 function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
@@ -67,9 +68,9 @@ test('P4.4 moderation is a report queue and directory hold, not ratings or an ad
   assert.match(explain.sql, /marketplace_coach_discoverable/);
   assert.match(explain.sql, /array_append\(v_req, 'discipline'\)/);
   assert.doesNotMatch(explain.sql, /v_req := v_req \|\| '/);
-  assert.match(src('src/components/marketplace/MarketplacePage.tsx'), /MarketplaceReportForm/);
-  assert.match(src('src/components/marketplace/MarketplacePage.tsx'), /MarketplaceReportsList/);
-  assert.match(src('src/components/marketplace/MarketplacePage.tsx'), /directory_suspended/);
+  assert.match(marketplaceUiSource(), /MarketplaceReportForm/);
+  assert.match(marketplaceUiSource(), /MarketplaceReportsList/);
+  assert.match(marketplaceUiSource(), /directory_suspended/);
   assert.doesNotMatch(src('src/app/router/AppRoutes.tsx'), /path="\/moderation"/);
   const nav = src('src/app/navigation/navConfig.ts');
   const mobileFn = nav.slice(nav.indexOf('export function mobileTabs'), nav.indexOf('function nonempty'));

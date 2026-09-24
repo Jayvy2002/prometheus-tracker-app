@@ -33,6 +33,7 @@ import {
   opsHasPartialError,
 } from '../../../lib/coachStoreGuards';
 import i18n from '../../../i18n';
+import type { ScheduleInput } from '../../checkins/domain/checkinSchedule';
 import {
   toast,
 } from '../../../components/ui/Toast';
@@ -44,9 +45,14 @@ import {
 } from '../../../stores/programStore';
 import {
   buildClientOpsRows,
+  CHECKIN_LOOKBACK_DAYS,
+  latestDateByUser,
   coachClockFacts,
   datePrefix,
+  NUTRITION_WINDOW_DAYS,
   weekAgoStr,
+  WEIGHT_WINDOW_DAYS,
+  windowStart,
 } from '../../../lib/coachAlerts';
 import {
   buildClientLifts,
@@ -213,12 +219,14 @@ export function createClientsSlice(set: CoachingSet, get: CoachingGet): Pick<Coa
       notesRes,
       interventionHistRes,
       nutritionHistRes,
+      checkinPlanRes,
     ] = await Promise.all([
       supabase.from('client_tracking_config').select('*').in('client_id', ids),
       supabase.from('program_assignments').select('client_id, program_id, start_date').in('client_id', ids).eq('status', 'active'),
-      supabase.from('daily_checkins').select('user_id').in('user_id', ids).eq('checked_at', today),
-      supabase.from('nutrition_logs').select('user_id').in('user_id', ids).eq('logged_at', today),
-      supabase.from('weight_measurements').select('user_id').in('user_id', ids).gte('measured_at', weekAgo),
+      // Long enough for a monthly rhythm plus its grace: the rule decides, not the window.
+      supabase.from('daily_checkins').select('user_id, checked_at').in('user_id', ids).gte('checked_at', windowStart(today, CHECKIN_LOOKBACK_DAYS)),
+      supabase.from('nutrition_logs').select('user_id').in('user_id', ids).gte('logged_at', windowStart(today, NUTRITION_WINDOW_DAYS)),
+      supabase.from('weight_measurements').select('user_id').in('user_id', ids).gte('measured_at', windowStart(today, WEIGHT_WINDOW_DAYS)),
       supabase.from('workouts').select('user_id, date, completed').in('user_id', ids).eq('completed', true).gte('date', `${weekAgo}T00:00:00`),
       fetchAllRows(() => supabase.from('daily_checkins').select('*').in('user_id', ids).gte('checked_at', threeWeeks).order('checked_at', { ascending: false })),
       fetchAllRows(() => supabase.from('weight_measurements').select('*').in('user_id', ids).gte('measured_at', threeWeeks).order('measured_at', { ascending: false })),
@@ -226,12 +234,13 @@ export function createClientsSlice(set: CoachingSet, get: CoachingGet): Pick<Coa
       fetchAllRows(() => supabase.from('coach_notes').select('client_id, created_at').in('client_id', ids).order('created_at', { ascending: false })),
       fetchAllRows(() => supabase.from('coach_interventions').select('client_id, resolved_at, updated_at, status').in('client_id', ids).in('status', ['sent', 'kept'])),
       fetchAllRows(() => supabase.from('nutrition_logs').select('user_id, logged_at, calories').in('user_id', ids).gte('logged_at', threeWeeks)),
+      supabase.from('checkin_plans').select('user_id, frequency, weekday, anchor_date').in('user_id', ids),
     ]);
 
     const partial = opsHasPartialError([
       trackingRes, assignmentRes, checkinTodayRes, nutritionRes, weightWeekRes,
       workoutWeekRes, checkinHistRes, weightHistRes, workoutHistRes, notesRes,
-      interventionHistRes, nutritionHistRes,
+      interventionHistRes, nutritionHistRes, checkinPlanRes,
     ]);
 
     const assignments = assignmentRes.data ?? [];
@@ -334,7 +343,9 @@ export function createClientsSlice(set: CoachingSet, get: CoachingGet): Pick<Coa
       weekday,
       localHour: clock.localHour,
       missedWorkoutCutoffHour: settings.missed_workout_cutoff_hour,
-      checkinUserIds: new Set((checkinTodayRes.data ?? []).map(r => r.user_id as string)),
+      lastCheckinByUser: latestDateByUser((checkinTodayRes.data ?? []) as Array<{ user_id: string; checked_at: string }>),
+      checkinPlanByClient: new Map(((checkinPlanRes.data ?? []) as Array<{ user_id: string } & ScheduleInput>)
+        .map(row => [row.user_id, { frequency: row.frequency, weekday: row.weekday, anchor_date: row.anchor_date }])),
       nutritionUserIds: new Set((nutritionRes.data ?? []).map(r => r.user_id as string)),
       weightUserIds: new Set((weightWeekRes.data ?? []).map(r => r.user_id as string)),
       workoutDatesByUser,

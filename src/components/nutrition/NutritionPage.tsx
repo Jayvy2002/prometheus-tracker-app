@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, ScanLine, ChefHat, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ScanLine, ChefHat, Plus, Sparkles } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
@@ -7,7 +7,7 @@ import { useProfileStore } from '../../stores/profileStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
 import { todayStr, addDaysToDateStr, formatWeekdayShort } from '../../lib/utils';
 import { supabase } from '../../lib/supabase';
-import { toast } from '../ui/Toast';
+import { toast, toastWithUndo } from '../ui/Toast';
 import { MEAL_CATEGORIES } from '../../lib/constants';
 import type { NutritionLog } from '../../lib/types';
 import NutritionRings from './NutritionRings';
@@ -15,9 +15,7 @@ import MealSection from './MealSection';
 import FoodForm from './FoodForm';
 import EditFoodModal from './EditFoodModal';
 import WaterTracker from './WaterTracker';
-import StepsTracker from './StepsTracker';
 import PageTransition from '../ui/PageTransition';
-import CardLink from '../ui/CardLink';
 import Button from '../ui/Button';
 import Modal from '../ui/Modal';
 import { useClientTracking } from '../../lib/useClientTracking';
@@ -36,7 +34,7 @@ export default function NutritionPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuthStore();
   const { profile } = useProfileStore();
-  const { logs, selectedDate, setSelectedDate, fetchLogs, fetchWaterLogs, fetchOrCreateSteps, addLog, loading: nutritionLoading } = useNutritionStore();
+  const { logs, selectedDate, setSelectedDate, fetchLogs, fetchWaterLogs, fetchOrCreateSteps, addLog, deleteLog, loading: nutritionLoading } = useNutritionStore();
   const tracking = useClientTracking();
   const coachingRole = useCoachingStore(s => s.coachingRole);
   const myCoach = useCoachingStore(s => s.myCoach);
@@ -44,6 +42,7 @@ export default function NutritionPage() {
   const createRecipe = useRecipeStore(s => s.createRecipe);
   const [showAdd, setShowAdd] = useState(false);
   const [showAddMenu, setShowAddMenu] = useState(false);
+  const [askOpen, setAskOpen] = useState(false);
   const [addCategory, setAddCategory] = useState<string>('breakfast');
   const [editingLog, setEditingLog] = useState<NutritionLog | null>(null);
   const [reuseOpen, setReuseOpen] = useState(false);
@@ -60,7 +59,8 @@ export default function NutritionPage() {
 
   useEffect(() => {
     if (searchParams.get('add') === '1') {
-      setAddCategory('breakfast');
+      const hour = new Date().getHours();
+      setAddCategory(hour < 11 ? 'breakfast' : hour < 14 ? 'lunch' : hour < 18 ? 'snack' : 'dinner');
       setShowAdd(true);
       setSearchParams({});
     }
@@ -134,8 +134,9 @@ export default function NutritionPage() {
       return;
     }
 
+    const ids: string[] = [];
     for (const l of data) {
-      await addLog({
+      const saved = await addLog({
         user_id: user.id,
         food_product_id: l.food_product_id ?? null,
         name: l.name,
@@ -148,8 +149,47 @@ export default function NutritionPage() {
         unit: l.unit,
         logged_at: selectedDate,
       });
+      if (saved.id) ids.push(saved.id);
     }
-    toast(t('nutrition.itemsCopied', { count: data.length }));
+    toastWithUndo(t('nutrition.itemsCopied', { count: ids.length }), () => {
+      for (const id of ids) void deleteLog(id);
+    });
+  };
+
+  const handleCopyDay = async (fromDate: string) => {
+    if (!user || fromDate === selectedDate) {
+      toast(t('nutrition.nothingLoggedYesterday'));
+      return;
+    }
+    const { data } = await supabase
+      .from('nutrition_logs')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('logged_at', fromDate);
+    if (!data || data.length === 0) {
+      toast(t('nutrition.nothingLoggedYesterday'));
+      return;
+    }
+    const ids: string[] = [];
+    for (const l of data) {
+      const saved = await addLog({
+        user_id: user.id,
+        food_product_id: l.food_product_id ?? null,
+        name: l.name,
+        calories: l.calories,
+        protein: l.protein,
+        carbs: l.carbs,
+        fat: l.fat,
+        category: l.category,
+        quantity: l.quantity,
+        unit: l.unit,
+        logged_at: selectedDate,
+      });
+      if (saved.id) ids.push(saved.id);
+    }
+    toastWithUndo(t('nutrition.itemsCopied', { count: ids.length }), () => {
+      for (const id of ids) void deleteLog(id);
+    });
   };
 
   const openReuse = (category: string) => {
@@ -167,9 +207,20 @@ export default function NutritionPage() {
       <div className="flex items-start justify-between mb-4 gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-white">{t('nutrition.title')}</h1>
-          <p className="text-sm text-neutral-400 mt-0.5">{dateLabel}</p>
         </div>
-        <div className="relative">
+        <div className="relative flex items-center gap-2">
+          {solo && user && (
+            <button
+              type="button"
+              onClick={() => setAskOpen(o => !o)}
+              aria-label={t('soloAsk.label')}
+              aria-expanded={askOpen}
+              title={t('soloAsk.label')}
+              className={`min-h-11 min-w-11 flex items-center justify-center rounded-xl ${askOpen ? 'bg-blue-600/20 text-blue-300' : 'bg-neutral-900 text-neutral-400'}`}
+            >
+              <Sparkles size={16} aria-hidden="true" />
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setShowAddMenu(o => !o)}
@@ -179,7 +230,7 @@ export default function NutritionPage() {
             {t('nutrition.add')}
           </button>
           {showAddMenu && (
-            <div className="absolute right-0 mt-2 w-48 rounded-xl border border-neutral-800 bg-neutral-950 p-1 z-20">
+            <div className="absolute right-0 top-full mt-2 w-48 rounded-xl border border-neutral-800 bg-neutral-950 p-1 z-20">
               <button type="button" className="w-full text-left min-h-11 px-3 rounded-lg text-sm text-white hover:bg-neutral-800" onClick={() => { setShowAddMenu(false); handleQuickAdd(); }}>
                 {t('nutrition.addFood')}
               </button>
@@ -197,7 +248,7 @@ export default function NutritionPage() {
         </div>
       </div>
 
-      {solo && user && (
+      {askOpen && solo && user && (
         <SoloAskBar
           context={askContext}
           onApplyOnce={async (proposal) => {
@@ -252,34 +303,20 @@ export default function NutritionPage() {
       )}
 
       <div className="flex items-center justify-between mb-4">
-        <button onClick={() => shiftDate(-1)} className="p-2 text-neutral-400 hover:text-white">
-          <ChevronLeft size={20} />
+        <button type="button" aria-label={t('common.previous')} onClick={() => shiftDate(-1)} className="min-h-11 min-w-11 text-neutral-300">
+          <ChevronLeft size={22} className="mx-auto" />
         </button>
         <span className="text-sm font-medium text-white">{dateLabel}</span>
-        <button onClick={() => shiftDate(1)} className="p-2 text-neutral-400 hover:text-white" disabled={isToday}>
-          <ChevronRight size={20} className={isToday ? 'opacity-30' : ''} />
+        <button type="button" aria-label={t('common.next')} onClick={() => shiftDate(1)} className="min-h-11 min-w-11 text-neutral-300" disabled={isToday}>
+          <ChevronRight size={22} className={`mx-auto ${isToday ? 'opacity-30' : ''}`} />
         </button>
       </div>
-
-      <CardLink to="/recipes" className="mb-4">
-        <p className="text-sm font-medium text-white flex items-center gap-2">
-          <ChefHat size={16} className="text-blue-400" />
-          {t('nutrition.recipes.title')}
-        </p>
-        <p className="text-xs text-neutral-500 mt-1">{t('nutrition.recipes.chromeHint')}</p>
-      </CardLink>
 
       <NutritionRings className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 mb-4 animate-fade-in-scale" />
 
       {showNutritionField(tracking, 'water') && (
       <div className="animate-fade-in-up stagger-2">
       <WaterTracker />
-      </div>
-      )}
-
-      {showNutritionField(tracking, 'steps') && (
-      <div className="mt-3 animate-fade-in-up stagger-2">
-      <StepsTracker />
       </div>
       )}
 
@@ -359,6 +396,17 @@ export default function NutritionPage() {
           }}
         >
           {t('nutrition.copyFromYesterday')}
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          className="w-full mt-2"
+          onClick={() => {
+            void handleCopyDay(addDaysToDateStr(selectedDate, -1));
+            setReuseOpen(false);
+          }}
+        >
+          {t('nutrition.copyWholeDay')}
         </Button>
       </Modal>
     </div>

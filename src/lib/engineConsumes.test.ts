@@ -51,14 +51,16 @@ test('triage_coach_fleet latest definition emits hunger/mood/stress averages and
 
 test('onboarding UI no longer writes dead profile fields the engine never reads', () => {
   const flow = src('src/components/onboarding/OnboardingFlow.tsx');
-  assert.match(flow, /const TOTAL_STEPS = 7/);
+  // Vision §5.3: four screens at most (goal, training, modules, optional measurements).
+  assert.match(flow, /SOLO_ONBOARDING_STEPS/);
   assert.doesNotMatch(flow, /stress_level/);
   assert.doesNotMatch(flow, /supplement_use/);
   assert.doesNotMatch(flow, /meals_per_day/);
   assert.doesNotMatch(flow, /cooking_level/);
   assert.doesNotMatch(flow, /form\.motivation/);
   assert.doesNotMatch(flow, /StepSupplements/);
-  assert.match(flow, /hydration_habit/);
+  // Water target is no longer computed from invented habits at signup.
+  assert.doesNotMatch(flow, /hydration_habit|calculateWaterTarget/);
 });
 
 test('coach learned screen reads lessons + fleet rounds (RLS coach_id = uid)', () => {

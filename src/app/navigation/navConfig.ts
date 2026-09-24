@@ -38,6 +38,7 @@ export type NavItemDef = {
   icon: LucideIcon;
   end?: boolean;
   badge?: 'unreadMessages';
+  match?: string[];
 };
 
 export type NavSectionDef = {
@@ -58,6 +59,23 @@ export type QuickAddDef = {
 const today: NavItemDef = { id: 'today', path: '/dashboard', labelKey: 'nav.today', icon: LayoutDashboard, end: true };
 const workout: NavItemDef = { id: 'train', path: '/workout', labelKey: 'nav.workout', icon: Dumbbell };
 const progress: NavItemDef = { id: 'progress', path: '/exercise-progress', labelKey: 'nav.exerciseProgress', icon: TrendingUp };
+/** Corps : ce qu'on logge sur soi (nutrition, poids, check-in, photos). */
+const body: NavItemDef = {
+  id: 'body',
+  path: '/body',
+  match: ['/body', '/nutrition', '/weight', '/checkin', '/recipes', '/photos'],
+  labelKey: 'nav.sectionBody',
+  icon: Apple,
+};
+/** Suivi : le Calendrier d'abord (Vision §13), puis progression et tendances. */
+const suivi: NavItemDef = {
+  id: 'suivi',
+  path: '/suivi',
+  match: ['/suivi', '/exercise-progress', '/progress', '/calendar', '/stats', '/watch'],
+  labelKey: 'nav.suivi',
+  icon: TrendingUp,
+};
+const routines: NavItemDef = { id: 'routines', path: '/routines', labelKey: 'nav.routines', icon: ListFilter };
 const nutrition: NavItemDef = { id: 'nutrition', path: '/nutrition', labelKey: 'nav.nutrition', icon: Apple };
 const profile: NavItemDef = { id: 'you', path: '/profile', labelKey: 'nav.profile', icon: User };
 const checkin: NavItemDef = { id: 'checkin', path: '/checkin', labelKey: 'nav.checkin', icon: ClipboardCheck };
@@ -83,26 +101,36 @@ export function navPersona(context: AccountContext): NavPersona {
   return 'solo';
 }
 
+export function tracksBody(tracking: NavTracking): boolean {
+  return tracking.track_nutrition || tracking.track_weight || tracking.track_checkins;
+}
+
+/**
+ * Pas de 6ᵉ onglet : cinq au plus, jamais un « Plus ».
+ * Solo : Dashboard · Séance · Corps · Suivi · Profil.
+ * Coaché : Dashboard · Séance · Corps · Suivi · Messages — le Calendrier est une
+ * page principale pour le Coaché aussi (Vision §13) ; le Profil s'ouvre depuis
+ * l'avatar du Dashboard.
+ * Corps existe toujours : les photos de progression y vivent, quel que soit le suivi.
+ */
 export function mobileTabs(persona: NavPersona, tracking: NavTracking): NavItemDef[] {
   if (persona === 'coaching') {
     return [today, clients, messages, programs, profile];
   }
   if (persona === 'coached') {
-    // UX111 : 5 onglets. Check-in reste en tab si le module est on.
-    // Nutrition : desktop + carte Profil + FAB repas. Pas de 6ᵉ onglet.
     return [
       today,
       ...(tracking.track_workouts ? [workout] : []),
-      ...(tracking.track_checkins ? [checkin] : []),
+      body,
+      suivi,
       messages,
-      profile,
     ];
   }
   return [
     today,
     ...(tracking.track_workouts ? [workout] : []),
-    progress,
-    ...(tracking.track_nutrition ? [nutrition] : []),
+    body,
+    suivi,
     profile,
   ];
 }
@@ -116,7 +144,10 @@ export function desktopSections(persona: NavPersona, tracking: NavTracking): Nav
     return nonempty([
       { id: 'primary', items: [today, clients, messages, programs] },
       { id: 'copilot', labelKey: 'nav.sectionCopilot', items: [copilot] },
-      { id: 'activity', labelKey: 'nav.sectionActivity', tone: 'muted', items: [coachOffer, requests, directory, coachMatch, coachImport, coachDossiers] },
+      // « Mon offre » (ce que le coach publie et reçoit) ≠ « Trouver un coach »
+      // (démarche personnelle, dans l'espace personnel). L'import reste à part.
+      { id: 'offer', labelKey: 'nav.sectionOffer', tone: 'muted', items: [coachOffer, requests] },
+      { id: 'import', labelKey: 'nav.sectionImport', tone: 'muted', items: [coachImport, coachDossiers] },
       { id: 'account', items: [profile] },
     ]);
   }
@@ -128,6 +159,7 @@ export function desktopSections(persona: NavPersona, tracking: NavTracking): Nav
         id: 'train',
         labelKey: 'nav.sectionTrain',
         items: [
+          // Routines personnelles : outil du solo. Un coaché suit le plan de son coach.
           ...(tracking.track_workouts ? [workout, myProgram] : []),
           progress,
           stats,
@@ -146,7 +178,6 @@ export function desktopSections(persona: NavPersona, tracking: NavTracking): Nav
       },
       { id: 'inbox', items: [messages] },
       { id: 'account', items: [profile] },
-      { id: 'marketplace', labelKey: 'nav.sectionActivity', tone: 'muted', items: [directory, coachMatch, requests] },
     ]);
   }
 
@@ -156,7 +187,7 @@ export function desktopSections(persona: NavPersona, tracking: NavTracking): Nav
       id: 'train',
       labelKey: 'nav.sectionTrain',
       items: [
-        ...(tracking.track_workouts ? [workout, myProgram] : []),
+        ...(tracking.track_workouts ? [workout, routines, myProgram] : []),
       ],
     },
     {
@@ -174,24 +205,18 @@ export function desktopSections(persona: NavPersona, tracking: NavTracking): Nav
       labelKey: 'nav.sectionUnderstand',
       items: [progress, stats, calendar],
     },
+    // Solo sans coach : « Trouver un coach » vit dans l'espace personnel.
+    { id: 'findCoach', labelKey: 'nav.sectionFindCoach', tone: 'muted', items: [directory, coachMatch] },
     { id: 'account', items: [profile] },
-    { id: 'marketplace', labelKey: 'nav.sectionActivity', tone: 'muted', items: [directory, coachMatch, requests] },
   ]);
 }
 
-export function quickAddActions(
-  tracking: NavTracking,
-  opts?: { programDayDue?: boolean },
-): QuickAddDef[] {
+export function quickAddActions(tracking: NavTracking): QuickAddDef[] {
   return [
+    // « Séance » opens the training page (today's session, routines, off-plan),
+    // never an empty workout the athlete then has to discard.
     ...(tracking.track_workouts
-      ? [{
-          id: 'newWorkout',
-          path: '/workout/new',
-          labelKey: opts?.programDayDue ? 'nav.addWorkoutOffPlan' : 'nav.newWorkout',
-          icon: Dumbbell,
-          state: opts?.programDayDue ? { offPlan: true } : undefined,
-        }]
+      ? [{ id: 'session', path: '/workout', labelKey: 'nav.quickSession', icon: Dumbbell }]
       : []),
     ...(tracking.track_checkins
       ? [{ id: 'checkin', path: '/checkin', labelKey: 'nav.addCheckin', icon: ClipboardCheck }]
@@ -206,8 +231,11 @@ export function quickAddActions(
 }
 
 export function pathMatchesItem(pathname: string, item: NavItemDef): boolean {
-  if (item.end) return pathname === item.path;
-  return pathname === item.path || pathname.startsWith(`${item.path}/`);
+  const paths = item.match ?? [item.path];
+  return paths.some((path) => {
+    if (item.end && path === item.path) return pathname === path;
+    return pathname === path || pathname.startsWith(`${path}/`);
+  });
 }
 
 export function tabIndexForPath(pathname: string, tabs: NavItemDef[]): number {

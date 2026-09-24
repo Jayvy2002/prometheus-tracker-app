@@ -1,14 +1,15 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Dumbbell, Apple, Scale, Flame, CalendarDays, CalendarRange } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Dumbbell, Apple, Scale, CalendarDays, CalendarRange, Ruler } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useClientTracking } from '../../lib/useClientTracking';
+import { checkinHasAnyField, showModule } from '../../lib/clientTracking';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { useWeightStore } from '../../stores/weightStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
 import { supabase } from '../../lib/supabase';
-import { parseDateStr, parseDate, formatWeight, toLocalDateStr, dateLocale, todayStr } from '../../lib/utils';
-import { countUnbrokenStreak } from '../../lib/streak';
+import { parseDateStr, parseDate, formatWeight, toLocalDateStr, dateLocale } from '../../lib/utils';
 import { correctNutritionLogEnergy } from '../../lib/foodEnergy';
 import { useProfileStore } from '../../stores/profileStore';
 import Card from '../ui/Card';
@@ -34,6 +35,8 @@ interface DaySummary {
   nutrition: { totalCals: number; protein: number; carbs: number; fat: number } | null;
   nutritionCount: number;
   weights: number[];
+  measurementCount: number;
+  checkinNote: string | null;
 }
 
 type ViewMode = 'week' | 'month';
@@ -80,7 +83,8 @@ export default function CalendarPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { profile } = useProfileStore();
-  const { workouts, workoutsExhausted, fetchWorkouts, fetchOlderWorkouts } = useWorkoutStore();
+  const tracking = useClientTracking();
+  const { workouts, workoutsExhausted, fetchWorkouts, fetchOlderWorkouts, createWorkout } = useWorkoutStore();
   const { measurements, fetchMeasurements } = useWeightStore();
   const { setSelectedDate: setNutritionDate } = useNutritionStore();
   const assignment = useProgramStore(s => s.assignment);
@@ -165,9 +169,20 @@ export default function CalendarPage() {
         .select('weight_kg')
         .eq('user_id', user.id)
         .eq('measured_at', selectedDate),
-    ]).then(([workoutRes, nutritionRes, weightRes]) => {
+      supabase
+        .from('daily_checkins')
+        .select('notes')
+        .eq('user_id', user.id)
+        .eq('checked_at', selectedDate)
+        .limit(1),
+      supabase
+        .from('body_measurements')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('measured_at', selectedDate),
+    ]).then(([workoutRes, nutritionRes, weightRes, checkinRes, measureRes]) => {
       if (seq !== summarySeq.current) return;
-      if (responsesHaveError([workoutRes, nutritionRes, weightRes])) {
+      if (responsesHaveError([workoutRes, nutritionRes, weightRes, checkinRes, measureRes])) {
         setSummaryError(true);
         setDaySummary(null);
         setSummaryLoading(false);
@@ -187,6 +202,8 @@ export default function CalendarPage() {
         nutrition: totalNutrition,
         nutritionCount: nutritionLogs.length,
         weights: calendarDayWeights(weightRes.data ?? []),
+        measurementCount: (measureRes.data ?? []).length,
+        checkinNote: ((checkinRes.data ?? [])[0]?.notes as string | undefined)?.trim() || null,
       });
       setSummaryLoading(false);
     }).catch(() => {
@@ -205,12 +222,6 @@ export default function CalendarPage() {
     return new Set(measurements.map(m => m.measured_at));
   }, [measurements]);
 
-  const streakCount = useMemo(() => {
-    return countUnbrokenStreak(
-      [...workoutDateSet, ...weightDateSet, ...allNutritionDates],
-      todayStr(),
-    );
-  }, [workoutDateSet, weightDateSet, allNutritionDates]);
 
   const weekBaseDate = useMemo(() => {
     const [y, m, d] = today.split('-').map(Number);
@@ -380,16 +391,12 @@ export default function CalendarPage() {
       <div className="flex items-center justify-between mb-6 animate-fade-in-down">
         <h1 className="text-2xl font-bold text-white" data-testid="calendar-page">{t('calendar.title')}</h1>
         <div className="flex items-center gap-2">
-          {streakCount > 0 && (
-            <div className="flex items-center gap-1 bg-orange-500/15 border border-orange-500/25 rounded-xl px-2.5 py-1.5">
-              <Flame size={13} className="text-orange-400" />
-              <span className="text-xs font-bold text-orange-400">{streakCount}</span>
-            </div>
-          )}
           <button
+            type="button"
             onClick={() => setViewMode(viewMode === 'week' ? 'month' : 'week')}
             data-testid="calendar-view-toggle"
-            className="p-2 rounded-xl bg-neutral-900 text-neutral-400 hover:text-white transition-colors"
+            aria-label={viewMode === 'week' ? t('calendar.showMonth') : t('calendar.showWeek')}
+            className="min-h-11 min-w-11 flex items-center justify-center rounded-xl bg-neutral-900 text-neutral-400 hover:text-white transition-colors"
           >
             {viewMode === 'week' ? <CalendarRange size={18} /> : <CalendarDays size={18} />}
           </button>
@@ -401,7 +408,8 @@ export default function CalendarPage() {
           <button
             onClick={() => viewMode === 'week' ? setWeekOffset(o => o - 1) : setMonthOffset(o => o - 1)}
             data-testid="calendar-prev"
-            className="p-2 text-neutral-400 hover:text-white transition-colors"
+            aria-label={t('calendar.previous')}
+            className="min-h-11 min-w-11 flex items-center justify-center text-neutral-400 hover:text-white transition-colors"
           >
             <ChevronLeft size={18} />
           </button>
@@ -411,7 +419,8 @@ export default function CalendarPage() {
           <button
             onClick={() => viewMode === 'week' ? setWeekOffset(o => o + 1) : setMonthOffset(o => o + 1)}
             data-testid="calendar-next"
-            className="p-2 text-neutral-400 hover:text-white transition-colors"
+            aria-label={t('calendar.next')}
+            className="min-h-11 min-w-11 flex items-center justify-center text-neutral-400 hover:text-white transition-colors"
           >
             <ChevronRight size={18} />
           </button>
@@ -455,38 +464,35 @@ export default function CalendarPage() {
             <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
             {t('calendar.legend.weight')}
           </div>
-          {streakCount > 0 && (
-            <div className="ml-auto flex items-center gap-1 text-[11px] text-orange-400">
-              <Flame size={11} />
-              <span>{t('calendar.legend.streak', { n: streakCount })}</span>
-            </div>
-          )}
         </div>
       </Card>
 
-      <div className="grid grid-cols-3 gap-2 mb-4 animate-fade-in-up stagger-2">
-        <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-xl px-3 py-2.5 text-center">
-          <p className="text-lg font-bold text-blue-400">
-            {summaryLoading || summaryError ? '–' : daySummary?.workouts.length ?? 0}
-          </p>
-          <p className="text-[10px] text-neutral-500">{t('calendar.daySummary.workouts')}</p>
-        </div>
-        <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-xl px-3 py-2.5 text-center">
-          <p className="text-lg font-bold text-emerald-400">
-            {summaryLoading || summaryError ? '–' : daySummary?.nutritionCount ?? 0}
-          </p>
-          <p className="text-[10px] text-neutral-500">{t('calendar.daySummary.meals')}</p>
-        </div>
-        <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-xl px-3 py-2.5 text-center">
-          <p className="text-lg font-bold text-amber-400">
-            {summaryLoading || summaryError ? '–' : daySummary?.weights.length ?? 0}
-          </p>
-          <p className="text-[10px] text-neutral-500">{t('calendar.daySummary.weighIns')}</p>
-        </div>
-      </div>
-
       <div className="mb-3 animate-fade-in-up stagger-2">
-        <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider mb-1">{selectedDateLabel}</h2>
+        <h2 className="text-sm font-semibold text-neutral-300 mb-2">{selectedDateLabel}</h2>
+        {selectedDate <= today && (
+          <div className="flex flex-wrap gap-2">
+            {showModule(tracking, 'workouts') && <button type="button" className="min-h-11 px-3 rounded-xl bg-neutral-900 text-sm text-white" onClick={() => {
+              if (!user) return;
+              void createWorkout({ user_id: user.id, name: '', date: `${selectedDate}T12:00:00` }).then((id) => {
+                if (id) navigate(`/workout/${id}`);
+              });
+            }}>
+              {t('calendar.day.addWorkout')}
+            </button>}
+            {showModule(tracking, 'nutrition') && <button type="button" className="min-h-11 px-3 rounded-xl bg-neutral-900 text-sm text-white" onClick={() => {
+              setNutritionDate(selectedDate);
+              navigate('/nutrition?add=1');
+            }}>
+              {t('calendar.day.addMeal')}
+            </button>}
+            {showModule(tracking, 'weight') && <button type="button" className="min-h-11 px-3 rounded-xl bg-neutral-900 text-sm text-white" onClick={() => navigate(`/weight?log=1&date=${selectedDate}`)}>
+              {t('calendar.day.addWeight')}
+            </button>}
+            {showModule(tracking, 'checkins') && checkinHasAnyField(tracking) && <button type="button" className="min-h-11 px-3 rounded-xl bg-neutral-900 text-sm text-white" onClick={() => navigate(`/checkin?date=${selectedDate}`)}>
+              {t('calendar.day.addCheckin')}
+            </button>}
+          </div>
+        )}
       </div>
 
       {summaryError ? (
@@ -556,11 +562,11 @@ export default function CalendarPage() {
               </Card>
             ))
           ) : selectedPlan?.status === 'scheduled' ? null : (
-            <Card className="flex items-center gap-3 opacity-40">
+            <Card className="flex items-center gap-3 border-dashed">
               <div className="w-9 h-9 rounded-xl bg-neutral-800 flex items-center justify-center shrink-0">
                 <Dumbbell size={16} className="text-neutral-500" />
               </div>
-              <p className="text-sm text-neutral-500">{t('calendar.day.noWorkout')}</p>
+              <p className="text-sm text-neutral-400">{t('calendar.day.noWorkout')}</p>
             </Card>
           )}
 
@@ -609,11 +615,11 @@ export default function CalendarPage() {
               </div>
             </Card>
           ) : (
-            <Card className="flex items-center gap-3 opacity-40">
+            <Card className="flex items-center gap-3 border-dashed">
               <div className="w-9 h-9 rounded-xl bg-neutral-800 flex items-center justify-center shrink-0">
                 <Apple size={16} className="text-neutral-500" />
               </div>
-              <p className="text-sm text-neutral-500">{t('calendar.day.noNutrition')}</p>
+              <p className="text-sm text-neutral-400">{t('calendar.day.noNutrition')}</p>
             </Card>
           )}
 
@@ -634,13 +640,32 @@ export default function CalendarPage() {
               </Card>
             ))
           ) : (
-            <Card className="flex items-center gap-3 opacity-40">
+            <Card className="flex items-center gap-3 border-dashed">
               <div className="w-9 h-9 rounded-xl bg-neutral-800 flex items-center justify-center shrink-0">
                 <Scale size={16} className="text-neutral-500" />
               </div>
-              <p className="text-sm text-neutral-500">{t('calendar.day.noWeight')}</p>
+              <p className="text-sm text-neutral-400">{t('calendar.day.noWeight')}</p>
             </Card>
           )}
+          {daySummary && daySummary.measurementCount > 0 && showModule(tracking, 'weight') ? (
+            <Card
+              className="flex items-center gap-3 cursor-pointer hover:border-neutral-700/70 active:scale-[0.98] transition-all"
+              onClick={() => navigate('/body?view=measurements')}
+            >
+              <div className="w-9 h-9 rounded-xl bg-neutral-800 flex items-center justify-center shrink-0">
+                <Ruler size={16} className="text-neutral-300" aria-hidden="true" />
+              </div>
+              <p className="text-sm font-semibold text-white">
+                {t('measurements.calendarEntry', { count: daySummary.measurementCount })}
+              </p>
+            </Card>
+          ) : null}
+          {daySummary?.checkinNote ? (
+            <Card>
+              <p className="text-sm font-semibold text-white mb-1">{t('calendar.day.checkin')}</p>
+              <p className="text-sm text-neutral-300">{daySummary.checkinNote}</p>
+            </Card>
+          ) : null}
         </div>
       )}
     </div>

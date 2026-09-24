@@ -77,6 +77,11 @@ check(await admin.from('coach_client_links').insert([
   { coach_id: coach.id, client_id: coached.id, status: 'active' },
   { coach_id: coach.id, client_id: dual.id, status: 'active' },
 ]));
+// As a real activation does: the coach follows training, so personal routines stay open.
+check(await admin.from('client_tracking_config').insert([
+  { coach_id: coach.id, client_id: coached.id, track_workouts: true },
+  { coach_id: coach.id, client_id: dual.id, track_workouts: true },
+]));
 
 function civilInTimeZone(timeZone, d = new Date()) {
   const fmt = new Intl.DateTimeFormat('en-CA', {
@@ -188,7 +193,7 @@ try {
   await coachedPage.goto(origin + '/calendar');
   await coachedPage.getByTestId('calendar-page').waitFor();
   const planLegend = coachedPage.getByTestId('calendar-plan-legend');
-  await planLegend.getByText('Scheduled', { exact: true }).waitFor();
+  await planLegend.getByText('Planned session', { exact: true }).waitFor();
   await planLegend.getByText('Started', { exact: true }).waitFor();
   await planLegend.getByText('Done', { exact: true }).waitFor();
   assert.equal(await coachedPage.getByRole('button', { name: 'Save plan' }).count(), 0);
@@ -247,8 +252,10 @@ try {
   await coachedPage.getByTestId('assigned-plan-read-only').waitFor();
   assert.equal(await coachedPage.getByRole('button', { name: 'Save plan' }).count(), 0);
 
+  // Vision §7.1: a coached athlete may still run a personal routine.
   await coachedPage.goto(origin + '/routines');
-  await coachedPage.waitForURL(/\/dashboard/);
+  await coachedPage.getByRole('heading', { name: 'Routines' }).waitFor();
+  assert.equal(new URL(coachedPage.url()).pathname, '/routines');
 
   const dualPage = await openAs(dual, { width: 1440, height: 1000 });
   await dualPage.goto(origin + '/profile');
@@ -265,7 +272,7 @@ try {
     animations: 'disabled',
   });
 
-  const pass = 'PASS: coached calendar past/future, assigned Upper pull scheduled, paused hides future scheduled, plan legend, no plan editor, routines still deferred, Coach+Coached personal calendar.';
+  const pass = 'PASS: coached calendar past/future, assigned Upper pull scheduled, paused hides future scheduled, plan legend, no plan editor, personal routines open, Coach+Coached personal calendar.';
   await writeFile('artifacts/p13/results.txt', pass + '\n');
   console.log(pass);
 } catch (error) {

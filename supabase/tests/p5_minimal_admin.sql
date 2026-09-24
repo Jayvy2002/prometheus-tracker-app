@@ -38,10 +38,10 @@ DO $$ BEGIN
   IF has_function_privilege('authenticated', 'public.review_coach_qualification(uuid,text,text)', 'execute')
      OR has_function_privilege('authenticated', 'public.review_marketplace_report(uuid,text,text)', 'execute')
      OR has_function_privilege('authenticated', 'public.merge_exercises(uuid,uuid,boolean)', 'execute')
-     OR has_function_privilege('anon', 'public.admin_list_pending_qualifications()', 'execute')
+     OR has_function_privilege('anon', 'public.admin_list_pending_qualifications(timestamptz,uuid,integer)', 'execute')
      OR has_function_privilege('anon', 'public.admin_merge_exercises(uuid,uuid,boolean)', 'execute')
      OR NOT has_function_privilege('authenticated', 'public.admin_review_qualification(uuid,text,text,boolean)', 'execute')
-     OR NOT has_function_privilege('authenticated', 'public.admin_list_open_reports()', 'execute')
+     OR NOT has_function_privilege('authenticated', 'public.admin_list_open_reports(timestamptz,uuid,integer)', 'execute')
      OR NOT has_function_privilege('authenticated', 'public.is_platform_operator()', 'execute')
      OR has_table_privilege('authenticated', 'public.platform_operators', 'select')
      OR has_table_privilege('authenticated', 'public.platform_admin_audit', 'select')
@@ -167,29 +167,30 @@ DO $$
 DECLARE
   req uuid;
   bench uuid;
+  stamp timestamptz;
   created jsonb;
 BEGIN
   IF (SELECT string_agg(description, ' ') FROM public.admin_list_exercise_proposals()) LIKE '%@%' THEN
     RAISE EXCEPTION 'proposal list leaked mail';
   END IF;
-  SELECT id INTO req FROM public.admin_list_exercise_proposals() WHERE name = 'P54 Zercher Hold';
+  SELECT id, updated_at INTO req, stamp FROM public.admin_list_exercise_proposals() WHERE name = 'P54 Zercher Hold';
   BEGIN
-    PERFORM public.admin_approve_exercise_proposal(req, 'P54 Zercher Hold', 'Zercher P54', 'compound', 'barbell', false);
+    PERFORM public.admin_approve_exercise_proposal(req, 'P54 Zercher Hold', 'Zercher P54', 'compound', 'barbell', false, stamp);
     RAISE EXCEPTION 'approve without confirm';
   EXCEPTION WHEN OTHERS THEN
     IF SQLERRM <> 'confirmation_required' THEN RAISE; END IF;
   END;
-  created := public.admin_approve_exercise_proposal(req, 'P54 Zercher Hold', 'Zercher P54', 'compound', 'barbell', true);
+  created := public.admin_approve_exercise_proposal(req, 'P54 Zercher Hold', 'Zercher P54', 'compound', 'barbell', true, stamp);
   IF created->>'status' <> 'approved' THEN RAISE EXCEPTION 'proposal not approved'; END IF;
   BEGIN
-    PERFORM public.admin_approve_exercise_proposal(req, 'P54 Zercher Hold', 'Zercher P54', 'compound', 'barbell', true);
+    PERFORM public.admin_approve_exercise_proposal(req, 'P54 Zercher Hold', 'Zercher P54', 'compound', 'barbell', true, stamp);
     RAISE EXCEPTION 'second approve wrote again';
   EXCEPTION WHEN OTHERS THEN
     IF SQLERRM <> 'request_closed' THEN RAISE; END IF;
   END;
   SELECT id INTO bench FROM public.exercises WHERE name = 'Bench Press' AND merged_into_id IS NULL;
-  SELECT id INTO req FROM public.admin_list_exercise_proposals() WHERE name = 'Bench Press';
-  IF (public.admin_match_exercise_proposal(req, bench, true)->>'status') <> 'matched' THEN
+  SELECT id, updated_at INTO req, stamp FROM public.admin_list_exercise_proposals() WHERE name = 'Bench Press';
+  IF (public.admin_match_exercise_proposal(req, bench, true, stamp)->>'status') <> 'matched' THEN
     RAISE EXCEPTION 'proposal not matched';
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.exercises WHERE name = 'P54 Zercher Hold' AND verified AND created_by IS NULL) THEN

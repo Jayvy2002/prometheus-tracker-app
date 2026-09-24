@@ -5,6 +5,9 @@ import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
 import Card from '../ui/Card';
+import { Link } from 'react-router-dom';
+import { formatNumber } from '../../lib/utils';
+import { nutritionTargetsFromProfile, targetRatio } from '../../features/nutrition/domain/nutritionTargets';
 import { toast } from '../ui/Toast';
 
 const QUICK_ADD = [1000, 2500, 5000];
@@ -20,9 +23,10 @@ export default function StepsTracker() {
   const { user } = useAuthStore();
   const { profile } = useProfileStore();
   const { stepsLog, logSteps, selectedDate } = useNutritionStore();
-  const target = profile?.daily_steps_target ?? 10000;
+  // No target chosen = no target shown (never an invented 10 000 steps).
+  const target = nutritionTargetsFromProfile(profile).steps;
   const consumed = stepsLog?.logged_at === selectedDate ? stepsLog.steps : 0;
-  const pct = target > 0 ? Math.min(100, (consumed / target) * 100) : 0;
+  const pct = targetRatio(consumed, target);
   const [draft, setDraft] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -63,11 +67,19 @@ export default function StepsTracker() {
       <div className="flex items-center gap-2 mb-3">
         <Footprints className="text-emerald-400" size={18} />
         <span className="text-sm font-medium text-white">{t('nutrition.steps.title')}</span>
-        <span className="text-xs text-neutral-500 ml-auto">{consumed.toLocaleString()} / {target.toLocaleString()}</span>
+        <span className="text-xs text-neutral-500 ml-auto">
+          {target != null
+            ? `${formatNumber(consumed, { maxDigits: 0 })} / ${formatNumber(target, { maxDigits: 0 })}`
+            : formatNumber(consumed, { maxDigits: 0 })}
+        </span>
       </div>
-      <div className="h-2 bg-neutral-800 rounded-full overflow-hidden mb-3">
-        <div className="h-full bg-emerald-400 rounded-full transition-all duration-500 animate-progress-fill" style={{ width: `${pct}%` }} />
-      </div>
+      {target != null ? (
+        <div className="h-2 bg-neutral-800 rounded-full overflow-hidden mb-3">
+          <div className="h-full bg-emerald-400 rounded-full transition-all duration-500 animate-progress-fill" style={{ width: `${pct}%` }} />
+        </div>
+      ) : (
+        <Link to="/profile?section=goals" className="block mb-3 text-xs text-emerald-400">{t('nutrition.steps.setTarget')}</Link>
+      )}
       <div className="flex items-center gap-2 mb-2">
         <input
           type="number"
@@ -77,7 +89,8 @@ export default function StepsTracker() {
           step={100}
           value={draft}
           onChange={e => setDraft(e.target.value)}
-          placeholder={String(consumed || target)}
+          placeholder={consumed > 0 ? String(consumed) : undefined}
+          aria-label={t('nutrition.steps.title')}
           className="flex-1 bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-sm text-white placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
         />
         <button

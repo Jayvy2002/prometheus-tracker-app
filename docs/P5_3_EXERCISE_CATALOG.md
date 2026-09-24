@@ -31,3 +31,13 @@ Les imports P5.1/P5.2 continuent d’écrire le nom libre. Le même trigger pose
 ## Recherche
 
 `search_exercises` et `suggest_exercise_matches` sont exécutables par un utilisateur authentifié, y compris un Coach, un Coach lui-même Coaché, ou un ancien Coach. Elles ignorent les exercices fusionnés.
+
+## Passage d’audit (PR #221, pending)
+
+Renommer une ligne d’exercice déjà liée suit trois règles :
+
+- un changement explicite de `catalog_exercise_id` l’emporte ;
+- un nouveau nom qui désigne un autre exercice du catalogue remplace le lien ;
+- un nom inconnu est un libellé personnel : le lien existant reste.
+
+L’enregistrement d’un programme envoie `catalog_exercise_id` : le choix fait dans le sélecteur survit à la sauvegarde. Modifier le nom, les muscles ou la description d’une proposition met à jour `updated_at`. Une approbation préparée sur l’ancienne version échoue `request_changed`.

@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
+import { useProfileStore } from '../../stores/profileStore';
 import { clearPendingDossierToken, setPendingDossierToken } from '../../stores/coachingStore';
+import { formatWeight } from '../../lib/utils';
 import Button from '../ui/Button';
 import AuthPage from '../auth/AuthPage';
 import { toast, ToastContainer } from '../ui/Toast';
@@ -23,6 +25,8 @@ export default function ProvisionalClaimPage() {
   const [loading, setLoading] = useState(true);
   const [acceptData, setAcceptData] = useState(false);
   const [acceptCoaching, setAcceptCoaching] = useState(false);
+  const [acknowledgeCollisions, setAcknowledgeCollisions] = useState(false);
+  const unit = useProfileStore(s => s.profile?.unit_weight === 'lbs' ? 'lbs' : 'kg');
   const [busy, setBusy] = useState(false);
   const [retry, setRetry] = useState(0);
   const generation = useRef(0);
@@ -35,6 +39,7 @@ export default function ProvisionalClaimPage() {
     setPreview(null);
     setAcceptData(false);
     setAcceptCoaching(false);
+    setAcknowledgeCollisions(false);
     if (!token) {
       setLoading(false);
       setFailed('coaching.provisional.errors.invite_invalid');
@@ -62,15 +67,34 @@ export default function ProvisionalClaimPage() {
     return () => { generation.current = started + 1; };
   }, [token, user?.id, retry]);
 
+  const leave = () => {
+    clearPendingDossierToken();
+    navigate('/dashboard');
+  };
+
   const confirm = async () => {
-    if (!token || !user || busy || !acceptData) return;
+    if (!token || !user || busy || !acceptData || !preview?.revision) return;
+    const collisions = preview.collisions;
+    const hasCollisions = collisions.files.length + collisions.session_dates.length + collisions.weight_dates.length > 0;
+    if (hasCollisions && !acknowledgeCollisions) return;
     const current = generation.current;
     setBusy(true);
-    const result = await confirmProvisionalClaim({ token, acceptData, acceptCoaching });
+    const result = await confirmProvisionalClaim({
+      token,
+      acceptData,
+      acceptCoaching,
+      revision: preview.revision,
+      acknowledgeCollisions,
+    });
     if (generation.current !== current) return;
     setBusy(false);
     if (result.error || !result.data) {
       const key = provisionalErrorI18nKey(result.error);
+      if (key.endsWith('content_changed')) {
+        toast(t(key), 'error');
+        setRetry((value) => value + 1);
+        return;
+      }
       setFailed(key);
       toast(t(key), 'error');
       return;
@@ -107,7 +131,7 @@ export default function ProvisionalClaimPage() {
             <h1 className="text-xl font-bold text-white">{t('coaching.provisional.claim.unavailable')}</h1>
             <p role="alert" className="text-sm text-neutral-300">{t(failed)}</p>
             <Button onClick={() => setRetry((value) => value + 1)}>{t('errors.retry')}</Button>
-            <Button variant="secondary" onClick={() => navigate('/dashboard')}>{t('coaching.provisional.claim.goHome')}</Button>
+            <Button variant="secondary" onClick={leave}>{t('coaching.provisional.claim.goHome')}</Button>
           </div>
         ) : preview?.already_attached ? (
           <div className="space-y-4 text-center">
@@ -128,7 +152,7 @@ export default function ProvisionalClaimPage() {
                 }`)}
               </p>
             ) : null}
-            <Button className="w-full" onClick={() => navigate('/dashboard')}>{t('coaching.provisional.claim.goHome')}</Button>
+            <Button className="w-full" onClick={leave}>{t('coaching.provisional.claim.goHome')}</Button>
           </div>
         ) : preview ? (
           <div className="space-y-4">
@@ -157,6 +181,32 @@ export default function ProvisionalClaimPage() {
                           ? t('coaching.provisional.claim.exercises', { list: session.exercises.join(', ') })
                           : t('coaching.provisional.claim.noExercises')}
                       </p>
+                      {session.details.map((exercise) => (
+                        <div key={`${session.date}-${exercise.name}`} className="mt-2">
+                          <p className="text-sm text-neutral-200">{exercise.name}</p>
+                          {exercise.notes ? (
+                            <p className="text-xs text-neutral-400">{t('coaching.provisional.claim.notes', { notes: exercise.notes })}</p>
+                          ) : null}
+                          <ul className="mt-1 space-y-1">
+                            {exercise.sets.map((set) => (
+                              <li key={`${exercise.name}-${set.order}`} className="text-xs text-neutral-300">
+                                {set.weight_kg == null
+                                  ? t('coaching.provisional.claim.setLineNoWeight', {
+                                    order: set.order,
+                                    reps: set.reps ?? '—',
+                                    rir: set.rir ?? '—',
+                                  })
+                                  : t('coaching.provisional.claim.setLine', {
+                                    order: set.order,
+                                    weight: formatWeight(set.weight_kg, unit),
+                                    reps: set.reps ?? '—',
+                                    rir: set.rir ?? '—',
+                                  })}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
                     </li>
                   ))}
                 </ul>
@@ -166,10 +216,51 @@ export default function ProvisionalClaimPage() {
               <h2 className="text-sm font-medium text-white mb-1">
                 {t('coaching.provisional.counts.weights', { count: preview.weight_count })}
               </h2>
-              <p className="text-sm text-neutral-400">
-                {preview.weight_dates.length ? preview.weight_dates.join(', ') : t('coaching.provisional.claim.noWeights')}
-              </p>
+              <ul className="space-y-1">
+                {(preview.weights.length ? preview.weights : preview.weight_dates.map((date) => ({
+                  measured_at: date,
+                  weight_kg: null,
+                  notes: '',
+                }))).map((weight) => (
+                  <li key={`${weight.measured_at}-${weight.weight_kg ?? 'x'}`} className="text-sm text-neutral-400">
+                    {weight.weight_kg == null
+                      ? weight.measured_at
+                      : t('coaching.provisional.claim.weightLine', {
+                        date: weight.measured_at,
+                        weight: formatWeight(weight.weight_kg, unit),
+                      })}
+                    {weight.notes ? ` · ${weight.notes}` : ''}
+                  </li>
+                ))}
+                {preview.weights.length === 0 && preview.weight_dates.length === 0 ? (
+                  <li className="text-sm text-neutral-400">{t('coaching.provisional.claim.noWeights')}</li>
+                ) : null}
+              </ul>
             </section>
+            {(preview.collisions.files.length + preview.collisions.session_dates.length + preview.collisions.weight_dates.length) > 0 ? (
+              <section className="rounded-xl border border-amber-800 px-3 py-2 space-y-1">
+                <h2 className="text-sm font-medium text-amber-200">{t('coaching.provisional.claim.collisionsTitle')}</h2>
+                {preview.collisions.files.length ? (
+                  <p className="text-xs text-neutral-300">{t('coaching.provisional.claim.collisionsFiles', { count: preview.collisions.files.length })}</p>
+                ) : null}
+                {preview.collisions.session_dates.length ? (
+                  <p className="text-xs text-neutral-300">{t('coaching.provisional.claim.collisionsSessions', { list: preview.collisions.session_dates.join(', ') })}</p>
+                ) : null}
+                {preview.collisions.weight_dates.length ? (
+                  <p className="text-xs text-neutral-300">{t('coaching.provisional.claim.collisionsWeights', { list: preview.collisions.weight_dates.join(', ') })}</p>
+                ) : null}
+                <label className="flex items-start gap-2 text-sm text-neutral-200">
+                  <input
+                    type="checkbox"
+                    checked={acknowledgeCollisions}
+                    onChange={(event) => setAcknowledgeCollisions(event.target.checked)}
+                    disabled={busy}
+                    className="mt-1 accent-blue-500"
+                  />
+                  <span>{t('coaching.provisional.claim.acknowledgeCollisions')}</span>
+                </label>
+              </section>
+            ) : null}
             <label className="flex items-start gap-2 text-sm text-neutral-200">
               <input
                 type="checkbox"
@@ -193,15 +284,20 @@ export default function ProvisionalClaimPage() {
                 <span className="block text-xs text-neutral-500 mt-1">{t('coaching.provisional.claim.coachingHint')}</span>
               </span>
             </label>
-            <Button className="w-full" onClick={() => void confirm()} loading={busy} disabled={!acceptData}>
+            <Button
+              className="w-full"
+              onClick={() => void confirm()}
+              loading={busy}
+              disabled={!acceptData || !preview.revision || (
+                (preview.collisions.files.length + preview.collisions.session_dates.length + preview.collisions.weight_dates.length) > 0
+                && !acknowledgeCollisions
+              )}
+            >
               {t('coaching.provisional.claim.confirm')}
             </Button>
             <button
               type="button"
-              onClick={() => {
-                clearPendingDossierToken();
-                navigate('/dashboard');
-              }}
+              onClick={leave}
               className="block w-full min-h-11 text-sm text-neutral-500"
             >
               {t('common.cancel')}

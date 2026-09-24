@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
@@ -8,7 +8,10 @@ import { readRequests } from '../../lib/marketplaceApi';
 import EmptyState from '../ui/EmptyState';
 import Button from '../ui/Button';
 import PageTransition from '../ui/PageTransition';
-import MessageThread from './MessageThread';
+import MessageThread, { type ThreadSendExtras } from './MessageThread';
+import { messageIdentityText, parseObjectRefQuery } from '../../features/messages/domain/messageContent';
+import { useObjectRefHint } from '../../features/messages/hooks/useObjectRefHint';
+import { hasBilan, parseBilanQuery } from '../../lib/messageBilan';
 import { loadOrCreateMessageKey, clearMessageKey } from '../../lib/idempotencyKeys';
 import { firstNameOf } from '../../lib/coachQueue';
 
@@ -24,6 +27,11 @@ export default function ClientMessagesPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [prospectCoach, setProspectCoach] = useState<{ id: string; full_name: string } | null>(null);
   const peer = myCoach ?? prospectCoach;
+  const [searchParams] = useSearchParams();
+  // « En parler à mon Coach » from a session, check-in, goal or exercise.
+  const bilan = useMemo(() => parseBilanQuery(searchParams), [searchParams]);
+  const objectRef = useMemo(() => parseObjectRefQuery(searchParams), [searchParams]);
+  const refHint = useObjectRefHint(myCoach ? objectRef : null);
 
   useEffect(() => {
     if (!user) return;
@@ -40,12 +48,17 @@ export default function ClientMessagesPage() {
     if (user && peer) void markThreadRead(user.id);
   }, [user, peer, sentMessages.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleSend = async (body: string) => {
+  const handleSend = async (body: string, extras: ThreadSendExtras) => {
     if (!user || !peer) return { error: t('coaching.messages.sendFailed') };
     setSending(true);
     try {
-      const msgId = loadOrCreateMessageKey(user.id, body, user.id);
-      const result = await sendClientReply(body, msgId, peer.id);
+      const msgId = loadOrCreateMessageKey(user.id, messageIdentityText(body, extras.attachments), user.id);
+      // A prospect shares files and text only; references need the active relationship.
+      const result = await sendClientReply(body, msgId, peer.id, {
+        ...extras,
+        bilan: myCoach ? bilan : undefined,
+        ref: myCoach ? objectRef : null,
+      });
       if (!result.error) clearMessageKey(user.id, user.id);
       return result;
     } finally {
@@ -84,6 +97,8 @@ export default function ClientMessagesPage() {
             currentUserId={user?.id ?? ''}
             sending={sending}
             onSend={handleSend}
+            thread={user ? { coachId: peer.id, clientId: user.id } : undefined}
+            draftHint={myCoach ? (refHint ?? (hasBilan(bilan) ? t('messages.refs.composeAbout', { what: t(bilan.workoutId ? 'messages.refs.workout' : 'messages.refs.checkin') }) : undefined)) : undefined}
             hasMore={user ? !threadExhausted[user.id] : false}
             loadingMore={loadingMore}
             onLoadMore={user ? () => {

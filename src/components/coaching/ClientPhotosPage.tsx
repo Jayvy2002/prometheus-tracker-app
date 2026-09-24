@@ -14,6 +14,7 @@ import OverflowMenu from '../ui/OverflowMenu';
 import { formatDate } from '../../lib/utils';
 import { toast } from '../ui/Toast';
 import { athletePhotoAudience, athletePhotoSubtitleKey } from '../../lib/photoAudience';
+import { fetchMyPhotoSharing, setMyPhotoSharing, type PhotoSharingState } from '../../features/coaching/data/photoSharing';
 
 const KINDS: ProgressPhotoKind[] = ['front', 'side', 'back'];
 
@@ -32,6 +33,30 @@ export default function ClientPhotosPage() {
   const [notes, setNotes] = useState('');
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [sharing, setSharing] = useState<PhotoSharingState | null>(null);
+  const [savingShare, setSavingShare] = useState(false);
+  const coachName = myCoach?.full_name?.trim() || t('coaching.invite.aCoach');
+
+  // Private by default (Vision §14.4): the athlete decides what the coach sees.
+  useEffect(() => {
+    if (!user || !myCoach) { setSharing(null); return; }
+    let cancelled = false;
+    void fetchMyPhotoSharing(user.id).then(state => { if (!cancelled) setSharing(state); });
+    return () => { cancelled = true; };
+  }, [user, myCoach]);
+
+  const toggleShare = async () => {
+    if (!sharing || sharing.status !== 'ready' || savingShare) return;
+    setSavingShare(true);
+    const result = await setMyPhotoSharing(!sharing.shared);
+    setSavingShare(false);
+    if ('error' in result) {
+      toast(t('coaching.photos.shareFailed'), 'error');
+      return;
+    }
+    setSharing({ status: 'ready', shared: result.shared });
+    toast(t('coaching.photos.shareSaved'));
+  };
 
   const reload = async (uid: string) => {
     const rows = await fetchProgressPhotos(uid);
@@ -107,10 +132,35 @@ export default function ClientPhotosPage() {
       <div className="px-4 pt-6 pb-28">
         <h1 className="text-2xl font-bold text-white mb-1">{t('coaching.photos.title')}</h1>
         <p className="text-sm text-neutral-500 mb-4" data-testid="ux67-inline-hint">
-          {t(athletePhotoSubtitleKey(athletePhotoAudience(!!myCoach)), {
-            name: myCoach?.full_name?.trim() || t('coaching.invite.aCoach'),
-          })}
+          {t(athletePhotoSubtitleKey(athletePhotoAudience(!!myCoach)), { name: coachName })}
         </p>
+
+        {myCoach && sharing && (
+          <div data-testid="photo-sharing"><Card className="mb-4">
+            {sharing.status === 'error' ? (
+              <p className="text-sm text-neutral-400" role="alert">{t('coaching.photos.shareLoadFailed')}</p>
+            ) : (
+              <button
+                type="button"
+                role="switch"
+                aria-checked={sharing.shared}
+                disabled={savingShare}
+                onClick={() => void toggleShare()}
+                className="flex w-full min-h-11 items-center justify-between gap-3 text-left disabled:opacity-60"
+              >
+                <span className="min-w-0">
+                  <span className="block text-sm font-medium text-white">{t('coaching.photos.shareTitle', { name: coachName })}</span>
+                  <span className="block text-xs text-neutral-500">
+                    {t(sharing.shared ? 'coaching.photos.shareOn' : 'coaching.photos.shareOff', { name: coachName })}
+                  </span>
+                </span>
+                <span aria-hidden="true" className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${sharing.shared ? 'bg-blue-600' : 'bg-neutral-700'}`}>
+                  <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${sharing.shared ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                </span>
+              </button>
+            )}
+          </Card></div>
+        )}
 
         <Card className="space-y-3 mb-4">
           <div className="flex gap-1">

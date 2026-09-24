@@ -29,6 +29,25 @@ export function parseVisibleTabs(raw: unknown): CoachClientTab[] {
   return ['overview', ...withoutOverview];
 }
 
+/**
+ * Tabs shown on a client file. Programme follows Entraînement and Nutrition
+ * follows Progression: the stored setting predates them and the DB check only
+ * accepts the original list, so a coach hides them by hiding their parent.
+ * Nutrition also disappears when the client does not track it.
+ */
+export function clientFileTabs(
+  visible: readonly CoachClientTab[],
+  opts: { tracksNutrition: boolean },
+): CoachClientTab[] {
+  const out: CoachClientTab[] = [];
+  for (const tab of visible) {
+    if (tab === 'training') out.push('program');
+    out.push(tab);
+    if (tab === 'progress' && opts.tracksNutrition) out.push('nutrition');
+  }
+  return out;
+}
+
 export function parseNudgeTemplates(raw: unknown): CoachNudgeTemplateSet {
   if (!raw || typeof raw !== 'object') return {};
   const obj = raw as Record<string, unknown>;

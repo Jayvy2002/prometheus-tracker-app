@@ -1,11 +1,11 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
-import { ArrowLeft, Flame, Dumbbell, Droplets, Scale, TrendingUp, TrendingDown, Minus, Award, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Flame, Dumbbell, Droplets, Scale, TrendingUp, TrendingDown, Minus, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { supabase } from '../../lib/supabase';
-import { toLocalDateStr, formatChartDate } from '../../lib/utils';
+import { toLocalDateStr, formatChartDate, formatNumber, formatSignedNumber, weightInUnit } from '../../lib/utils';
 import { nutritionTargetsFromProfile } from '../../lib/nutritionTargets';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Area, AreaChart } from 'recharts';
 import Card from '../ui/Card';
@@ -13,7 +13,7 @@ import CardLink from '../ui/CardLink';
 import PageTransition from '../ui/PageTransition';
 import { useClientTracking } from '../../lib/useClientTracking';
 import { showModule, showNutritionField } from '../../lib/clientTracking';
-import { averageLoggedCalories, statsCalorieSummary } from '../../lib/clientHome';
+import { averageLoggedCalories, averageLoggedValue, statsCalorieSummary } from '../../lib/clientHome';
 import { correctNutritionLogEnergy } from '../../lib/foodEnergy';
 import { responsesHaveError } from '../../lib/progressSearch';
 
@@ -68,7 +68,7 @@ function TrendBadge({ value }: { value: number | null }) {
   );
 }
 
-export default function StatsPage() {
+export default function StatsPage({ embedded = false }: { embedded?: boolean }) {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
@@ -150,7 +150,7 @@ export default function StatsPage() {
 
       setWeights((weightRes.data ?? []).map((w: { measured_at: string; weight_kg: number }) => ({
         date: w.measured_at,
-        weight: unit === 'lbs' ? +(w.weight_kg * 2.20462).toFixed(1) : +w.weight_kg.toFixed(1),
+        weight: weightInUnit(w.weight_kg, unit),
       })));
 
       const prevNutLogs = ((prevNutRes.data ?? []) as Array<{
@@ -195,13 +195,16 @@ export default function StatsPage() {
   // Computed stats — kcal average ignores water-only zeros so we never invent a fake deficit
   const calorieStats = averageLoggedCalories(nutrition);
   const avgCalories = calorieStats.avg;
-  const avgProtein = nutrition.length > 0 ? Math.round(nutrition.reduce((s, d) => s + d.protein, 0) / nutrition.length) : 0;
-  const avgWater = nutrition.length > 0 ? Math.round(nutrition.reduce((s, d) => s + d.water_ml, 0) / nutrition.length) : 0;
+  // Absent ≠ 0: a day without protein or water logs is not a 0 g / 0 L day.
+  const proteinStats = averageLoggedValue(nutrition, 'protein');
+  const waterStats = averageLoggedValue(nutrition, 'water_ml');
+  const avgProtein = Math.round(proteinStats.avg);
+  const avgWater = Math.round(waterStats.avg);
   const totalWorkouts = workoutDates.length;
   const uniqueWorkoutDays = new Set(workoutDates).size;
 
   const weightChange = weights.length >= 2
-    ? +(weights[weights.length - 1].weight - weights[0].weight).toFixed(1)
+    ? Math.round((weights[weights.length - 1].weight - weights[0].weight) * 10) / 10
     : null;
 
   // Deltas
@@ -210,21 +213,6 @@ export default function StatsPage() {
   const proteinDelta = pctDelta(avgProtein, prevNutrition.avgProtein);
   const waterDelta = pctDelta(avgWater, prevNutrition.avgWater);
   const workoutDelta = pctDelta(totalWorkouts, prevWorkoutCount);
-
-  // Achievements / encouragements
-  const achievements: string[] = [];
-  const daysOnTarget = calorieTarget > 0
-    ? nutrition.filter(d => d.calories >= calorieTarget * 0.9 && d.calories <= calorieTarget * 1.1).length
-    : 0;
-  if (daysOnTarget >= 5) achievements.push(t('stats.achievements.caloriesOnTarget', { days: daysOnTarget }));
-  const proteinDaysHit = proteinTarget > 0
-    ? nutrition.filter(d => d.protein >= proteinTarget * 0.9).length
-    : 0;
-  if (proteinDaysHit >= 4) achievements.push(t('stats.achievements.proteinGoal', { days: proteinDaysHit }));
-  if (totalWorkouts >= 3) achievements.push(t('stats.achievements.consistentTraining', { count: totalWorkouts }));
-  if (weightChange !== null && weightChange < 0 && profile?.goal === 'lose') achievements.push(t('stats.achievements.weightLoss'));
-  if (weightChange !== null && weightChange > 0 && profile?.goal === 'gain') achievements.push(t('stats.achievements.weightGain'));
-  if (achievements.length === 0 && nutrition.length > 0) achievements.push(t('stats.achievements.keepGoing'));
 
   // Chart data
   const calorieChartData = nutrition.map(d => ({
@@ -289,9 +277,11 @@ export default function StatsPage() {
       <div className="px-4 pt-6 pb-28">
         {/* Header */}
         <div className="flex items-center gap-3 mb-5 animate-fade-in-down">
-          <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-neutral-400 hover:text-white transition-colors">
-            <ArrowLeft size={20} />
-          </button>
+          {!embedded && (
+            <button type="button" aria-label={t('common.back')} onClick={() => navigate(-1)} className="min-h-11 min-w-11 -ml-2 text-neutral-400 hover:text-white transition-colors">
+              <ArrowLeft size={20} className="mx-auto" />
+            </button>
+          )}
           <h1 className="text-xl font-bold text-white flex-1" data-testid="stats-page">{t('stats.title')}</h1>
         </div>
 
@@ -301,8 +291,8 @@ export default function StatsPage() {
             <button
               key={p.value}
               onClick={() => setPeriod(p.value)}
-              className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all
-                ${period === p.value ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
+              className={`flex-1 min-h-11 rounded-lg text-sm font-medium transition-all
+                ${period === p.value ? 'bg-neutral-700 text-white' : 'text-neutral-400 hover:text-neutral-200'}`}
             >
               {p.label}
             </button>
@@ -351,9 +341,11 @@ export default function StatsPage() {
                   </div>
                   <TrendBadge value={calorieDelta} />
                 </div>
-                <p className="text-xl font-bold text-white">{avgCalories}</p>
+                <p className="text-xl font-bold text-white">{formatNumber(avgCalories, { maxDigits: 0 })}</p>
                 <p className="text-[11px] text-neutral-500">{t('stats.labels.avgCalories')}</p>
-                <p className="text-[10px] text-neutral-600 mt-0.5">{t('common.target')}: {calorieTarget}</p>
+                {calorieTarget > 0 && (
+                  <p className="text-[10px] text-neutral-600 mt-0.5">{t('common.target')}: {formatNumber(calorieTarget, { maxDigits: 0 })}</p>
+                )}
               </Card>
               )}
 
@@ -371,7 +363,7 @@ export default function StatsPage() {
               </Card>
               )}
 
-              {showNutritionField(tracking, 'protein') && (
+              {showNutritionField(tracking, 'protein') && proteinStats.hasLogs && (
               <Card>
                 <div className="flex items-center gap-2 mb-1.5">
                   <div className="w-7 h-7 rounded-lg bg-amber-500/15 flex items-center justify-center">
@@ -379,13 +371,15 @@ export default function StatsPage() {
                   </div>
                   <TrendBadge value={proteinDelta} />
                 </div>
-                <p className="text-xl font-bold text-white">{avgProtein}g</p>
+                <p className="text-xl font-bold text-white">{avgProtein} g</p>
                 <p className="text-[11px] text-neutral-500">{t('stats.labels.avgProtein')}</p>
-                <p className="text-[10px] text-neutral-600 mt-0.5">{t('common.target')}: {proteinTarget}g</p>
+                {proteinTarget > 0 && (
+                  <p className="text-[10px] text-neutral-600 mt-0.5">{t('common.target')}: {proteinTarget} g</p>
+                )}
               </Card>
               )}
 
-              {showNutritionField(tracking, 'water') && (
+              {showNutritionField(tracking, 'water') && waterStats.hasLogs && (
               <Card>
                 <div className="flex items-center gap-2 mb-1.5">
                   <div className="w-7 h-7 rounded-lg bg-cyan-500/15 flex items-center justify-center">
@@ -393,9 +387,11 @@ export default function StatsPage() {
                   </div>
                   <TrendBadge value={waterDelta} />
                 </div>
-                <p className="text-xl font-bold text-white">{(avgWater / 1000).toFixed(1)}L</p>
+                <p className="text-xl font-bold text-white">{formatNumber(avgWater / 1000)} L</p>
                 <p className="text-[11px] text-neutral-500">{t('stats.labels.avgWater')}</p>
-                <p className="text-[10px] text-neutral-600 mt-0.5">{t('common.target')}: {(waterTarget / 1000).toFixed(1)}L</p>
+                {waterTarget > 0 && (
+                  <p className="text-[10px] text-neutral-600 mt-0.5">{t('common.target')}: {formatNumber(waterTarget / 1000)} L</p>
+                )}
               </Card>
               )}
             </div>
@@ -410,7 +406,7 @@ export default function StatsPage() {
                   <div className="flex-1">
                     <p className="text-xs text-neutral-500">{t('stats.labels.weightChange')}</p>
                     <p className="text-lg font-bold text-white">
-                      {weightChange > 0 ? '+' : ''}{weightChange} {unit}
+                      {formatSignedNumber(weightChange)} {unit}
                     </p>
                   </div>
                   <div className={`flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-lg
@@ -418,7 +414,7 @@ export default function StatsPage() {
                       (weightChange < 0 && profile?.goal === 'lose') || (weightChange > 0 && profile?.goal === 'gain')
                         ? 'bg-emerald-500/10 text-emerald-400' : 'bg-neutral-800 text-neutral-400'}`}>
                     {weightChange > 0 ? <TrendingUp size={12} /> : weightChange < 0 ? <TrendingDown size={12} /> : <Minus size={12} />}
-                    {weights[0]?.weight} → {weights[weights.length - 1]?.weight}
+                    {formatNumber(weights[0].weight)} → {formatNumber(weights[weights.length - 1].weight)}
                   </div>
                 </div>
               </Card>
@@ -485,22 +481,6 @@ export default function StatsPage() {
               </div>
               <ChevronRight size={16} className="text-neutral-600" />
             </CardLink>
-
-            {/* Achievements */}
-            {achievements.length > 0 && (
-              <div className="space-y-2 animate-fade-in-up stagger-5">
-                <div className="flex items-center gap-2 mb-1">
-                  <Award size={14} className="text-amber-400" />
-                  <h3 className="text-xs font-semibold text-neutral-400 uppercase tracking-wide">{t('stats.encouragements')}</h3>
-                </div>
-                {achievements.map((msg, i) => (
-                  <div key={i} className="flex items-center gap-3 bg-neutral-900/60 border border-neutral-800/50 rounded-xl px-4 py-3">
-                    <div className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
-                    <p className="text-sm text-neutral-300">{msg}</p>
-                  </div>
-                ))}
-              </div>
-            )}
 
             {nutrition.length === 0 && totalWorkouts === 0 && weights.length === 0 && (
               <Card className="text-center py-12">

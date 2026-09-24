@@ -67,6 +67,19 @@ export function averageLoggedCalories(days: Array<{ calories: number }>): { avg:
   return { avg, hasLogs: true };
 }
 
+/**
+ * Average of one daily total over the days where it was actually logged.
+ * No log is « no data », never a zero average (CLAUDE.md : absent ≠ 0).
+ */
+export function averageLoggedValue<K extends string>(
+  days: Array<Record<K, number>>,
+  key: K,
+): { avg: number; hasLogs: boolean } {
+  const logged = days.filter(d => Number.isFinite(d[key]) && d[key] > 0);
+  if (logged.length === 0) return { avg: 0, hasLogs: false };
+  return { avg: logged.reduce((sum, d) => sum + d[key], 0) / logged.length, hasLogs: true };
+}
+
 export function statsCalorieSummary(input: {
   days: Array<{ calories: number }>;
   calorieTarget: number;

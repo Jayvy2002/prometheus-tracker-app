@@ -1,22 +1,24 @@
-import { NavLink, Link } from 'react-router-dom';
-import { Plus } from 'lucide-react';
+import { openGlobalSearch } from '../../features/search/openSearch';
+import { NavLink, Link, useLocation } from 'react-router-dom';
+import { Plus, Search } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { useAccountContext } from '@/features/account/hooks/useAccountContext';
-import { desktopSections, navPersona, quickAddActions } from '@/app/navigation/navConfig';
-import { useProgramDayDue } from '@/features/workout/hooks/useProgramDayDue';
+import { desktopSections, navPersona, pathMatchesItem, quickAddActions } from '@/app/navigation/navConfig';
+import WorkspaceSwitcher from './WorkspaceSwitcher';
+import { useClientTracking } from '@/features/coaching/hooks/useClientTracking';
 
 export default function SideNav() {
   const { t } = useTranslation();
   const [hoveredAction, setHoveredAction] = useState<string | null>(null);
   const unreadMessageCount = useCoachingStore(s => s.unreadMessageCount);
-  const tracking = useCoachingStore(s => s.myTrackingConfig);
+  const tracking = useClientTracking();
   const context = useAccountContext();
+  const { pathname } = useLocation();
   const persona = navPersona(context);
   const sections = desktopSections(persona, tracking);
-  const programDayDue = useProgramDayDue();
-  const quickActions = persona === 'coaching' ? [] : quickAddActions(tracking, { programDayDue });
+  const quickActions = persona === 'coaching' ? [] : quickAddActions(tracking);
 
   return (
     <aside className="hidden md:flex flex-col fixed inset-y-0 left-0 w-64 bg-neutral-950 border-r border-neutral-800/60 z-40">
@@ -25,6 +27,21 @@ export default function SideNav() {
           <img src="/logo.svg" alt="Prometheus" className="w-8 h-8" />
         </div>
         <span className="text-white font-bold text-lg tracking-tight">Prometheus</span>
+      </div>
+      <div className="px-3 pt-3">
+        <WorkspaceSwitcher />
+      </div>
+      <div className="px-3 pt-2">
+        <button
+          type="button"
+          onClick={openGlobalSearch}
+          className="w-full min-h-11 flex items-center gap-2 rounded-xl border border-neutral-800 bg-neutral-900/60 px-3 text-sm text-neutral-400 hover:text-white"
+          data-testid="sidenav-search"
+        >
+          <Search size={16} aria-hidden="true" />
+          <span className="flex-1 text-left">{t('search.title')}</span>
+          <kbd className="text-[10px] text-neutral-600">⌘K</kbd>
+        </button>
       </div>
 
       <nav className="flex-1 px-3 py-3 space-y-3 overflow-y-auto scrollbar-hide">
@@ -39,18 +56,19 @@ export default function SideNav() {
               {section.items.map(tab => {
                 const Icon = tab.icon;
                 const muted = section.tone === 'muted';
+                const isActive = pathMatchesItem(pathname, tab);
                 return (
                   <NavLink
                     key={tab.id}
                     to={tab.path}
                     end={tab.end}
-                    aria-current="page"
+                    aria-current={isActive ? 'page' : undefined}
                     aria-label={
                       tab.badge === 'unreadMessages' && unreadMessageCount > 0
                         ? t('nav.messagesUnread', { count: unreadMessageCount })
                         : t(tab.labelKey)
                     }
-                    className={({ isActive }) => `relative w-full flex items-center gap-3.5 px-4 py-2 min-h-11 rounded-xl text-sm font-medium transition-colors duration-200
+                    className={`relative w-full flex items-center gap-3.5 px-4 py-2 min-h-11 rounded-xl text-sm font-medium transition-colors duration-200
                       ${isActive
                         ? 'bg-blue-600/15 text-white'
                         : muted
@@ -58,7 +76,6 @@ export default function SideNav() {
                           : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/60'
                       }`}
                   >
-                    {({ isActive }) => (
                       <>
                         {isActive && <span className="nav-active-indicator" />}
                         <Icon
@@ -73,7 +90,6 @@ export default function SideNav() {
                           </span>
                         )}
                       </>
-                    )}
                   </NavLink>
                 );
               })}

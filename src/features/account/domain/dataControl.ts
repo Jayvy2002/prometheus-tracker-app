@@ -6,6 +6,7 @@ export const PERSONAL_EXPORT_INCLUDED = [
   'nutrition_logs',
   'water_logs',
   'weight_measurements',
+  'body_measurements',
   'daily_checkins',
   'progress_photos',
   'recipes',

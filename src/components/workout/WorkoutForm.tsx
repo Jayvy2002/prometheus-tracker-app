@@ -1,10 +1,10 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useParams, useLocation, useSearchParams } from 'react-router-dom';
 import FullPageLayout from '../layout/FullPageLayout';
-import { ArrowLeft, Plus, Check, Timer, CloudOff, RefreshCw, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Plus, Timer, CloudOff, RefreshCw, AlertTriangle, MoreVertical } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
-import { useWorkoutStore } from '../../stores/workoutStore';
+import { useWorkoutStore, isOfflineTempId } from '../../stores/workoutStore';
 import { supabase } from '../../lib/supabase';
 import Button from '../ui/Button';
 import EmptyState from '../ui/EmptyState';
@@ -16,6 +16,8 @@ import PageHeader from '../ui/PageHeader';
 import { toast } from '../ui/Toast';
 import { userFacingError } from '../../lib/userFacingError';
 import { incompleteWorkingSets, shouldConfirmIncompleteFinish } from '../../lib/workoutFinish';
+import { workoutHasLoggedWork } from '../../features/workout/domain/resumableSession';
+import { draftLoadToKg } from '../../features/workout/domain/workoutSetComplete';
 import ExerciseCard from './ExerciseCard';
 import SupersetGroup from './SupersetGroup';
 import RestTimer from './RestTimer';
@@ -28,7 +30,7 @@ import WorkoutRecap from './WorkoutRecap';
 import SessionTimer from './SessionTimer';
 import { useRoutineStore } from '../../stores/routineStore';
 import { startWorkoutFromTemplate } from '../../lib/startWorkout';
-import { toWorkoutTemplateExercise, workoutExerciseToPlanDraft } from '../../lib/programSetPrescription';
+import { toWorkoutTemplateExercise } from '../../lib/programSetPrescription';
 import {
   loadSessionTimer, saveSessionTimer, clearSessionTimer,
   currentElapsedMs, startTimer, pauseTimer, emptyTimer,
@@ -40,7 +42,6 @@ import { showTrainingField } from '../../lib/clientTracking';
 import { useOnline } from '../../lib/useOnline';
 import { offlineOpLabelKey, peekDeadLetterOps } from '../../lib/offlineQueue';
 import { isSoloAthlete } from '../../lib/coachRole';
-import { useResourcePermissions } from '../../lib/useResourcePermissions';
 import { isPerformedSet } from '../../lib/performedSets';
 import { soloAskFromProfile } from '../../lib/soloAskDefaults';
 import SoloAskBar from '../solo/SoloAskBar';
@@ -50,6 +51,8 @@ import { useExerciseStore } from '../../stores/exerciseStore';
 import { useProgramStore } from '../../stores/programStore';
 import { shiftProgramWeekdays } from '../../lib/soloAsk';
 import { usePlanSessionLabel } from '../../features/programs/hooks/usePlanSessionLabel';
+import { usePreferencesStore } from '../../stores/preferencesStore';
+import SetLegend from './SetLegend';
 
 interface LocationState {
   routineId?: string;
@@ -76,12 +79,10 @@ function WorkoutFormInner() {
   const coachingRole = useCoachingStore(s => s.coachingRole);
   const myCoach = useCoachingStore(s => s.myCoach);
   const solo = isSoloAthlete(coachingRole, myCoach);
-  const { canUpdateOwnAssignedProgram: canEditOwnPlan } = useResourcePermissions();
   const catalogExercises = useExerciseStore(s => s.exercises);
   const fetchExercises = useExerciseStore(s => s.fetchExercises);
   const assignment = useProgramStore(s => s.assignment);
   const saveProgram = useProgramStore(s => s.saveProgram);
-  const createProgram = useProgramStore(s => s.createProgram);
   const fetchMyAssignment = useProgramStore(s => s.fetchMyAssignment);
   const online = useOnline();
   const { getAllSetDrafts, getAllExerciseDrafts, persistNow } = useDraftContext();
@@ -101,6 +102,10 @@ function WorkoutFormInner() {
   );
   const [saving, setSaving] = useState(false);
   const [finishConfirmOpen, setFinishConfirmOpen] = useState(false);
+  const [sessionMenu, setSessionMenu] = useState(false);
+  const [askOpen, setAskOpen] = useState(false);
+  const [abandonOpen, setAbandonOpen] = useState(false);
+  const keepAwake = usePreferencesStore(s => s.keepScreenAwake);
   const [summaryWorkout, setSummaryWorkout] = useState<Workout | null>(null);
   const [summaryDuration, setSummaryDuration] = useState(0);
   const [initError, setInitError] = useState(false);
@@ -110,7 +115,7 @@ function WorkoutFormInner() {
   const createdRef = useRef(false);
   const routineAppliedRef = useRef(false);
   const leavingRef = useRef(false);
-  const { fetchRoutineWithExercises } = useRoutineStore();
+  const { fetchRoutineWithExercises, createRoutine, addRoutineExercise } = useRoutineStore();
   const isNew = !id || routerLocation.pathname.endsWith('/new');
   const forceEdit = searchParams.get('edit') === '1';
   const isProgramSession = !!currentWorkout?.program_day_id;
@@ -216,6 +221,14 @@ function WorkoutFormInner() {
     routineAppliedRef.current = true;
   }, [currentWorkout?.id, routineId, isNew]);
 
+  // Once an offline session has synced, the URL follows its real id so a
+  // reload opens the server copy instead of a cleared local draft.
+  useEffect(() => {
+    if (id && isOfflineTempId(id) && currentWorkout && !isOfflineTempId(currentWorkout.id)) {
+      navigate(`/workout/${currentWorkout.id}`, { replace: true });
+    }
+  }, [id, currentWorkout?.id, navigate]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (currentWorkout) {
       setWorkoutName(currentWorkout.name || '');
@@ -256,6 +269,28 @@ function WorkoutFormInner() {
     }
   }, [currentWorkout?.exercises]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    if (!keepAwake || !currentWorkout || currentWorkout.completed) return;
+    let released = false;
+    let sentinel: WakeLockSentinel | null = null;
+    const acquire = () => {
+      if (!('wakeLock' in navigator) || released) return;
+      void navigator.wakeLock.request('screen').then(lock => {
+        sentinel = lock;
+      }).catch(() => undefined);
+    };
+    acquire();
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') acquire();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      released = true;
+      document.removeEventListener('visibilitychange', onVisible);
+      void sentinel?.release();
+    };
+  }, [keepAwake, currentWorkout?.id, currentWorkout?.completed]);
+
   const elapsedSeconds = Math.floor(currentElapsedMs(timer) / 1000);
   void elapsedTick;
 
@@ -265,11 +300,11 @@ function WorkoutFormInner() {
     if (currentWorkout) saveSessionTimer(currentWorkout.id, next);
   };
 
-  const workoutIsEmpty = () => {
-    if (!currentWorkout) return true;
-    const exercises = currentWorkout.exercises ?? [];
-    if (exercises.length === 0) return true;
-    return !exercises.some(ex => (ex.sets ?? []).some(s => s.weight_kg > 0 || s.reps > 0 || (s.duration_seconds ?? 0) > 0));
+  const hasTypedDraft = () => {
+    for (const draft of getAllSetDrafts().values()) {
+      if ((draft.weight_kg ?? '') !== '' || (draft.reps ?? '') !== '' || (draft.duration_seconds ?? '') !== '') return true;
+    }
+    return false;
   };
 
   const handleBack = async () => {
@@ -279,25 +314,41 @@ function WorkoutFormInner() {
     if (currentWorkout) {
       saveSessionTimer(currentWorkout.id, pauseTimer(timer));
       const seconds = Math.floor(currentElapsedMs(timer) / 1000);
-      if (seconds > 0 && !currentWorkout.completed) {
-        await updateWorkout(currentWorkout.id, { duration_seconds: seconds });
-      }
-      if (!currentWorkout.completed && workoutIsEmpty()) {
+      const empty = !currentWorkout.completed
+        && !workoutHasLoggedWork(currentWorkout.exercises)
+        && !hasTypedDraft();
+      if (empty) {
+        // Nothing was logged: leaving discards the shell instead of leaving
+        // an open session behind the « Reprendre » bar.
         await deleteWorkout(currentWorkout.id);
         clearSessionTimer(currentWorkout.id);
         clearFieldDrafts(currentWorkout.id);
+      } else if (seconds > 0 && !currentWorkout.completed) {
+        await updateWorkout(currentWorkout.id, { duration_seconds: seconds });
       }
     }
     setCurrentWorkout(null);
     navigate(currentWorkout?.program_day_id ? '/dashboard' : '/workout');
   };
 
-  const handleAddExercise = async (name: string) => {
-    if (!currentWorkout) return;
-    const idx = currentWorkout.exercises?.length ?? 0;
-    const ex = await addExercise(currentWorkout.id, name, idx);
+  const abandonSession = async () => {
+    if (!currentWorkout || leavingRef.current) return;
+    leavingRef.current = true;
+    await deleteWorkout(currentWorkout.id);
+    clearSessionTimer(currentWorkout.id);
+    clearFieldDrafts(currentWorkout.id);
+    setCurrentWorkout(null);
+    navigate(currentWorkout.program_day_id ? '/dashboard' : '/workout');
+  };
+
+  const handleAddExercise = async (name: string, catalogId?: string | null) => {
+    const workout = useWorkoutStore.getState().currentWorkout;
+    if (!workout) return;
+    const idx = workout.exercises?.length ?? 0;
+    const ex = await addExercise(workout.id, name, idx, {
+      catalog_exercise_id: catalogId ?? null,
+    });
     if (ex) await addSet(ex.id, 0);
-    setShowExercisePicker(false);
   };
 
   const handleStartRestTimer = (overrideDuration?: number) => {
@@ -305,10 +356,11 @@ function WorkoutFormInner() {
       setRestDuration(overrideDuration);
       setRestAutoStart(true);
       setRestEpoch(n => n + 1);
+      setShowTimer(false);
     } else {
       setRestAutoStart(false);
+      setShowTimer(true);
     }
-    setShowTimer(true);
     if (!timer.running) toggleSessionTimer();
   };
 
@@ -331,13 +383,13 @@ function WorkoutFormInner() {
       const setDrafts = getAllSetDrafts();
       const exerciseDrafts = getAllExerciseDrafts();
 
-      const safeFloat = (v: string) => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
+      const unit: 'kg' | 'lbs' = profile?.unit_weight === 'lbs' ? 'lbs' : 'kg';
       const safeInt = (v: string) => { const n = parseInt(v, 10); return isNaN(n) ? 0 : n; };
 
       const setUpdates: PromiseLike<unknown>[] = [];
       setDrafts.forEach((draft, setId) => {
         const updates: Record<string, unknown> = {};
-        if (draft.weight_kg !== undefined) updates.weight_kg = draft.weight_kg === '' ? 0 : safeFloat(draft.weight_kg);
+        if (draft.weight_kg !== undefined) updates.weight_kg = draftLoadToKg(draft.weight_kg, unit);
         if (draft.reps !== undefined) updates.reps = draft.reps === '' ? 0 : safeInt(draft.reps);
         if (draft.rir !== undefined) updates.rir = draft.rir === '' ? 0 : safeInt(draft.rir);
         if (draft.set_type !== undefined) updates.set_type = draft.set_type;
@@ -406,7 +458,7 @@ function WorkoutFormInner() {
             if (!draft) return s;
             return {
               ...s,
-              weight_kg: draft.weight_kg !== undefined ? (draft.weight_kg === '' ? 0 : safeFloat(draft.weight_kg)) : s.weight_kg,
+              weight_kg: draft.weight_kg !== undefined ? draftLoadToKg(draft.weight_kg, unit) : s.weight_kg,
               reps: draft.reps !== undefined ? (draft.reps === '' ? 0 : safeInt(draft.reps)) : s.reps,
               rir: draft.rir !== undefined ? (draft.rir === '' ? 0 : safeInt(draft.rir)) : s.rir,
               set_type: draft.set_type !== undefined ? draft.set_type : s.set_type,
@@ -483,22 +535,12 @@ function WorkoutFormInner() {
 
   return (
     <div className="px-3 pt-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-4" data-workout-logger="true">
-      <div className="flex items-center gap-1 mb-3">
+      {/* Controls on one line, the session name on its own line: never cut to « L… ». */}
+      <div className="flex items-center gap-1">
         <IconButton label={t('common.back')} onClick={handleBack} className="-ml-1 shrink-0">
           <ArrowLeft size={20} />
         </IconButton>
-        {isProgramSession ? (
-          <p className="flex-1 min-w-0 text-base sm:text-lg font-semibold text-white truncate" data-testid="ux22-session-label">
-            {planSessionLabel}
-          </p>
-        ) : (
-        <input
-          value={workoutName}
-          onChange={e => setWorkoutName(e.target.value)}
-          placeholder={t('workout.workoutName')}
-          className="flex-1 min-w-0 bg-transparent border-0 px-1 text-base sm:text-lg font-semibold text-white placeholder-neutral-500 focus:outline-none focus:ring-0"
-        />
-        )}
+        <div className="flex-1" />
         <div className="flex items-center shrink-0">
           <SessionTimer elapsedSeconds={elapsedSeconds} running={timer.running} onToggle={toggleSessionTimer} />
           {restEnabled && (
@@ -509,8 +551,43 @@ function WorkoutFormInner() {
             <Timer size={18} />
           </IconButton>
           )}
+          <Button type="button" size="sm" onClick={requestFinish} disabled={saving}>
+            {saving ? t('common.saving') : t('workout.finishShort')}
+          </Button>
+          <IconButton label={t('workout.sessionMenu')} onClick={() => setSessionMenu(v => !v)}>
+            <MoreVertical size={18} />
+          </IconButton>
         </div>
       </div>
+      <div className="mb-3 px-1 min-w-0">
+        {isProgramSession ? (
+          <h1 className="text-lg sm:text-xl font-semibold text-white break-words" data-testid="ux22-session-label">
+            {planSessionLabel}
+          </h1>
+        ) : (
+        <input
+          value={workoutName}
+          onChange={e => setWorkoutName(e.target.value)}
+          placeholder={t('workout.workoutName')}
+          aria-label={t('workout.workoutName')}
+          className="w-full bg-transparent border-0 p-0 text-lg sm:text-xl font-semibold text-white placeholder-neutral-500 focus:outline-none focus:ring-0"
+        />
+        )}
+      </div>
+      {sessionMenu && (
+        <div className="mb-3 rounded-xl border border-neutral-800 bg-neutral-950 p-2 space-y-1">
+          {solo && (
+            <button type="button" className="min-h-11 w-full rounded-lg px-3 text-left text-sm text-white hover:bg-neutral-800" onClick={() => { setSessionMenu(false); setAskOpen(true); }}>
+              {t('soloAsk.label')}
+            </button>
+          )}
+          <button type="button" className="min-h-11 w-full rounded-lg px-3 text-left text-sm text-rose-300 hover:bg-rose-500/10" onClick={() => { setSessionMenu(false); setAbandonOpen(true); }}>
+            {t('workout.abandonSession')}
+          </button>
+        </div>
+      )}
+
+      {(currentWorkout.exercises?.length ?? 0) > 0 && <SetLegend />}
 
       {!isProgramSession && (state.offPlan || workoutName === t('nav.addWorkoutOffPlan')) && (
         <p data-testid="workout-off-plan-notice" className="mb-3 text-sm text-neutral-400">
@@ -518,7 +595,7 @@ function WorkoutFormInner() {
         </p>
       )}
 
-      {solo && user && currentWorkout && !currentWorkout.completed && (
+      {askOpen && solo && user && currentWorkout && !currentWorkout.completed && (
         <SoloAskBar
           compact
           context={soloAskFromProfile('session', profile, {
@@ -664,7 +741,7 @@ function WorkoutFormInner() {
         </div>
       )}
 
-      {!isProgramSession && (
+      {!isProgramSession && sessionMenu && (
       <div className="mb-4">
         <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-1.5 px-1">{t('workout.sessionDate')}</p>
         <DateInput
@@ -717,40 +794,35 @@ function WorkoutFormInner() {
           <Plus size={16} /> {t('workout.addExercise')}
         </Button>
         )}
-        <Button onClick={requestFinish} disabled={saving} className="w-full">
-          <Check size={16} /> {saving ? t('common.saving') : t('workout.finishWorkout')}
-        </Button>
-        {canEditOwnPlan && user && !isProgramSession && (currentWorkout.exercises?.length ?? 0) > 0 && (
+        {/* Any athlete can keep a free session as a personal routine (Vision §7.1). */}
+        {user && !isProgramSession && (currentWorkout.exercises?.length ?? 0) > 0 && (
           <Button
             type="button"
             variant="ghost"
             className="w-full"
-            data-save-plan="true"
+            data-save-routine="true"
             onClick={async () => {
               const name = (workoutName || t('soloAsk.namedDay')).trim();
-              const id = await createProgram({
-                owner_id: user.id,
-                name,
-                description: '',
-                duration_weeks: 1,
-              }, [{
-                weekday: new Date().getDay(),
-                name,
-                routine_id: null,
-                order_index: 0,
-                exercises: (currentWorkout.exercises ?? []).map((ex, i) =>
-                  toWorkoutTemplateExercise(workoutExerciseToPlanDraft(ex), i),
-                ),
-              }]);
-              if (!id) {
+              const routineId = await createRoutine({ user_id: user.id, name, description: '' });
+              if (!routineId) {
                 toast(t('programs.createFailed'), 'error');
                 return;
               }
-              toast(t('programs.created'));
-              navigate('/programs');
+              for (const [i, ex] of (currentWorkout.exercises ?? []).entries()) {
+                await addRoutineExercise(routineId, {
+                  name: ex.name,
+                  order_index: i,
+                  default_sets: ex.sets?.length || ex.prescribed_sets || 3,
+                  default_reps: ex.prescribed_reps || ex.sets?.[0]?.reps || 8,
+                  default_rest_seconds: ex.prescribed_rest_seconds ?? 90,
+                  catalog_exercise_id: ex.catalog_exercise_id ?? null,
+                });
+              }
+              toast(t('workout.savedAsRoutine'));
+              navigate('/routines');
             }}
           >
-            {t('soloAsk.savePlan')}
+            {t('workout.saveAsRoutine')}
           </Button>
         )}
       </div>
@@ -765,7 +837,18 @@ function WorkoutFormInner() {
         autoStart={restAutoStart}
       />
       )}
-      <ExercisePicker open={showExercisePicker} onClose={() => setShowExercisePicker(false)} onSelect={handleAddExercise} />
+      <ExercisePicker open={showExercisePicker} onClose={() => setShowExercisePicker(false)} onSelect={handleAddExercise} multiple />
+      <Modal
+        open={abandonOpen}
+        onClose={() => setAbandonOpen(false)}
+        title={t('workout.abandonTitle')}
+      >
+        <p className="text-neutral-300 mb-6">{t('workout.abandonBody')}</p>
+        <div className="flex gap-3">
+          <Button variant="secondary" onClick={() => setAbandonOpen(false)} className="flex-1">{t('common.cancel')}</Button>
+          <Button onClick={() => void abandonSession()} className="flex-1">{t('workout.abandonSession')}</Button>
+        </div>
+      </Modal>
       <Modal
         open={finishConfirmOpen}
         onClose={() => setFinishConfirmOpen(false)}

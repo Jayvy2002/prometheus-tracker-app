@@ -12,7 +12,10 @@ interface ExerciseState {
   searchExercises: (query: string, lang?: string) => Exercise[];
   submitExercise: (userId: string, name: string, muscles: string, description: string) => Promise<ExerciseRequest | null>;
   addExercise: (exercise: Exercise) => void;
+  reset: () => void;
 }
+
+let fetchGeneration = 0;
 
 export const useExerciseStore = create<ExerciseState>((set, get) => ({
   exercises: [],
@@ -22,26 +25,38 @@ export const useExerciseStore = create<ExerciseState>((set, get) => ({
 
   fetchExercises: async () => {
     if (get().fetched) return;
+    const generation = ++fetchGeneration;
     set({ loading: true, loadError: false });
-    const { data, error } = await supabase
-      .from('exercises')
-      .select('*')
-      .order('name');
-    if (error) {
-      set({ loading: false, fetched: false, loadError: true });
+    const pageSize = 500;
+    const rows: Exercise[] = [];
+    for (let from = 0; from < 5000; from += pageSize) {
+      const { data, error } = await supabase
+        .from('exercises')
+        .select('id, name, name_fr, primary_muscles, secondary_muscles, category, equipment, verified, created_by, merged_into_id, instructions, tips, difficulty, video_url')
+        .order('name')
+        .range(from, from + pageSize - 1);
+      if (generation !== fetchGeneration) return;
+      if (error) {
+        set({ loading: false, fetched: false, loadError: true, exercises: [] });
+        return;
+      }
+      const page = ((data ?? []) as Exercise[]).filter(ex => !ex.merged_into_id);
+      rows.push(...page);
+      if ((data ?? []).length < pageSize) break;
+    }
+    const aliasRes = await supabase.from('exercise_aliases').select('exercise_id, alias');
+    if (generation !== fetchGeneration) return;
+    if (aliasRes.error) {
+      set({ loading: false, fetched: false, loadError: true, exercises: [] });
       return;
     }
-    const rows = ((data ?? []) as Exercise[]).filter(ex => !ex.merged_into_id);
-    const aliasRes = await supabase.from('exercise_aliases').select('exercise_id, alias');
-    if (!aliasRes.error && aliasRes.data) {
-      const byId = new Map<string, string[]>();
-      for (const row of aliasRes.data as { exercise_id: string; alias: string }[]) {
-        const list = byId.get(row.exercise_id) ?? [];
-        list.push(row.alias);
-        byId.set(row.exercise_id, list);
-      }
-      for (const ex of rows) ex.aliases = byId.get(ex.id) ?? [];
+    const byId = new Map<string, string[]>();
+    for (const row of (aliasRes.data ?? []) as { exercise_id: string; alias: string }[]) {
+      const list = byId.get(row.exercise_id) ?? [];
+      list.push(row.alias);
+      byId.set(row.exercise_id, list);
     }
+    for (const ex of rows) ex.aliases = byId.get(ex.id) ?? [];
     set({ exercises: rows, loading: false, fetched: true, loadError: false });
   },
 
@@ -60,5 +75,10 @@ export const useExerciseStore = create<ExerciseState>((set, get) => ({
     set(state => ({
       exercises: [...state.exercises, exercise].sort((a, b) => a.name.localeCompare(b.name)),
     }));
+  },
+
+  reset: () => {
+    fetchGeneration += 1;
+    set({ exercises: [], loading: false, fetched: false, loadError: false });
   },
 }));

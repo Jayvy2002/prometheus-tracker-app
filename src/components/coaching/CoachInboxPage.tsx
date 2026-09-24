@@ -14,7 +14,7 @@ import { resolveNudgeBody } from '../../lib/coachSettings';
 import { displayName } from '../../lib/coachText';
 import { clientFileHref } from '../../lib/coachSituation';
 import { coachingPassHref } from '../../lib/coachInterventions';
-import { isRelanceKind, parsePreparedMessage, preparedTemplateKey } from '../../lib/coachFleet';
+import { isRelanceKind, messageInboxDrafts, parsePreparedMessage, preparedTemplateKey } from '../../lib/coachFleet';
 import { loadOrCreateMessageKey, clearMessageKey } from '../../lib/idempotencyKeys';
 import { formatBilanDate, hasBilan, parseBilanQuery } from '../../lib/messageBilan';
 import { supabase } from '../../lib/supabase';
@@ -28,7 +28,9 @@ import ListRow from '../ui/ListRow';
 import PageHeader from '../ui/PageHeader';
 import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
-import MessageThread from './MessageThread';
+import MessageThread, { type ThreadSendExtras } from './MessageThread';
+import { messageIdentityText, parseObjectRefQuery } from '../../features/messages/domain/messageContent';
+import { useObjectRefHint } from '../../features/messages/hooks/useObjectRefHint';
 import InterventionInboxCard from './InterventionInboxCard';
 
 function prospectSummary(row: CoachingRequest): CoachClientSummary {
@@ -67,6 +69,8 @@ export default function CoachInboxPage() {
   const [requests, setRequests] = useState<CoachingRequest[]>([]);
   const nudgeKey = parseNudgeQuery(searchParams.get('nudge'));
   const bilan = useMemo(() => parseBilanQuery(searchParams), [searchParams]);
+  const objectRef = useMemo(() => parseObjectRefQuery(searchParams), [searchParams]);
+  const refHint = useObjectRefHint(objectRef);
 
   useEffect(() => {
     if (!user) return;
@@ -135,13 +139,19 @@ export default function CoachInboxPage() {
     )
     : undefined;
 
-  const handleSend = async (body: string) => {
+  const inboxDrafts = messageInboxDrafts(pendingInterventions);
+
+  const handleSend = async (body: string, extras: ThreadSendExtras) => {
     if (!clientId || !user) return { error: t('coaching.messages.sendFailed') };
     setSending(true);
     try {
-      const msgId = loadOrCreateMessageKey(clientId, body, user.id);
+      const msgId = loadOrCreateMessageKey(clientId, messageIdentityText(body, extras.attachments), user.id);
       const template = activeClient ? (nudgeKey ?? 'general_followup') : 'prospect';
-      const result = await sendCoachMessage(clientId, body, template, msgId, activeClient ? bilan : undefined);
+      // References only inside an active relationship (Vision §18–19); files and replies everywhere.
+      const result = await sendCoachMessage(clientId, body, template, msgId, activeClient ? bilan : undefined, {
+        ...extras,
+        ref: activeClient ? objectRef : null,
+      });
       if (!result.error) clearMessageKey(clientId, user.id);
       return result;
     } finally {
@@ -181,12 +191,63 @@ export default function CoachInboxPage() {
     navigate(coachingPassHref(item, { from: 'messages' }));
   };
 
+  const threadList = (
+    threads.length === 0 ? (
+      <EmptyState title={t('coaching.inbox.threadsEmpty')} />
+    ) : (
+      <div className="space-y-2">
+        {threads.map(thread => {
+          const client = clients.find(c => c.id === thread.clientId);
+          return (
+            <ListRow
+              key={thread.clientId}
+              className={thread.clientId === clientId ? '!border-blue-500/50' : ''}
+              to={`/messages/${thread.clientId}`}
+              leading={(
+                <div className="w-9 h-9 rounded-xl bg-blue-600/20 text-blue-300 flex items-center justify-center font-semibold text-sm shrink-0">
+                  {(client?.full_name?.[0] || client?.email?.[0] || prospects.find(row => row.client_id === thread.clientId)?.public_name?.[0] || '?').toUpperCase()}
+                </div>
+              )}
+              title={client ? displayName(client, t('coaching.unnamed')) : (prospects.find(row => row.client_id === thread.clientId)?.public_name || t('coaching.unnamed'))}
+              subtitle={thread.lastMessage?.body || (thread.lastMessage?.attachments.length ? t('messages.attachments.one') : t('coaching.messages.noMessagesYet'))}
+              badge={thread.unreadCount > 0 ? thread.unreadCount : undefined}
+              trailing={clients.some(client => client.id === thread.clientId) ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    navigate(relanceThreadHref(thread.clientId, 'general_followup'));
+                  }}
+                >
+                  {t('coaching.queue.relance')}
+                </Button>
+              ) : (
+                // A prospect is not a client yet (Vision §18): say so in the list.
+                <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[11px] text-amber-200">
+                  {t('coaching.inbox.prospectBadge')}
+                </span>
+              )}
+            />
+          );
+        })}
+      </div>
+    )
+  );
+
   if (clientId) {
     return (
       <PageTransition>
-        <div className="px-4 pt-3 pb-0 md:px-6 flex flex-col h-[calc(100dvh-6rem)] md:h-[calc(100dvh-2rem)] min-h-0">
+        <div className="md:grid md:grid-cols-[18rem_minmax(0,1fr)] md:gap-4 md:px-6">
+        {/* Desktop: the thread list stays beside the open conversation. */}
+        <aside className="hidden md:block pt-4 h-[calc(100dvh-2rem)] overflow-y-auto" aria-label={t('coaching.inbox.threads')}>
+          {threadList}
+        </aside>
+        <div className="px-4 pt-3 pb-0 md:px-0 flex flex-col h-[calc(100dvh-6rem)] md:h-[calc(100dvh-2rem)] min-h-0">
           <div className="flex items-center gap-3 pb-2 border-b border-neutral-800 shrink-0">
-            <IconButton label={t('nav.messages')} onClick={() => navigate('/messages')} className="-ml-2">
+            <IconButton label={t('nav.messages')} onClick={() => navigate('/messages')} className="-ml-2 md:hidden">
               <ArrowLeft size={18} />
             </IconButton>
             <h1 className="text-base font-semibold text-white truncate flex-1">{clientName}</h1>
@@ -211,7 +272,8 @@ export default function CoachInboxPage() {
               currentUserId={user?.id ?? ''}
               sending={sending}
               draftBody={draftBody}
-              draftHint={bilanHint || (nudgeKey ? t('coaching.queue.relanceDraftHint') : undefined)}
+              draftHint={bilanHint || (activeClient ? refHint : null) || (nudgeKey ? t('coaching.queue.relanceDraftHint') : undefined)}
+              thread={user ? { coachId: user.id, clientId } : undefined}
               onSend={handleSend}
               hasMore={clientId ? !threadExhausted[clientId] : false}
               loadingMore={loadingMore}
@@ -223,6 +285,7 @@ export default function CoachInboxPage() {
             />
           </div>
         </div>
+        </div>
       </PageTransition>
     );
   }
@@ -232,13 +295,13 @@ export default function CoachInboxPage() {
         <div className="px-4 pt-6 pb-6 md:px-6">
         <PageHeader title={t('coaching.inbox.title')} subtitle={t('coaching.inbox.subtitle')} />
 
-        {pendingInterventions.length > 0 && (
+        {inboxDrafts.length > 0 && (
           <div className="mb-6">
             <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-2">
               {t('coaching.inbox.toHandle')}
             </p>
             <div className="space-y-2">
-              {pendingInterventions.map(item => {
+              {inboxDrafts.map(item => {
                 const client = clients.find(c => c.id === item.client_id);
                 return (
                   <InterventionInboxCard
@@ -257,43 +320,7 @@ export default function CoachInboxPage() {
         <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-2">
           {t('coaching.inbox.threads')}
         </p>
-        {threads.length === 0 ? (
-          <EmptyState title={t('coaching.inbox.threadsEmpty')} />
-        ) : (
-          <div className="space-y-2">
-            {threads.map(thread => {
-              const client = clients.find(c => c.id === thread.clientId);
-              return (
-                <ListRow
-                  key={thread.clientId}
-                  to={`/messages/${thread.clientId}`}
-                  leading={(
-                    <div className="w-9 h-9 rounded-xl bg-blue-600/20 text-blue-300 flex items-center justify-center font-semibold text-sm shrink-0">
-                      {(client?.full_name?.[0] || client?.email?.[0] || prospects.find(row => row.client_id === thread.clientId)?.public_name?.[0] || '?').toUpperCase()}
-                    </div>
-                  )}
-                  title={client ? displayName(client, t('coaching.unnamed')) : (prospects.find(row => row.client_id === thread.clientId)?.public_name || t('coaching.unnamed'))}
-                  subtitle={thread.lastMessage?.body || t('coaching.messages.noMessagesYet')}
-                  badge={thread.unreadCount > 0 ? thread.unreadCount : undefined}
-                  trailing={clients.some(client => client.id === thread.clientId) ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      onClick={e => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        navigate(relanceThreadHref(thread.clientId, 'general_followup'));
-                      }}
-                    >
-                      {t('coaching.queue.relance')}
-                    </Button>
-                  ) : undefined}
-                />
-              );
-            })}
-          </div>
-        )}
+        {threadList}
       </div>
     </PageTransition>
   );

@@ -1,8 +1,8 @@
 import { type ReactNode, useRef, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { useCoachingStore } from '../../stores/coachingStore';
 import { useAccountContext } from '@/features/account/hooks/useAccountContext';
 import { mobileTabs, navPersona, tabIndexForPath } from '@/app/navigation/navConfig';
+import { useClientTracking } from '@/features/coaching/hooks/useClientTracking';
 
 interface PageTransitionProps {
   children: ReactNode;
@@ -16,7 +16,7 @@ export default function PageTransition({ children, className = '' }: PageTransit
   const location = useLocation();
   const containerRef = useRef<HTMLDivElement>(null);
   const context = useAccountContext();
-  const tracking = useCoachingStore(s => s.myTrackingConfig);
+  const tracking = useClientTracking();
   const persona = navPersona(context);
   if (previousPersona !== null && previousPersona !== persona) {
     previousTabIndex = -1;

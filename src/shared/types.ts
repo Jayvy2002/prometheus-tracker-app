@@ -15,8 +15,9 @@ export interface UserProfile {
   protein_target: number | null;
   carbs_target: number | null;
   fat_target: number | null;
-  daily_water_target_ml: number;
-  daily_steps_target: number;
+  /** Null = no goal chosen (never an invented 2 500 ml / 10 000 steps). */
+  daily_water_target_ml: number | null;
+  daily_steps_target: number | null;
   unit_weight: 'kg' | 'lbs';
   unit_distance: 'km' | 'mi';
   unit_height: 'cm' | 'in';
@@ -40,6 +41,12 @@ export interface UserProfile {
   supplement_use: string[];
   motivation: string;
   kinesiology_intake?: Record<string, unknown> | null;
+  /** Solo module choice (Vision §5.3). Null = not chosen yet: everything shown. Ignored while a coach is active. */
+  /** Available equipment, asked at onboarding. Null = not said. */
+  training_equipment?: 'gym' | 'home' | 'bodyweight' | 'mixed' | null;
+  /** « Action now » push categories (Vision §21). Null = all on. */
+  notification_categories?: Partial<Record<'messages' | 'coaching' | 'program' | 'checkins' | 'decisions', boolean>> | null;
+  personal_modules?: Partial<Record<'workouts' | 'nutrition' | 'weight' | 'checkins', boolean>> | null;
   kinesiology_intake_completed_at?: string | null;
   /** Last time the coaching link ended (client or coach). The athlete is solo again. */
   coach_link_ended_at?: string | null;
@@ -191,6 +198,9 @@ export interface DailyCheckin {
   energy_level: number | null;
   mood: number | null;
   notes: string;
+  /** Answers to the template's custom questions, with the label of the moment (Vision §11). */
+  custom_answers?: import('../features/checkins/domain/checkinTemplate').CustomAnswer[];
+  template_id?: string | null;
   created_at: string;
   updated_at: string;
 }

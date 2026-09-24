@@ -639,4 +639,5 @@ end $$;
 
 \echo 'program versions: saved without live mutate, schedule/replace, activate idempotent, historical locked, leftover, logger stamp'
 
-commit;
+-- Test data never outlives the test: CI steps share one database.
+rollback;

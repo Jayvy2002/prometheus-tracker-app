@@ -334,4 +334,5 @@ end $$;
 
 \echo 'program phases: simple optional, periodized same engine, deload is a phase, logger stamps, leftover lock, fork copies'
 
-commit;
+-- Test data never outlives the test: CI steps share one database.
+rollback;

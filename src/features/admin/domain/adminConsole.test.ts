@@ -88,5 +88,10 @@ test('P5.4 admin is an operator console with confirm gates and no public review 
   assert.ok(enAdmin.admin.import.errors_one);
   assert.ok(enAdmin.admin.import.errors_other);
   assert.ok(frAdmin.admin.errors.confirmation_required);
+  // Import incidents are visible to operators, paged by keyset, read-only.
+  assert.match(page, /admin_list_import_incidents/);
+  assert.match(page, /p_before_id: last\.id/);
+  assert.ok(frAdmin.admin.incidents.title);
+  assert.ok(enAdmin.admin.incidents.kind.body_weight);
   assert.ok(enAdmin.admin.denied);
 });

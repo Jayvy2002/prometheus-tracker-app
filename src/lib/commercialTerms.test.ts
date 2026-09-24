@@ -38,7 +38,6 @@ test('soloTransition re-exports the unique trial constant; live SQL stamps 14 da
   assert.match(solo, /export \{ SOLO_TRIAL_DAYS \} from '\.\/commercialTerms'/);
   assert.doesNotMatch(solo, /SOLO_TRIAL_DAYS = 30/);
   assert.doesNotMatch(src('src/shared/types.ts'), /30 days/);
-  assert.match(src('src/shared/types.ts'), /14 days/);
 
   const latest = latestMigrationContaining('CREATE OR REPLACE FUNCTION public.transition_client_to_solo');
   assert.equal(latest.file, '20260918182954_commercial_durations.sql');

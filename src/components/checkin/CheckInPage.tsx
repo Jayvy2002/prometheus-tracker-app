@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Check, ChevronDown } from 'lucide-react';
+import { Check, ChevronDown, Sparkles } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { formatBilanDate, parseAthleteCheckinQuery } from '../../lib/messageBilan';
 import { useAuthStore } from '../../stores/authStore';
 import { useCheckinStore } from '../../stores/checkinStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useCoachingStore } from '../../stores/coachingStore';
-import { todayStr } from '../../lib/utils';
+import { formatDate, formatNumber, todayStr } from '../../lib/utils';
 import { clampCheckinScore } from '../../lib/checkinScale';
 import { isSoloAthlete } from '../../lib/coachRole';
 import { displayName } from '../../lib/coachText';
@@ -37,6 +37,11 @@ import ScoreSlider from './ScoreSlider';
 import CheckinFilledScores from './CheckinFilledScores';
 import CheckinHistoryList from './CheckinHistoryList';
 import { adherencePercentFromScore, adherenceScoreFromPercent } from '../../lib/checkinScale';
+import { parseDecimalInput } from '../../features/workout/domain/workoutSetComplete';
+import { useCheckinPlan } from '../../features/checkins/hooks/useCheckinPlan';
+import { missingRequired, snapshotAnswers, visibleQuestions, type AnswerValue } from '../../features/checkins/domain/checkinTemplate';
+import { nextDueDate } from '../../features/checkins/domain/checkinSchedule';
+import CustomQuestionField from './CustomQuestionField';
 
 const SCALE_COPY: Record<CheckinScaleKey, { field: string; low: string; high: string }> = {
   sleep_quality: { field: 'sleep_quality', low: 'poor', high: 'excellent' },
@@ -57,6 +62,8 @@ export default function CheckInPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const focusId = parseAthleteCheckinQuery(searchParams);
+  const requestedDate = searchParams.get('date');
+  const logDate = requestedDate && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate) ? requestedDate : todayStr();
   const [focused, setFocused] = useState<DailyCheckin | null>(null);
   const [ficheGone, setFicheGone] = useState(false);
   const { user } = useAuthStore();
@@ -75,8 +82,12 @@ export default function CheckInPage() {
     () => fields.filter(key => !CHECKIN_CORE_VAR_KEYS.includes(key) && key !== 'notes'),
     [fields],
   );
+  const { plan, template } = useCheckinPlan(user?.id);
+  const [answers, setAnswers] = useState<Record<string, AnswerValue>>({});
+  const customQuestions = useMemo(() => visibleQuestions(template?.questions ?? [], answers), [template, answers]);
   const [saving, setSaving] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [askOpen, setAskOpen] = useState(false);
   const [sleepHours, setSleepHours] = useState('');
   const [notes, setNotes] = useState('');
   const [scales, setScales] = useState<Record<CheckinScaleKey, number | null>>({
@@ -127,9 +138,11 @@ export default function CheckInPage() {
   }, [focusId, todayCheckin, checkins]);
 
   useEffect(() => {
-    if (!todayCheckin) return;
-    setSleepHours(todayCheckin.sleep_hours != null ? String(todayCheckin.sleep_hours) : '');
+    if (!todayCheckin || logDate !== todayStr()) return;
+    setSleepHours(todayCheckin.sleep_hours != null ? formatNumber(todayCheckin.sleep_hours) : '');
     setNotes(todayCheckin.notes || '');
+    // Answers already given today come back (matched by question id).
+    setAnswers(Object.fromEntries((todayCheckin.custom_answers ?? []).map(a => [a.id, a.value])));
     setScales({
       sleep_quality: todayCheckin.sleep_quality,
       energy_level: todayCheckin.energy_level,
@@ -143,7 +156,7 @@ export default function CheckInPage() {
       adherence_training: adherenceScoreFromPercent(todayCheckin.adherence_training),
       adherence_nutrition: adherenceScoreFromPercent(todayCheckin.adherence_nutrition),
     });
-  }, [todayCheckin]);
+  }, [todayCheckin, logDate]);
 
   const setScale = (key: CheckinScaleKey, value: number | null) => {
     setScales(s => ({ ...s, [key]: value }));
@@ -152,9 +165,29 @@ export default function CheckInPage() {
   const handleSave = async () => {
     if (!user) return;
     setSaving(true);
-    const hours = sleepHours.trim() === '' ? null : Number(sleepHours);
+    // « 7,5 » and « 7.5 » are the same night. An invalid value is refused, never dropped silently.
+    const parsedHours = parseDecimalInput(sleepHours);
+    const hours = sleepHours.trim() === '' ? null : parsedHours;
+    if (hours != null && (!Number.isFinite(hours) || hours < 0 || hours > 24)) {
+      setSaving(false);
+      toast(t('checkin.sleepHoursInvalid'), 'error');
+      return;
+    }
+    const allQuestions = template?.questions ?? [];
+    if (missingRequired(allQuestions, answers).length > 0) {
+      setSaving(false);
+      toast(t('checkinPlan.requiredMissing'), 'error');
+      return;
+    }
+    if (visibleQuestions(allQuestions, answers).some(q => q.type === 'number' && typeof answers[q.id] === 'string')) {
+      setSaving(false);
+      toast(t('checkinPlan.numberInvalid'), 'error');
+      return;
+    }
     const payload: DailyCheckinInput = {
-      checked_at: todayStr(),
+      checked_at: logDate,
+      custom_answers: snapshotAnswers(allQuestions, answers, i18n.language),
+      template_id: template?.id ?? null,
       notes: showCheckinField(tracking, 'notes') || notes.trim()
         ? notes
         : (todayCheckin?.notes || ''),
@@ -206,16 +239,19 @@ export default function CheckInPage() {
     );
   }
 
-  const extraCount = extraVars.length + (showCheckinField(tracking, 'notes') ? 1 : 0);
+  const extraCount = extraVars.length;
   const showExtras = moreOpen;
 
+  // One control for every 0–10 score, with its meaning at both ends. A grid of
+  // even numbers next to a slider in the same form read as two different scales.
   const renderSlider = (key: CheckinVarKey) => {
     const col = CHECKIN_SCALE_BY_VAR[key];
     if (!col) return null;
     const copy = SCALE_COPY[col];
+    const reason = plan?.habit_reasons?.[key];
     return (
+      <div key={key}>
       <ScoreSlider
-        key={key}
         label={t(`checkin.fields.${copy.field}`)}
         low={t(`checkin.low.${copy.low}`)}
         high={t(`checkin.high.${copy.high}`)}
@@ -223,6 +259,8 @@ export default function CheckInPage() {
         unsetLabel={t('checkin.notSet')}
         onChange={v => setScale(col, v)}
       />
+      {reason && <p className="mt-1 text-xs text-neutral-500">{t('checkinPlan.whyPrefix')} {reason}</p>}
+      </div>
     );
   };
 
@@ -230,7 +268,15 @@ export default function CheckInPage() {
     <PageTransition>
       <div className="px-4 pt-6 pb-8">
         <PageHeader title={t('checkin.title')} subtitle={solo ? t('checkin.subtitleSolo') : t('checkin.subtitle')} />
-        <p className="text-xs text-neutral-600 -mt-4 mb-6">{t('checkin.scaleHint')}</p>
+        <p className="text-xs text-neutral-600 -mt-4 mb-3">{t('checkin.scaleHint')}</p>
+        <p className="text-xs text-neutral-400 mb-6" data-testid="checkin-plan-summary">
+          {t(`checkinPlan.frequencies.${plan?.frequency ?? 'daily'}`)}
+          {plan && plan.frequency !== 'daily'
+            ? ` · ${t('checkinPlan.next', { date: formatDate(nextDueDate(plan, todayStr()), i18n.language) })}`
+            : ''}
+          {' · '}
+          <Link to="/checkin/settings" className="text-blue-400">{t('checkinPlan.settingsLink')}</Link>
+        </p>
 
         {ficheGone ? (
           <div className="mb-6" data-testid="ux32-checkin-gone">
@@ -251,6 +297,17 @@ export default function CheckInPage() {
           </div>
         ) : null}
 
+        {solo && (
+          <button
+            type="button"
+            aria-expanded={askOpen}
+            className="mb-3 inline-flex min-h-11 items-center gap-2 rounded-xl border border-neutral-800 px-3 text-sm text-neutral-200 hover:border-neutral-700"
+            onClick={() => setAskOpen(v => !v)}
+          >
+            <Sparkles size={16} className="text-blue-300" aria-hidden="true" /> {t('soloAsk.label')}
+          </button>
+        )}
+        {askOpen && solo && (
         <SoloAskBar
           context={soloAskFromProfile('checkin', profile)}
           onApplyOnce={() => undefined}
@@ -262,21 +319,22 @@ export default function CheckInPage() {
             toast(t('soloAsk.saveNote'));
           }}
         />
+        )}
 
         <div className="space-y-5">
           <div className="space-y-5" data-testid="checkin-core">
             {coreVars.includes('sleep_hours') && (
               <Input
-                type="number"
+                type="text"
                 inputMode="decimal"
-                min={0}
-                max={24}
-                step={0.5}
+                autoComplete="off"
                 value={sleepHours}
                 onChange={e => setSleepHours(e.target.value)}
-                placeholder="7.5"
                 label={t('checkin.sleepHours')}
               />
+            )}
+            {coreVars.includes('sleep_hours') && plan?.habit_reasons?.sleep_hours && (
+              <p className="-mt-3 text-xs text-neutral-500">{t('checkinPlan.whyPrefix')} {plan.habit_reasons.sleep_hours}</p>
             )}
 
             {coreVars.filter(key => key !== 'sleep_hours').map(renderSlider)}
@@ -300,21 +358,36 @@ export default function CheckInPage() {
             <div className="space-y-5" data-testid="checkin-extra">
               <p className="text-xs text-neutral-500">{t('checkin.extraHint')}</p>
               {extraVars.map(renderSlider)}
-              {showCheckinField(tracking, 'notes') && (
-                <div>
-                  <label className="text-sm font-medium text-white block mb-1.5">
-                    {t('checkin.notes')}
-                    <span className="text-neutral-500 font-normal"> · {t('checkin.optional')}</span>
-                  </label>
-                  <textarea
-                    value={notes}
-                    onChange={e => setNotes(e.target.value)}
-                    rows={3}
-                    placeholder={t('checkin.notesPlaceholder')}
-                    className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-2.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40 resize-none"
-                  />
-                </div>
-              )}
+            </div>
+          )}
+
+          {customQuestions.length > 0 && (
+            <div className="space-y-5" data-testid="checkin-custom">
+              {template && <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">{template.name}</p>}
+              {customQuestions.map(q => (
+                <CustomQuestionField
+                  key={q.id}
+                  question={q}
+                  value={answers[q.id] ?? null}
+                  onChange={v => setAnswers(prev => ({ ...prev, [q.id]: v }))}
+                />
+              ))}
+            </div>
+          )}
+
+          {(showCheckinField(tracking, 'notes') || !solo) && (
+            <div>
+              <label className="text-sm font-medium text-white block mb-1.5">
+                {t('checkin.notes')}
+                <span className="text-neutral-500 font-normal"> · {t('checkin.optional')}</span>
+              </label>
+              <textarea
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                rows={3}
+                placeholder={t('checkin.notesPlaceholder')}
+                className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-2.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40 resize-none"
+              />
             </div>
           )}
 

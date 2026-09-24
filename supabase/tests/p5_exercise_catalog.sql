@@ -44,7 +44,7 @@ DO $$ BEGIN
      OR NOT has_function_privilege('authenticated', 'public.propose_exercise(text,text,text)', 'execute')
      OR NOT has_function_privilege('authenticated', 'public.resolve_exercise_catalog(text)', 'execute')
      OR has_function_privilege('authenticated', 'public.merge_exercises(uuid,uuid,boolean)', 'execute')
-     OR has_function_privilege('authenticated', 'public.list_exercise_duplicate_candidates(integer)', 'execute')
+     OR has_function_privilege('authenticated', 'public.list_exercise_duplicate_candidates(integer,integer)', 'execute')
      OR has_function_privilege('anon', 'public.propose_exercise(text,text,text)', 'execute')
      OR has_table_privilege('authenticated', 'public.exercises', 'insert')
      OR has_table_privilege('authenticated', 'public.exercise_aliases', 'insert')

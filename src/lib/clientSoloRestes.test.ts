@@ -81,8 +81,8 @@ test('steps journal calls logSteps from Nutrition and Dashboard reads the log', 
   assert.match(tracker, /logSteps/);
   assert.match(tracker, /nutrition\.steps\.title/);
   const nutrition = src('src/components/nutrition/NutritionPage.tsx');
-  assert.match(nutrition, /showNutritionField\(tracking, 'steps'\)/);
-  assert.match(nutrition, /<StepsTracker/);
+  assert.doesNotMatch(nutrition, /showNutritionField\(tracking, 'steps'\)/);
+  assert.doesNotMatch(nutrition, /<StepsTracker/);
   assert.match(nutrition, /fetchOrCreateSteps/);
   const dash = src('src/components/dashboard/Dashboard.tsx') + src('src/features/dashboard/hooks/useDashboardBootstrap.ts');
   assert.match(dash, /fetchOrCreateSteps/);

@@ -283,10 +283,13 @@ export default function ProgramEditorPage() {
           onDaysChange={setDays}
           onAsk={q => navigate(`/prometheus?q=${encodeURIComponent(q)}`)}
         />
-        <p className="text-[11px] text-neutral-600 mt-3">{dirtyLabel}</p>
-        <Button className="w-full mt-4" onClick={handleSave} loading={saving} disabled={!name.trim()}>
-          {t('common.save')}
-        </Button>
+        {/* Always reachable above the tab bar, however long the program is. */}
+        <div className="sticky bottom-20 md:bottom-4 z-10 mt-3 -mx-4 px-4 pt-2 pb-2 bg-black/90 backdrop-blur md:mx-0 md:px-0 md:rounded-2xl" data-testid="program-editor-save">
+          <p className="text-[11px] text-neutral-500 mb-2">{dirtyLabel}</p>
+          <Button className="w-full" onClick={handleSave} loading={saving} disabled={!name.trim()}>
+            {t('common.save')}
+          </Button>
+        </div>
         {!isNew && (
           <details className="mt-4 rounded-2xl border border-neutral-800 bg-neutral-900/40 px-3 py-2" data-testid="program-versions-advanced">
             <summary className="flex items-center justify-between cursor-pointer list-none text-sm text-neutral-300">

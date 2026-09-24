@@ -480,7 +480,7 @@ jobs:
       - name: Confirm P5.2 claim lock echo
         run: |
           set -euo pipefail
-          grep -F 'p5.2 claim × claim × commit: dossier mutex, one workout, second confirm idempotent, commit fail-closed, no deadlock' /tmp/p5-provisional-claim-lock.txt
+          grep -F 'p5.2 claim(coaching) × claim × commit: lifecycle then dossier mutex, one workout, one link, second confirm idempotent, commit fail-closed, no deadlock' /tmp/p5-provisional-claim-lock.txt
       - name: Test P5.3 exercise catalog
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
@@ -513,6 +513,118 @@ jobs:
         run: |
           set -euo pipefail
           grep -F 'p5.4 revoke × revoke × grant: one survivor, waiter not_authorized, grant serialized, queued grant after revoke is not_authorized, no zero operators, no deadlock' /tmp/p5-operator-lock.txt
+      - name: Test P5 audit fixes
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/p5_audit_fixes.sql | tee /tmp/p5-audit-fixes.txt
+      - name: Confirm P5 audit fixes echo
+        run: |
+          set -euo pipefail
+          grep -F 'p5 audit fixes: deletion, access after claim, revision, dedup, catalog identity, quotas, operator queues, parser' /tmp/p5-audit-fixes.txt
+      - name: Test progress photo sharing
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/progress_photo_sharing.sql | tee /tmp/progress-photo-sharing.txt
+      - name: Confirm progress photo sharing echo
+        run: |
+          set -euo pipefail
+          grep -F 'progress photo sharing: private by default, athlete shares and withdraws, other coaches blind, end of link ends share' /tmp/progress-photo-sharing.txt
+      - name: Test offline session start
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/offline_session_start.sql | tee /tmp/offline-session-start.txt
+      - name: Confirm offline session start echo
+        run: |
+          set -euo pipefail
+          grep -F 'offline session start: idempotent replay, offline date kept, foreign op refused, provenance RPC-only' /tmp/offline-session-start.txt
+      - name: Test exercise catalog accents
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/exercise_catalog_accents.sql | tee /tmp/exercise-catalog-accents.txt
+      - name: Confirm exercise catalog accents echo
+        run: |
+          set -euo pipefail
+          grep -F 'exercise catalog accents: French names accented, identity and unaccented search kept' /tmp/exercise-catalog-accents.txt
+      - name: Test personal modules
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/personal_modules.sql | tee /tmp/personal-modules.txt
+      - name: Confirm personal modules echo
+        run: |
+          set -euo pipefail
+          grep -F 'personal modules: own choice saved, unknown or malformed refused, others blind, no invented water/steps target' /tmp/personal-modules.txt
+      - name: Test action-now notifications
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/action_now_notifications.sql | tee /tmp/action-now-notifications.txt
+      - name: Confirm action-now notifications echo
+        run: |
+          set -euo pipefail
+          grep -F 'action-now notifications: grouped, no content, marketplace and program events, muted closed, stale expired, claimed once, server only' /tmp/action-now-notifications.txt
+      - name: Test goal lifecycle
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/goal_lifecycle.sql | tee /tmp/goal-lifecycle.txt
+      - name: Confirm goal lifecycle echo
+        run: |
+          set -euo pipefail
+          grep -F 'goal lifecycle: replace keeps context, pause/resume/reach/maintain, closed stays closed, goal_at, coach scope, profile changes recorded once' /tmp/goal-lifecycle.txt
+      - name: Test athlete constraints
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/athlete_constraints.sql | tee /tmp/athlete-constraints.txt
+      - name: Confirm athlete constraints echo
+        run: |
+          set -euo pipefail
+          grep -F 'athlete constraints: declared in session, idempotent replay, updated, resolved kept, coach scope, coach told' /tmp/athlete-constraints.txt
+      - name: Test checkin templates and plans
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/checkin_templates_plans.sql | tee /tmp/checkin-templates-plans.txt
+      - name: Confirm checkin templates and plans echo
+        run: |
+          set -euo pipefail
+          grep -F 'checkin templates and plans: typed questions, coach decides, solo decides alone, answers keep labels, other coach blind, history kept' /tmp/checkin-templates-plans.txt
+      - name: Test checkin due
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/checkin_due.sql | tee /tmp/checkin-due.txt
+      - name: Confirm checkin due echo
+        run: |
+          set -euo pipefail
+          grep -F 'checkin due: same schedule as the app, once on the due day from 9:00, module off or no plan never chased, category settable' /tmp/checkin-due.txt
+      - name: Test body measurements
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/body_measurements.sql | tee /tmp/body-measurements.txt
+      - name: Confirm body measurements echo
+        run: |
+          set -euo pipefail
+          grep -F 'body measurements: athlete writes and corrects, one value per site and day, active coach reads only, others blind' /tmp/body-measurements.txt
+      - name: Test personal CSV import
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/personal_csv_import.sql | tee /tmp/personal-csv-import.txt
+      - name: Confirm personal CSV import echo
+        run: |
+          set -euo pipefail
+          grep -F 'personal csv import: solo previews and commits own history, never twice, never for others, coach sees sessions not the job' /tmp/personal-csv-import.txt
+      - name: Test rich messages
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/rich_messages.sql | tee /tmp/rich-messages.txt
+      - name: Confirm rich messages echo
+        run: |
+          set -euo pipefail
+          grep -F 'rich messages: replies in thread, canonical references owned, attachments private per thread, prospect text only, content immutable' /tmp/rich-messages.txt
+      - name: Test account deletion window
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/account_deletion_window.sql | tee /tmp/account-deletion-window.txt
+      - name: Confirm account deletion window echo
+        run: |
+          set -euo pipefail
+          grep -F 'account deletion window: request withdraws access and keeps data, cancel restores exactly, purge only when due and by the service, retries bounded' /tmp/account-deletion-window.txt
       - name: Test P6.1 entitlements
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
@@ -577,11 +689,14 @@ jobs:
         run: node scripts/test-resource-permissions-browser.mjs
       - name: Personal calendar browser journey
         run: node scripts/test-personal-calendar-browser.mjs
+      - name: Offline session browser journey
+        run: node scripts/test-offline-session-browser.mjs
       - name: Confirm browser PASS files
         run: |
           set -euo pipefail
           grep -F 'PASS: coached stats history' artifacts/p12/results.txt
           grep -F 'PASS: coached calendar past/future' artifacts/p13/results.txt
+          grep -F 'PASS: planned session started offline' artifacts/offline/results.txt
           grep -F 'PASS: responsive directory, concurrent confirmation' /tmp/questionnaire-browser-results.txt
       - name: Upload Coach capability browser proof
         if: always()
@@ -603,6 +718,13 @@ jobs:
         with:
           name: personal-calendar-browser-proof
           path: artifacts/p13/
+          if-no-files-found: warn
+      - name: Upload offline session browser proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: offline-session-browser-proof
+          path: artifacts/offline/
           if-no-files-found: warn
       - name: Upload questionnaire browser proof
         if: always()

@@ -174,16 +174,18 @@ export default function ClientProgramPage() {
     <PageTransition>
       <div className="px-4 pt-6 pb-8">
         <h1 className="text-2xl font-bold text-white mb-1">{t('programs.mineTitle')}</h1>
-        <p className="text-sm text-neutral-500 mb-5">
-          {canEditOwnPlan ? t('programs.soloReadFirst') : t('programs.mineSubtitle')}
-        </p>
-
-        {canEditOwnPlan && <SoloProgramProposal />}
-        {canProposeAssignedProgramChange && (
-          <p className="text-xs text-neutral-500 mb-4" data-testid="assigned-plan-read-only">
+        {/* One sentence: who owns this plan and how to ask for a change. */}
+        {canProposeAssignedProgramChange ? (
+          <p className="text-sm text-neutral-500 mb-5" data-testid="assigned-plan-read-only">
             {t('coaching.ux19.assignedPlanUntouched')}
           </p>
+        ) : (
+          <p className="text-sm text-neutral-500 mb-5">
+            {canEditOwnPlan ? t('programs.soloReadFirst') : t('programs.mineSubtitle')}
+          </p>
         )}
+
+        {canEditOwnPlan && <SoloProgramProposal />}
 
         {loading && !program && !creating ? (
           <div className="space-y-2">{[1, 2, 3].map(i => <div key={i} className="h-20 rounded-2xl bg-neutral-900 animate-pulse" />)}</div>
@@ -258,7 +260,9 @@ export default function ClientProgramPage() {
               )}
             </Card>
 
-            {todayDay && (
+            {/* Calendar mode: today is highlighted in the week list below, not shown twice.
+                Sequence mode has no weekday, so the next session gets its own card. */}
+            {todayDay && inOrder && (
               <Card className="border-blue-500/30" glow="blue">
                 <p className="text-[11px] font-medium text-blue-300 mb-1">{t('programs.todayBadge')}</p>
                 <p className="text-sm font-semibold text-white" data-testid="ux22-program-today">

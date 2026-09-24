@@ -25,15 +25,18 @@ import ExerciseMedia from './ExerciseMedia';
 interface Props {
   open: boolean;
   onClose: () => void;
-  onSelect: (name: string) => void;
+  onSelect: (name: string, catalogId?: string | null) => void;
+  multiple?: boolean;
 }
 
-export default function ExercisePicker({ open, onClose, onSelect }: Props) {
+export default function ExercisePicker({ open, onClose, onSelect, multiple = false }: Props) {
   const { t, i18n } = useTranslation();
   const { exercises, loading, loadError, fetchExercises, searchExercises } = useExerciseStore();
   const workouts = useWorkoutStore(s => s.workouts);
   const [search, setSearch] = useState('');
   const [equipment, setEquipment] = useState<string | 'all'>('all');
+  const [muscle, setMuscle] = useState<string | 'all'>('all');
+  const [picked, setPicked] = useState<Exercise[]>([]);
   const [showNewForm, setShowNewForm] = useState(false);
   const [detail, setDetail] = useState<Exercise | null>(null);
 
@@ -42,8 +45,12 @@ export default function ExercisePicker({ open, onClose, onSelect }: Props) {
   }, [open, fetchExercises]);
 
   const recentNames = mergeRecentNames(loadRecentExerciseNames(), namesFromWorkouts(workouts));
+  const muscleOptions = Array.from(new Set(exercises.flatMap(ex => ex.primary_muscles))).sort();
+  const catalog = muscle === 'all'
+    ? exercises
+    : exercises.filter(ex => ex.primary_muscles.includes(muscle) || ex.secondary_muscles.includes(muscle));
   const model = composeExercisePicker({
-    catalog: exercises,
+    catalog,
     query: search,
     recentNames,
     equipment,
@@ -56,16 +63,42 @@ export default function ExercisePicker({ open, onClose, onSelect }: Props) {
     && scoreAgainstQuery(search, exerciseSearchFields(topHit, i18n.language)) >= 72;
   const visibleCount = model.sections.reduce((n, section) => n + section.exercises.length, 0);
 
-  const handleSelect = (exercise: Exercise) => {
+  const emit = (exercise: Exercise) => {
     rememberExerciseName(exercise.name);
-    onSelect(exercise.name);
+    onSelect(exercise.name, exercise.id);
+  };
+
+  const handleSelect = (exercise: Exercise) => {
+    if (multiple) {
+      setPicked(current => current.some(item => item.id === exercise.id)
+        ? current.filter(item => item.id !== exercise.id)
+        : [...current, exercise]);
+      return;
+    }
+    emit(exercise);
     setSearch('');
     setEquipment('all');
+    setMuscle('all');
+    onClose();
+  };
+
+  const confirmPicked = async () => {
+    for (const exercise of picked) {
+      rememberExerciseName(exercise.name);
+      await Promise.resolve(onSelect(exercise.name, exercise.id));
+    }
+    setPicked([]);
+    setSearch('');
+    setEquipment('all');
+    setMuscle('all');
+    onClose();
   };
 
   const handleClose = () => {
     setSearch('');
     setEquipment('all');
+    setMuscle('all');
+    setPicked([]);
     setShowNewForm(false);
     onClose();
   };
@@ -83,7 +116,8 @@ export default function ExercisePicker({ open, onClose, onSelect }: Props) {
         <button
           type="button"
           onClick={() => handleSelect(ex)}
-          className="flex items-center gap-2.5 flex-1 min-w-0 text-left"
+          aria-pressed={multiple ? picked.some(item => item.id === ex.id) : undefined}
+          className={`flex items-center gap-2.5 flex-1 min-w-0 text-left ${picked.some(item => item.id === ex.id) ? 'text-blue-200' : ''}`}
         >
           <div className="w-8 h-8 rounded-lg bg-neutral-900 group-hover:bg-neutral-800 flex items-center justify-center shrink-0">
             {recent ? <Clock size={14} className="text-blue-400" /> : <Dumbbell size={14} className="text-blue-400" />}
@@ -138,6 +172,38 @@ export default function ExercisePicker({ open, onClose, onSelect }: Props) {
           />
         </div>
         <p className="text-[11px] text-neutral-500 -mt-2">{t('workout.exercisePicker.variantHint')}</p>
+
+        {muscleOptions.length > 0 && (
+          <div className="flex gap-1.5 overflow-x-auto scrollbar-thin pb-0.5" data-testid="exercise-picker-muscle">
+            <button
+              type="button"
+              aria-pressed={muscle === 'all'}
+              onClick={() => setMuscle('all')}
+              className={`shrink-0 min-h-11 px-3 rounded-full text-xs font-medium border ${
+                muscle === 'all'
+                  ? 'bg-blue-600/20 border-blue-500/40 text-blue-200'
+                  : 'bg-neutral-900 border-neutral-800 text-neutral-400'
+              }`}
+            >
+              {t('workout.exercisePicker.muscleAll')}
+            </button>
+            {muscleOptions.map(item => (
+              <button
+                key={item}
+                type="button"
+                aria-pressed={muscle === item}
+                onClick={() => setMuscle(item)}
+                className={`shrink-0 min-h-11 px-3 rounded-full text-xs font-medium border ${
+                  muscle === item
+                    ? 'bg-blue-600/20 border-blue-500/40 text-blue-200'
+                    : 'bg-neutral-900 border-neutral-800 text-neutral-400'
+                }`}
+              >
+                {muscleLabel(item, i18n.language)}
+              </button>
+            ))}
+          </div>
+        )}
 
         {model.equipmentOptions.length > 1 && (
           <div className="flex gap-1.5 overflow-x-auto scrollbar-thin pb-0.5" data-testid="exercise-picker-equipment">
@@ -253,6 +319,12 @@ export default function ExercisePicker({ open, onClose, onSelect }: Props) {
         )}
       </div>
 
+      {multiple && picked.length > 0 && (
+        <Button className="w-full" onClick={() => void confirmPicked()}>
+          {t('workout.exercisePicker.addSelected', { count: picked.length })}
+        </Button>
+      )}
+
       {detail && (
         <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4">
           <div className="fixed inset-0 bg-black/70" onClick={() => setDetail(null)} />
@@ -361,6 +433,10 @@ function NewExerciseModal({ initialName, onClose, onSelect }: {
       setError(t('common.tryAgain'));
       setStatus('idle');
       return;
+    }
+    const requestId = (data as { request_id?: string }).request_id;
+    if (requestId) {
+      void supabase.functions.invoke('verify-exercise', { body: { request_id: requestId } });
     }
     setStatus('pending');
   };

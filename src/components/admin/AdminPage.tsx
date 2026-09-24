@@ -9,15 +9,19 @@ import { useAuthStore } from '../../stores/authStore';
 import {
   actionReady,
   adminErrorKey,
+  formatCivilDate,
   isOperatorUserId,
   reportNoteRequired,
   shortOperatorId,
   type AdminErrorCode,
 } from '../../features/admin/domain/adminConsole';
+import { useExerciseStore } from '../../stores/exerciseStore';
+import { importErrorI18nKey } from '../../features/imports/domain/errors';
 import type {
   AdminExerciseDuplicate,
   AdminExerciseProposal,
   AdminOperator,
+  AdminImportIncident,
   AdminProblemImport,
   AdminQualification,
   AdminReport,
@@ -30,6 +34,12 @@ const TABS: TabId[] = ['qualifications', 'exercises', 'imports', 'reports'];
 const CATEGORIES = ['compound', 'isolation', 'cardio', 'stretch', 'plyometric'] as const;
 const EQUIPMENT = ['barbell', 'dumbbell', 'machine', 'cable', 'bodyweight', 'kettlebell', 'band', 'other'] as const;
 type ReportAction = 'acknowledge' | 'dismiss' | 'resolve' | 'suspend_directory' | 'restore_directory';
+
+function labelOf(t: (key: string) => string, group: string, code: string): string {
+  const key = `admin.${group}.${code}`;
+  const text = t(key);
+  return text === key ? code : text;
+}
 
 function formatWhen(value: string, language: string): string {
   const date = new Date(value);
@@ -148,7 +158,12 @@ export default function AdminPage() {
             <div role="tabpanel" id={`admin-panel-${tab}`} aria-labelledby={`admin-tab-${tab}`} className="space-y-4">
               {tab === 'qualifications' && <QualificationQueue />}
               {tab === 'exercises' && <ExerciseQueue />}
-              {tab === 'imports' && <ImportQueue />}
+              {tab === 'imports' && (
+                <>
+                  <ImportQueue />
+                  <ImportIncidents />
+                </>
+              )}
               {tab === 'reports' && <ReportQueue />}
             </div>
             <OperatorPanel selfId={userId} />
@@ -166,6 +181,8 @@ function QualificationQueue() {
   const [retry, setRetry] = useState(0);
   const [confirm, setConfirm] = useState(false);
   const [note, setNote] = useState('');
+  const [armed, setArmed] = useState<{ id: string; decision: 'verified' | 'rejected' } | null>(null);
+  const [hasMore, setHasMore] = useState(false);
   const [busy, setBusy] = useState('');
   const [code, setCode] = useState<AdminErrorCode | null>(null);
   const [notice, setNotice] = useState('');
@@ -177,7 +194,9 @@ function QualificationQueue() {
       if (cancelled) return;
       if (error) setState('error');
       else {
-        setRows(rowsOf<AdminQualification>(data));
+        const next = rowsOf<AdminQualification>(data);
+        setRows(next);
+        setHasMore(next.length >= 50);
         setState('ready');
       }
     });
@@ -255,16 +274,15 @@ function QualificationQueue() {
   return (
     <div className="space-y-4">
       <StatusLine code={code} notice={notice} />
-      <ConfirmNote confirm={confirm} onConfirm={setConfirm} note={note} onNote={setNote} noteRequired={false} />
       {rows.map(row => (
         <Card key={row.id} className="space-y-3">
           <div>
             <h2 className="text-base font-medium text-ink">{row.title}</h2>
             <p className="text-sm text-ink-secondary">{row.coach_label}</p>
-            <p className="text-sm text-ink-secondary">{row.qualification_type} · {row.issuer}</p>
+            <p className="text-sm text-ink-secondary">{labelOf(t, 'type', row.qualification_type)} · {row.issuer}</p>
             <p className="text-xs text-ink-disabled">{t('admin.qualification.declared', { date: formatWhen(row.declared_at, i18n.language) })}</p>
             {row.expires_on && (
-              <p className="text-xs text-ink-disabled">{t('admin.qualification.expires', { date: formatWhen(row.expires_on, i18n.language) })}</p>
+              <p className="text-xs text-ink-disabled">{t('admin.qualification.expires', { date: formatCivilDate(row.expires_on, i18n.language) })}</p>
             )}
           </div>
           {row.proof_present ? (
@@ -272,23 +290,64 @@ function QualificationQueue() {
           ) : (
             <p className="text-sm text-ink-disabled">{t('admin.proof.absent')}</p>
           )}
+          {armed?.id === row.id ? (
+            <ConfirmNote confirm={confirm} onConfirm={setConfirm} note={note} onNote={setNote} noteRequired={armed.decision === 'rejected'} />
+          ) : null}
           <div className="flex flex-wrap gap-2">
             <Button
-              disabled={!actionReady(confirm, note, false) || busy === row.id}
-              onClick={() => review(row.id, 'verified')}
+              disabled={(armed?.id === row.id && armed.decision === 'verified' && !actionReady(confirm, note, false)) || busy === row.id}
+              onClick={() => {
+                if (armed?.id !== row.id || armed.decision !== 'verified') {
+                  setArmed({ id: row.id, decision: 'verified' });
+                  setConfirm(false);
+                  setNote('');
+                  return;
+                }
+                void review(row.id, 'verified');
+              }}
             >
               {t('admin.qualification.verify')}
             </Button>
             <Button
               variant="danger"
-              disabled={!actionReady(confirm, note, true) || busy === row.id}
-              onClick={() => review(row.id, 'rejected')}
+              disabled={(armed?.id === row.id && armed.decision === 'rejected' && !actionReady(confirm, note, true)) || busy === row.id}
+              onClick={() => {
+                if (armed?.id !== row.id || armed.decision !== 'rejected') {
+                  setArmed({ id: row.id, decision: 'rejected' });
+                  setConfirm(false);
+                  setNote('');
+                  return;
+                }
+                void review(row.id, 'rejected');
+              }}
             >
               {t('admin.qualification.reject')}
             </Button>
           </div>
         </Card>
       ))}
+      {hasMore ? (
+        <Button variant="secondary" onClick={() => {
+          const last = rows[rows.length - 1];
+          if (!last) return;
+          void supabase.rpc('admin_list_pending_qualifications', {
+            p_before: last.declared_at,
+            p_before_id: last.id,
+            p_limit: 50,
+          }).then(({ data, error }) => {
+            if (error) {
+              setCode(adminErrorKey(error.message));
+              return;
+            }
+            const next = rowsOf<AdminQualification>(data);
+            setRows(current => [...current, ...next.filter(row => !current.some(item => item.id === row.id))]);
+            setHasMore(next.length >= 50);
+          });
+        }}
+        >
+          {t('admin.more')}
+        </Button>
+      ) : null}
     </div>
   );
 }
@@ -350,6 +409,7 @@ function ExerciseQueue() {
               setRetry(n => n + 1);
             }}
             onError={setCode}
+            onRefresh={() => setRetry(n => n + 1)}
           />
         ))}
       </section>
@@ -378,11 +438,13 @@ function ProposalCard({
   language,
   onDone,
   onError,
+  onRefresh,
 }: {
   row: AdminExerciseProposal;
   language: string;
   onDone: (message: string) => void;
   onError: (code: AdminErrorCode) => void;
+  onRefresh: () => void;
 }) {
   const { t } = useTranslation();
   const [confirm, setConfirm] = useState(false);
@@ -426,23 +488,29 @@ function ProposalCard({
         p_category: category,
         p_equipment: equipment,
         p_confirm: true,
+        p_updated_at: row.updated_at,
       })
       : kind === 'reject'
         ? await supabase.rpc('admin_reject_exercise_proposal', {
           p_id: row.id,
           p_note: note,
           p_confirm: true,
+          p_updated_at: row.updated_at,
         })
         : await supabase.rpc('admin_match_exercise_proposal', {
           p_id: row.id,
           p_exercise: chosen,
           p_confirm: true,
+          p_updated_at: row.updated_at,
         });
     setBusy('');
     if (result.error) {
-      onError(adminErrorKey(result.error.message));
+      const key = adminErrorKey(result.error.message);
+      onError(key);
+      if (key === 'request_changed') onRefresh();
       return;
     }
+    useExerciseStore.getState().reset();
     onDone(t('admin.saved'));
   }
 
@@ -532,6 +600,23 @@ function DuplicateCard({
       onError(adminErrorKey(error.message));
       return;
     }
+    useExerciseStore.getState().reset();
+    onDone(t('admin.saved'));
+  }
+
+  async function dismiss() {
+    if (!actionReady(confirm, '', false) || !navigator.onLine) return;
+    setBusy(true);
+    const { error } = await supabase.rpc('admin_dismiss_exercise_duplicate', {
+      p_left: row.left_id,
+      p_right: row.right_id,
+      p_confirm: true,
+    });
+    setBusy(false);
+    if (error) {
+      onError(adminErrorKey(error.message));
+      return;
+    }
     onDone(t('admin.saved'));
   }
 
@@ -548,9 +633,14 @@ function DuplicateCard({
         <input type="checkbox" checked={confirm} onChange={event => setConfirm(event.target.checked)} />
         {t('admin.confirm')}
       </label>
-      <Button variant="danger" disabled={!actionReady(confirm, '', false) || busy} loading={busy} onClick={merge}>
-        {t('admin.exercise.merge')}
-      </Button>
+      <div className="flex flex-wrap gap-2">
+        <Button variant="danger" disabled={!actionReady(confirm, '', false) || busy} loading={busy} onClick={() => void merge()}>
+          {t('admin.exercise.merge')}
+        </Button>
+        <Button variant="secondary" disabled={!actionReady(confirm, '', false) || busy} loading={busy} onClick={() => void dismiss()}>
+          {t('admin.exercise.distinct')}
+        </Button>
+      </div>
     </Card>
   );
 }
@@ -562,6 +652,7 @@ function ImportQueue() {
   const [retry, setRetry] = useState(0);
   const [confirm, setConfirm] = useState(false);
   const [note, setNote] = useState('');
+  const [armedId, setArmedId] = useState<string | null>(null);
   const [busy, setBusy] = useState('');
   const [code, setCode] = useState<AdminErrorCode | null>(null);
   const [notice, setNotice] = useState('');
@@ -619,24 +710,34 @@ function ImportQueue() {
   return (
     <div className="space-y-4">
       <StatusLine code={code} notice={notice} />
-      <ConfirmNote confirm={confirm} onConfirm={setConfirm} note={note} onNote={setNote} noteRequired />
       {rows.map(row => (
         <Card key={row.id} className="space-y-2">
           <h2 className="text-base font-medium text-ink">{row.coach_label || t('admin.import.account')}</h2>
           <p className="text-sm text-ink-secondary">
-            {row.kind} · {row.status} · {row.subject_kind === 'provisional' ? t('admin.import.provisional') : t('admin.import.account')}
+            {labelOf(t, 'status', row.kind)} · {labelOf(t, 'status', row.status)} · {row.subject_kind === 'provisional' ? t('admin.import.provisional') : t('admin.import.account')}
           </p>
           <p className="text-sm text-ink-secondary">
             {t('admin.import.rows', { count: row.row_count })} · {t('admin.import.errors', { count: row.error_count })}
           </p>
           {row.error_codes && row.error_codes.length > 0 && (
-            <p className="text-xs text-ink-disabled">{t('admin.import.codes')}: {row.error_codes.join(', ')}</p>
+            <p className="text-xs text-ink-disabled">{t('admin.import.codes')}: {row.error_codes.map(code => t(importErrorI18nKey(code))).join(', ')}</p>
           )}
           <p className="text-xs text-ink-disabled">{formatWhen(row.created_at, i18n.language)}</p>
+          {armedId === row.id ? (
+            <ConfirmNote confirm={confirm} onConfirm={setConfirm} note={note} onNote={setNote} noteRequired />
+          ) : null}
           <Button
-            disabled={!actionReady(confirm, note, true) || busy === row.id}
+            disabled={(armedId === row.id && !actionReady(confirm, note, true)) || busy === row.id}
             loading={busy === row.id}
-            onClick={() => acknowledge(row.id)}
+            onClick={() => {
+              if (armedId !== row.id) {
+                setArmedId(row.id);
+                setConfirm(false);
+                setNote('');
+                return;
+              }
+              void acknowledge(row.id);
+            }}
           >
             {t('admin.import.acknowledge')}
           </Button>
@@ -646,13 +747,96 @@ function ImportQueue() {
   );
 }
 
+const INCIDENT_PAGE = 30;
+
+function ImportIncidents() {
+  const { t, i18n } = useTranslation();
+  const [state, setState] = useState<LoadState>('loading');
+  const [rows, setRows] = useState<AdminImportIncident[]>([]);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [retry, setRetry] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    setState('loading');
+    supabase.rpc('admin_list_import_incidents', { p_limit: INCIDENT_PAGE }).then(({ data, error }) => {
+      if (cancelled) return;
+      if (error) setState('error');
+      else {
+        const page = rowsOf<AdminImportIncident>(data);
+        setRows(page);
+        setHasMore(page.length === INCIDENT_PAGE);
+        setState('ready');
+      }
+    });
+    return () => { cancelled = true; };
+  }, [retry]);
+
+  async function loadMore() {
+    const last = rows[rows.length - 1];
+    if (!last || loadingMore) return;
+    setLoadingMore(true);
+    const { data, error } = await supabase.rpc('admin_list_import_incidents', {
+      p_before: last.created_at,
+      p_before_id: last.id,
+      p_limit: INCIDENT_PAGE,
+    });
+    setLoadingMore(false);
+    if (error) {
+      setState('error');
+      return;
+    }
+    const page = rowsOf<AdminImportIncident>(data);
+    setRows(prev => [...prev, ...page]);
+    setHasMore(page.length === INCIDENT_PAGE);
+  }
+
+  return (
+    <section className="space-y-3" aria-labelledby="admin-import-incidents">
+      <h2 id="admin-import-incidents" className="text-sm font-semibold text-ink">{t('admin.incidents.title')}</h2>
+      <p className="text-xs text-ink-secondary">{t('admin.incidents.hint')}</p>
+      {state !== 'ready' ? (
+        <QueueStatus state={state} onRetry={() => setRetry(n => n + 1)} />
+      ) : rows.length === 0 ? (
+        <p className="text-sm text-ink-secondary">{t('admin.incidents.empty')}</p>
+      ) : (
+        <>
+          <ul className="divide-y divide-line rounded-xl border border-line">
+            {rows.map(row => (
+              <li key={row.id} className="px-3 py-2 text-sm">
+                <p className="text-ink">
+                  {t(importErrorI18nKey(row.error_code))}
+                  <span className="text-ink-disabled"> · {row.error_code}</span>
+                </p>
+                <p className="text-xs text-ink-secondary">
+                  {row.coach_label || t('admin.import.account')}
+                  {row.kind ? ` · ${t(`admin.incidents.kind.${row.kind}`)}` : ''}
+                  {' · '}{formatWhen(row.created_at, i18n.language)}
+                </p>
+              </li>
+            ))}
+          </ul>
+          {hasMore && (
+            <Button variant="secondary" onClick={() => { void loadMore(); }} loading={loadingMore} disabled={loadingMore}>
+              {t('admin.incidents.more')}
+            </Button>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
 function ReportQueue() {
   const { t, i18n } = useTranslation();
   const [state, setState] = useState<LoadState>('loading');
   const [rows, setRows] = useState<AdminReport[]>([]);
+  const [holds, setHolds] = useState<AdminReport[]>([]);
   const [retry, setRetry] = useState(0);
   const [confirm, setConfirm] = useState(false);
   const [note, setNote] = useState('');
+  const [armed, setArmed] = useState<{ id: string; action: ReportAction } | null>(null);
   const [busy, setBusy] = useState('');
   const [code, setCode] = useState<AdminErrorCode | null>(null);
   const [notice, setNotice] = useState('');
@@ -660,11 +844,15 @@ function ReportQueue() {
   useEffect(() => {
     let cancelled = false;
     setState('loading');
-    supabase.rpc('admin_list_open_reports').then(({ data, error }) => {
+    Promise.all([
+      supabase.rpc('admin_list_open_reports'),
+      supabase.rpc('admin_list_directory_holds'),
+    ]).then(([openResult, holdResult]) => {
       if (cancelled) return;
-      if (error) setState('error');
+      if (openResult.error || holdResult.error) setState('error');
       else {
-        setRows(rowsOf<AdminReport>(data));
+        setRows(rowsOf<AdminReport>(openResult.data));
+        setHolds(rowsOf<AdminReport>(holdResult.data));
         setState('ready');
       }
     });
@@ -699,7 +887,7 @@ function ReportQueue() {
       </div>
     );
   }
-  if (rows.length === 0) {
+  if (rows.length === 0 && holds.length === 0) {
     return (
       <div className="space-y-3">
         <StatusLine code={code} notice={notice} />
@@ -708,28 +896,55 @@ function ReportQueue() {
     );
   }
 
+  const press = (id: string, action: ReportAction) => {
+    if (armed?.id !== id || armed.action !== action) {
+      setArmed({ id, action });
+      setConfirm(false);
+      setNote('');
+      return;
+    }
+    void review(id, action);
+  };
+
   return (
     <div className="space-y-4">
       <StatusLine code={code} notice={notice} />
-      <ConfirmNote confirm={confirm} onConfirm={setConfirm} note={note} onNote={setNote} noteRequired={false} />
       {rows.map(row => (
         <Card key={row.id} className="space-y-3">
           <div>
             <h2 className="text-base font-medium text-ink">{row.target_label}</h2>
-            <p className="text-sm text-ink-secondary">{row.subject_type} · {row.category} · {row.status}</p>
+            <p className="text-sm text-ink-secondary">{row.subject_type} · {labelOf(t, 'reportCategory', row.category)} · {labelOf(t, 'status', row.status)}</p>
             {row.context && <p className="text-sm text-ink">{row.context}</p>}
             {row.directory_hold_active && <p className="text-sm text-ink-secondary">{t('admin.report.hold')}</p>}
             <p className="text-xs text-ink-disabled">{formatWhen(row.created_at, i18n.language)}</p>
           </div>
+          {armed?.id === row.id ? (
+            <ConfirmNote confirm={confirm} onConfirm={setConfirm} note={note} onNote={setNote} noteRequired={reportNoteRequired(armed.action)} />
+          ) : null}
           <div className="flex flex-wrap gap-2">
-            <Button disabled={!actionReady(confirm, note, false) || busy.startsWith(row.id)} onClick={() => review(row.id, 'acknowledge')}>{t('admin.report.acknowledge')}</Button>
-            <Button variant="secondary" disabled={!actionReady(confirm, note, true) || busy.startsWith(row.id)} onClick={() => review(row.id, 'dismiss')}>{t('admin.report.dismiss')}</Button>
-            <Button variant="secondary" disabled={!actionReady(confirm, note, true) || busy.startsWith(row.id)} onClick={() => review(row.id, 'resolve')}>{t('admin.report.resolve')}</Button>
-            <Button variant="danger" disabled={!actionReady(confirm, note, true) || busy.startsWith(row.id)} onClick={() => review(row.id, 'suspend_directory')}>{t('admin.report.suspend')}</Button>
-            <Button variant="secondary" disabled={!actionReady(confirm, note, true) || busy.startsWith(row.id)} onClick={() => review(row.id, 'restore_directory')}>{t('admin.report.restore')}</Button>
+            <Button disabled={(armed?.id === row.id && armed.action === 'acknowledge' && !actionReady(confirm, note, false)) || busy.startsWith(row.id)} onClick={() => press(row.id, 'acknowledge')}>{t('admin.report.acknowledge')}</Button>
+            <Button variant="secondary" disabled={(armed?.id === row.id && armed.action === 'dismiss' && !actionReady(confirm, note, true)) || busy.startsWith(row.id)} onClick={() => press(row.id, 'dismiss')}>{t('admin.report.dismiss')}</Button>
+            <Button variant="secondary" disabled={(armed?.id === row.id && armed.action === 'resolve' && !actionReady(confirm, note, true)) || busy.startsWith(row.id)} onClick={() => press(row.id, 'resolve')}>{t('admin.report.resolve')}</Button>
+            <Button variant="danger" disabled={(armed?.id === row.id && armed.action === 'suspend_directory' && !actionReady(confirm, note, true)) || busy.startsWith(row.id)} onClick={() => press(row.id, 'suspend_directory')}>{t('admin.report.suspend')}</Button>
+            <Button variant="secondary" disabled={(armed?.id === row.id && armed.action === 'restore_directory' && !actionReady(confirm, note, true)) || busy.startsWith(row.id)} onClick={() => press(row.id, 'restore_directory')}>{t('admin.report.restore')}</Button>
           </div>
         </Card>
       ))}
+      {holds.length > 0 ? (
+        <section className="space-y-3">
+          <h2 className="text-lg font-medium text-ink">{t('admin.holds')}</h2>
+          {holds.map(row => (
+            <Card key={`hold-${row.id}`} className="space-y-2">
+              <p className="text-sm text-ink">{row.target_label}</p>
+              <p className="text-sm text-ink-secondary">{labelOf(t, 'status', row.status)} · {labelOf(t, 'reportCategory', row.category)}</p>
+              <Button variant="secondary" disabled={busy.startsWith(row.id)} onClick={() => press(row.id, 'restore_directory')}>{t('admin.report.restore')}</Button>
+              {armed?.id === row.id && armed.action === 'restore_directory' ? (
+                <ConfirmNote confirm={confirm} onConfirm={setConfirm} note={note} onNote={setNote} noteRequired />
+              ) : null}
+            </Card>
+          ))}
+        </section>
+      ) : null}
     </div>
   );
 }

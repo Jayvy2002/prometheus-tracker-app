@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
 import { i18nLocaleSource } from '../../../lib/i18nLocaleSource';
+import { quickAddActions } from '../../../app/navigation/navConfig';
 
 function src(rel: string): string {
   if (rel === 'src/i18n/locales/fr.ts') return i18nLocaleSource('fr');
@@ -12,9 +13,10 @@ function src(rel: string): string {
 
 test('UX107 FAB offers check-in when the module is on', () => {
   const fab = src('src/app/layout/FAB.tsx');
-  assert.match(fab, /track_checkins/);
-  assert.match(fab, /nav\.addCheckin/);
-  assert.match(fab, /navigate\('\/checkin'\)/);
+  assert.match(fab, /quickAddActions\(tracking\)/);
+  const on = { track_workouts: true, track_checkins: true, track_nutrition: true, track_weight: true };
+  assert.ok(quickAddActions(on).some(a => a.path === '/checkin' && a.labelKey === 'nav.addCheckin'));
+  assert.equal(quickAddActions({ ...on, track_checkins: false }).some(a => a.path === '/checkin'), false);
   const nav = src('src/app/navigation/navConfig.ts');
   assert.match(nav, /labelKey: 'nav\.addCheckin'/);
   const fr = src('src/i18n/locales/fr.ts');
@@ -46,14 +48,12 @@ test('UX110 setup copies tracking from another client into the form', () => {
   assert.match(page, /setup_completed_at: prev\.setup_completed_at/);
 });
 
-test('UX111 coached mobile stays at 5 tabs; nutrition is profile + FAB', () => {
+test('coached mobile stays at 5 tabs and nutrition lives in the body hub', () => {
   const nav = src('src/app/navigation/navConfig.ts');
-  assert.match(nav, /UX111/);
-  assert.match(nav, /Pas de 6ᵉ onglet/);
+  assert.match(nav, /path: '\/body'/);
   const profile = src('src/components/profile/ProfilePage.tsx');
-  assert.match(profile, /to="\/nutrition"/);
-  const fab = src('src/app/layout/FAB.tsx');
-  assert.match(fab, /nav\.addMeal/);
+  assert.doesNotMatch(profile, /to="\/nutrition"/);
+  assert.ok(quickAddActions({ track_workouts: true, track_checkins: true, track_nutrition: true, track_weight: true }).some(a => a.labelKey === 'nav.addMeal'));
   const tabs = src('src/app/navigation/navConfig.test.ts');
   assert.match(tabs, /paths\.length, 5/);
 });

@@ -9,7 +9,7 @@ import {
   hasSessionGap,
   lastLoggedSessionDate,
 } from './coachSituation';
-import { parseVisibleTabs } from './coachSettings';
+import { clientFileTabs, parseVisibleTabs } from './coachSettings';
 import { resolveClientTab } from './coachRecovery';
 import type { ClientLiftProgress } from '../../../lib/types';
 import { i18nLocaleSource } from '../../../lib/i18nLocaleSource';
@@ -49,6 +49,17 @@ test('visible tabs always keep Vue d’ensemble first even if the stored list st
   assert.equal(tabs.includes('profile'), false);
   const withFiche = parseVisibleTabs(['overview', 'profile', 'training']);
   assert.deepEqual(withFiche, ['overview', 'training']);
+});
+
+test('client file: Programme follows Entraînement, Nutrition follows Progression and tracking', () => {
+  const tabs = parseVisibleTabs(['overview', 'training', 'progress', 'notes']);
+  assert.deepEqual(clientFileTabs(tabs, { tracksNutrition: true }), ['overview', 'program', 'training', 'progress', 'nutrition', 'notes']);
+  assert.deepEqual(clientFileTabs(tabs, { tracksNutrition: false }), ['overview', 'program', 'training', 'progress', 'notes']);
+  assert.deepEqual(clientFileTabs(parseVisibleTabs(['overview', 'notes']), { tracksNutrition: true }), ['overview', 'notes']);
+  // The new tabs are reachable by URL but never stored in the coach setting.
+  assert.equal(resolveClientTab('program', null), 'program');
+  assert.equal(resolveClientTab('nutrition', null), 'nutrition');
+  assert.deepEqual(parseVisibleTabs(['program', 'nutrition']), parseVisibleTabs(null));
 });
 
 test('Émile-like ghost: names the idle days and the missing program', () => {

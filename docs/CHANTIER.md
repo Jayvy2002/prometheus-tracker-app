@@ -32,7 +32,7 @@ Prometheus dispose déjà d’un socle important :
 
 Le travail restant n’est pas une reconstruction. Le principal enjeu est désormais de **faire converger les contrats métier et l’architecture vers la Vision de référence**.
 
-> **CURRENT IMPLEMENTATION GATE — P6.1 en revue.** Production/lock **138**. Dernière migration appliquée `20260923021000_p5_minimal_admin`. P5 clos ; son passage d’audit est en revue (PR `#221`, 2 migrations pending). P6.1 (entitlements indépendants, `agent/p6-1-entitlements`) ajoute `20260923140000_p6_entitlements`, pending, horodatée après celles de `#221`. Aucun droit ne bloque encore une fonctionnalité. P6.2 n’est pas commencé : attendre le feu vert.
+> **CURRENT IMPLEMENTATION GATE — P5 CLOSED, passage d’audit P5 en revue.** Production/lock **138**. Dernière migration appliquée `20260923021000_p5_minimal_admin` (79 statements, `created_by` null, timestamp Git conservé). PR `#221` (`cursor/p5-audit-fixes-1135`) porte deux migrations **pending** : `20260923082313_p5_audit_fixes` et `20260923120000_p5_audit_followup`. La PR d’alignement Vision (`agent/p5-5-alignement-vision`, empilée sur `#221`) ajoute `20260923170000_progress_photo_sharing` (pending). Les deux attendent revue et feu vert avant merge et application, dans cet ordre. P6 n’est pas commencé. Job `coach-import-preview-purge` actif (`15 * * * *`). Watch n’applique pas.
 >
 > Watch reste une surface d’observation, d’explicabilité, de correction de contexte et de décision humaine. Accepter, modifier ou refuser depuis Watch n’applique pas automatiquement une cible ou un programme. `commit_solo_weekly_review_decision` et `apply_intervention` restent les chemins d’effet durable. Aucune auto-application. Aucune réécriture des mesures sources. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
 
@@ -64,8 +64,8 @@ Le template `.github/pull_request_template.md` fait partie de la Definition of D
 | **P2** | Cerveau Prometheus | **P2.1–P2.5 + Hotfix B actifs en production** (128 migrations) | Unifier revue hebdo + signaux + mémoire + décisions |
 | **P3** | Planification avancée | **P3.1–P3.3 + hardening clos (130)** | Clos |
 | **P4** | Marketplace complète | **P4.1–P4.4 clos (134)** | Qualifications, matching, prospect, signalement |
-| **P5** | Adoption Coach | **P5.1–P5.4 clos (138)** | Imports, dossier provisoire, bibliothèque, admin |
-| **P6** | Bêta économique | **P6.1 en revue** (1 pending) ; P6.2–P6.4 à faire | Entitlements, essais, grâce, mesure coûts |
+| **P5** | Adoption Coach | **P5.1–P5.4 clos (138)** ; passage d’audit en revue (`#221`, 2 pending) ; alignement Vision en revue (1 pending) | Imports, dossier provisoire, bibliothèque, admin |
+| **P6** | Bêta économique | À faire après entitlements P1 | Entitlements, essais, grâce, mesure coûts |
 | **P7** | Intégrations et polish | Dernier | Health/wearables, offline secondaire, E2E final |
 
 Aucun agent ne doit sauter directement à P3–P7 si P0/P1 contient un blocage qui affecte le même domaine.
@@ -839,8 +839,189 @@ Console opérateur pour :
 - imports problématiques ;
 - signalements.
 
-Ne pas construire un back-office générique sans besoin réel. Abonnements, santé système et télémétrie de coût restent hors scope (P6). L’accord et la révocation d’opérateur partagent le mutex `20014508`. L’autorité est revérifiée sous ce verrou ; une course ne peut pas laisser zéro opérateur actif ni appliquer un grant devenu obsolète.
+Ne pas construire un back-office générique sans besoin réel. La console lit aussi les échecs d’import sans import (`admin_list_import_incidents`, PR `#221`). Abonnements, santé système et télémétrie de coût restent hors scope (P6). L’accord et la révocation d’opérateur partagent le mutex `20014508`. L’autorité est revérifiée sous ce verrou ; une course ne peut pas laisser zéro opérateur actif ni appliquer un grant devenu obsolète.
 
+
+## P5 — Passage d’audit (PR `#221`, en revue)
+
+Contre-expertise F01–F42 et audit parcours. Deux migrations pending, append-only. Preuves SQL : `supabase/tests/p5_audit_fixes.sql` (étape CI dédiée) et `scripts/test-p5-provisional-claim-lock.sh`. Contrats mis à jour dans `P5_1` à `P5_4`.
+
+Fermé par ce passage :
+
+- suppression de compte : contrôle préalable sans effet, trigger `account_deletion_guard`, opérateur révoqué supprimable, dernier opérateur protégé ;
+- rattachement : révision d’aperçu obligatoire, aucun accès Coach aux lignes après rattachement sans suivi actif, octets rattachés refusés en import direct ;
+- catalogue : renommage sans perte d’identité, `catalog_exercise_id` conservé à la sauvegarde d’un programme, propositions modifiées détectées ;
+- imports : quota à la réouverture, parseur linéaire, incidents bornés et visibles des opérateurs ;
+- parcours : revue hebdo Solo rétablie sur Aujourd’hui, reprise de séance limitée à aujourd’hui/hier, séance vide supprimée, charges en lbs et à virgule justes, fiche client avec onglets Programme et Nutrition, unités du Coach dans ses vues, records comparables (charge × répétitions) et records du jour, navigation Coach « Mon offre » / « Import », « Trouver un coach » dans l’espace personnel Solo ; Messages ne garde que les brouillons qui sont des messages (relances) et ceux sans client, les décisions programme et calories se prennent depuis Aujourd’hui et la fiche client.
+- Aujourd’hui compact : une ligne de séance (programme et exercices à un tap), plus de carte « Mon programme » en doublon, poids et semaine en tuiles, surveillance Prometheus réduite à une ligne quand des points sont ouverts. Ajout rapide « Séance » → page Entraînement (plus de séance vide).
+- Marketplace : une place « Trouver un coach » (Coachs / Mes demandes), filtres en puces, cartes cliquables, recherche guidée en 3 étapes avec correspondances nommées, demande courte (prénom + message, précisions repliées, les deux consentements restent exigés), suivi de demande en étapes, formulations côté coach, signalement discret, « Mon profil coach » en sections avec interrupteurs de visibilité. Aucun changement de contrat serveur.
+
+Hors de ce passage : remplacement global des couleurs par les tokens (refactor visuel sans bénéfice fonctionnel), `start_workout_from_template` qui ne lit pas encore `catalog_exercise_id`.
+
+## P5 — Alignement Vision (branche `agent/p5-5-alignement-vision`, en revue)
+
+Suite de l’audit UX/tests du 23 septembre. Une migration pending, append-only : `20260923170000_progress_photo_sharing`. Preuve SQL : `supabase/tests/progress_photo_sharing.sql` (étape CI dédiée).
+
+- **Routines** (Vision §7.1) : la page redevient accessible au Solo et au Coaché ; un programme, même assigné, n’interdit jamais une autre routine. Plus de garde persona `CoachedAthleteRedirect`. Vocabulaire « routine » / « séance libre ».
+- **Photos** (Vision §14.4, §22.2) : privées par défaut. L’athlète partage ou retire le partage vers son Coach actif (`set_progress_photo_sharing`) ; la lecture Coach (ligne + fichier Storage) exige ce partage ; la fin de relation y met fin. Les relations actives existantes gardent l’accès déjà consenti (backfill), retirable.
+- **Alertes Coach** (Vision §8.1, §11.2) : check-in sur 7 jours, nutrition sur 3, poids sur 7, jamais avant que la relation ait l’âge de la fenêtre ; libellé « Check-in à relire » (faux) corrigé.
+- **Navigation** (Vision §13) : Coaché mobile Dashboard · Séance · Corps · Suivi · Messages (profil via l’avatar) ; Suivi s’ouvre sur le Calendrier ; Photos dans Corps ; prospects en attente dans la file du Dashboard Coach ; outils Coach (Copilote, Import, Dossiers) accessibles sur mobile.
+- **UX** : échelle de check-in unique 0–10, plus de série « jours de suite », tuile poids « moy. 7 j » sans couleur de jugement, séance du jour non dupliquée, badge Prospect, pluriels i18next, prix localisés, pas de suppression de client à un tap.
+- **Tests** : F38 réellement testé, `program_phases` / `program_versions` en `ROLLBACK`, plus aucun verrou satisfait par un commentaire, regex bornées, test de comportement de la resynchro hors ligne (`replayOfflineOp`).
+
+## Hors ligne — démarrer une séance sans réseau (branche `agent/p5-6-seance-hors-ligne`, en revue)
+
+Vision §26. Migration pending `20260924090000_offline_session_start` ; preuve SQL `supabase/tests/offline_session_start.sql`.
+
+- `start_workout_from_template_op` enveloppe `start_workout_from_template` (seul chemin qui pose la provenance programme) avec l’identifiant de l’opération hors ligne : un rejeu rend la même séance, jamais une seconde.
+- Sans réseau, la séance prévue ou la routine démarre localement (ids temporaires stables) ; l’opération `workout.startTemplate` passe en tête de file ; au rejeu, chaque exercice et chaque série temporaires reçoivent leur id serveur (même ordre, même nombre de séries).
+- Une modification sur une ligne encore temporaire attend dans la file au lieu d’être envoyée (et perdue).
+- Programme actif et routines sont gardés en cache par compte : consultables et lançables hors ligne.
+- Limite connue : si le plan a changé côté serveur pendant la séance hors ligne, les séries sans jumeau serveur tombent en dead-letter visible, jamais ailleurs.
+
+Écarts Vision restant hors de cette PR (chantiers à ouvrir, pas de code spéculatif) : cycle de vie des objectifs (§6), habitudes (§10), constructeur de check-in et fréquence (§11), « bloquer » distinct de « signaler » (§31), recherche globale (§33), vidéos de technique (§20). L’export JSON « Télécharger mes journaux » reste en place en attendant une décision portabilité légale ≠ fonctionnalité (§24.4).
+
+## Finitions de l’audit 2 (branche `agent/p5-7-finitions`, en revue)
+
+Migration pending `20260924100000_exercise_catalog_accents` ; preuve SQL `supabase/tests/exercise_catalog_accents.sql`.
+
+- Nombres et heures dans la langue de l’app (`formatNumber`, `formatClock`) : 78,3 kg, 0,5 L, 7,5 h, 22:26 en français. Poids et sommeil se saisissent avec une virgule ; une valeur de sommeil invalide est refusée avec un message, jamais perdue en silence.
+- Absent ≠ 0 : Stats n’affiche plus « 0 g » ni « 0,0 L » sans saisie et masque un objectif inexistant ; la mise en place client montre la dernière pesée réelle, « — » sinon.
+- Catalogue : noms, consignes et conseils français accentués ; l’identité, les alias et la recherche sans accents ne changent pas. L’historique d’un exercice du catalogue suit son `catalog_exercise_id` : « Developpe couche » d’hier et « Développé couché » d’aujourd’hui restent la même courbe.
+- Séance en direct : nom sur sa ligne (plus de « L… »), « Terminer » compact, légende S / W / D / RIR au premier usage.
+- Aujourd’hui sur ordinateur : deux colonnes (priorités à gauche, vue d’ensemble à droite) ; un seul point de reprise (la barre globale s’efface quand la carte affiche « Continuer »).
+- Coach : onglets de la fiche client toujours visibles sur mobile ; liste des programmes avec statut (brouillon / version / version prévue) et nombre de clients ; « Mes routines » au lieu de « Gérer les modèles » ; bouton Enregistrer de l’éditeur toujours accessible ; page Questionnaires en trois temps (ce que reçoivent les nouveaux clients, mes questionnaires, créer) ; import sans « Moi » implicite ; valeurs d’intake traduites et « Contraintes : Aucune ».
+- Athlète : l’ajout d’aliment s’ouvre sur la recherche quand il n’y a pas de récents et indique le repas visé ; le choix d’intention dit « Tu pourras changer plus tard » (§5.1).
+
+Reste pour l’onboarding (§5.3, chantier suivant) : objectifs eau et pas encore préremplis par défaut en base (2 500 ml, 10 000 pas).
+
+## Onboarding minimal (branche `agent/p5-8-onboarding-minimal`, en revue)
+
+Vision §5.3. Migration pending `20260924110000_personal_modules_honest_defaults` ; preuve SQL `supabase/tests/personal_modules.sql`.
+
+- Quatre écrans pour le Solo : objectif, entraînement (niveau, séances par semaine, matériel, douleurs ou contraintes), modules suivis, mesures facultatives. Rien n’est présélectionné (plus de « Homme », 175 cm, 75 kg, « Maintenir »).
+- Les cibles caloriques ne sont calculées qu’avec poids, taille et date de naissance réels, et seulement si le Solo suit la nutrition. Sexe non dit : estimation neutre, pas « Homme » par défaut. Plus d’objectif eau calculé à l’inscription.
+- `personal_modules` : le Solo choisit Entraînement / Nutrition / Poids / Check-in ; un module non suivi disparaît d’Aujourd’hui, du menu et de l’ajout rapide, sans supprimer de données (Profil › Modules suivis pour changer). NULL = pas encore choisi = tout visible (comptes existants inchangés). Avec un Coach actif, la configuration du Coach prime.
+- `training_equipment` (salle, maison, poids du corps, mixte), demandé à l’accueil.
+- Nouveaux comptes : plus d’objectif eau (2 500 ml) ni pas (10 000) par défaut en base. Les suivis eau et pas affichent « Définir un objectif » au lieu d’un objectif inventé ; le formulaire Coach n’envoie plus ces valeurs quand le champ est vide.
+
+Reste : le matériel n’alimente pas encore l’IA ni la proposition de programme (à brancher avec les objectifs vivants §6).
+
+## Notifications « action maintenant » (branche `agent/p5-9-notifications`, en revue)
+
+Vision §21. Migration pending `20260924120000_action_now_notifications` ; preuve SQL `supabase/tests/action_now_notifications.sql`. **Effet réel après redéploiement de `send-daily-reminders`** (le lock Edge n’est pas modifié par cette PR).
+
+- Événements mis en file par la base (déclencheurs, jamais bloquants) : message reçu (Coach ↔ athlète, regroupé par expéditeur sur 2 min, sans contenu), nouvelle demande de coaching, Coach qui accepte (l’athlète doit confirmer), athlète qui confirme, programme reçu d’un Coach, propositions de Prometheus à décider (regroupées sur 10 min).
+- `notification_outbox` : file serveur seule (RLS sans policy, droits retirés au client). États distincts : en attente, réservée, envoyée (`delivered` / `muted` / `no_device` / `failed` / `expired` : plus de 24 h de retard, jamais envoyée en retard) ; « envoyée » ne veut pas dire « lue ». Historique purgé après 30 jours.
+- `claim_notification_batch` (service seul) : réservation SKIP LOCKED, reprise d’une réservation abandonnée après 5 min, catégorie coupée fermée en `muted`.
+- Réglages par catégorie dans Profil › Notifications (`notification_categories`, NULL = tout activé ; « décisions » visible pour un Coach).
+- Rappels à heure fixe : toujours facultatifs et éteints par défaut, texte factuel (« Séance prévue aujourd’hui : Lower B ») au lieu de « Tu n’as pas encore loggé ta séance. Go ! » ; pas de rappel pour un module que le Solo ne suit pas.
+
+Reste : « check-in dû » attend la fréquence de check-in choisie par le Coach (C6) ; pas de notification de changement de version de programme (à brancher avec la planification de version).
+
+## Objectifs vivants (branche `agent/p5-10-objectifs-vivants`, en revue)
+
+Vision §6. Migration pending `20260924130000_goal_lifecycle` ; preuve SQL `supabase/tests/goal_lifecycle.sql`.
+
+- `athlete_goals` + `athlete_goal_events` : états active / reached / maintenance / replaced / paused / abandoned ; un seul objectif courant (en cours ou en maintien) par athlète, garanti en base. Chaque transition garde date, raison, auteur et dernier poids connu ; un nouvel objectif remplace le courant et garde le lien vers lui.
+- RPC `start_goal` / `transition_goal` : l’athlète ou son Coach actif ; les états clos restent clos ; lecture limitée à l’athlète et à son Coach actif (un autre Coach ne voit rien). L’IA n’appelle jamais ces RPC.
+- `user_profiles.goal` reste lu par les calculs : synchronisé par les RPC ; un changement fait ailleurs (onboarding, fiche Coach) est enregistré dans l’historique, une seule fois. Reprise : chaque athlète déjà accueilli reçoit son objectif actuel.
+- `goal_at(user, instant)` : l’objectif valable à une date, pour que les analyses lisent le passé tel qu’il était.
+- Profil › Objectifs & cibles et fiche client (vue d’ensemble) : objectif courant, actions possibles (« Maintenir » n’a ni « atteint » ni « maintien »), nouvel objectif (type, précision, poids visé, échéance, raison), historique. Un Solo voit ses cibles caloriques suivre un nouvel objectif corporel si ses mesures réelles le permettent.
+
+Reste : l’IA ne propose pas encore de réévaluer un objectif (à brancher dans la revue hebdomadaire) ; contraintes et douleurs (§7.6) dans la PR suivante.
+
+## Douleurs et contraintes (branche `agent/p5-11-contraintes-douleurs`, en revue)
+
+Vision §7.6. Migration pending `20260924140000_athlete_constraints` ; preuve SQL `supabase/tests/athlete_constraints.sql`.
+
+- `athlete_constraints` + `athlete_constraint_events` : douleur, blessure connue, limitation ou contrainte temporaire ; zone, intensité 1–5 ressentie, temporaire ou persistante, exercice et séance concernés. Ouverte → résolue → rouverte, jamais effacée ; chaque changement est historisé.
+- RPC `declare_constraint` (idempotente sur l’identifiant d’opération hors ligne), `update_constraint`, `set_constraint_status` : l’athlète ou son Coach actif ; un autre Coach ne voit rien ; une séance qui n’est pas celle de l’athlète est ignorée.
+- Pendant la séance : « Signaler une douleur » dans le menu de l’exercice, prérempli (exercice, temporaire), qui fonctionne sans réseau (file hors ligne, rejeu sans doublon, id de séance locale jamais envoyé). Ensuite : « adapte aujourd’hui » et « Remplacer pour aujourd’hui » ; conseil de consulter un professionnel si la douleur est forte, persistante, ou si c’est une blessure. Aucun diagnostic.
+- Le Coach actif est prévenu (notification « action maintenant », sans zone ni description dans le push) et voit la liste dans la fiche client ; une contrainte persistante lui signale que le programme peut être à revoir.
+- Profil › Douleurs et contraintes pour l’athlète. Reprise : le texte libre de l’accueil devient une limitation persistante ouverte.
+
+Reste : l’IA ne lit pas encore les contraintes ouvertes (Solo : propositions prudentes ; Coaché : brouillon pour le Coach) ; à brancher avec la revue hebdomadaire.
+
+## Check-in : constructeur, fréquence, habitudes expliquées (branche `agent/p5-12-checkin-builder`, en revue)
+
+Vision §10–11. Migration pending `20260924150000_checkin_templates_plans` ; preuve SQL `supabase/tests/checkin_templates_plans.sql`.
+
+- Le check-in garde ses champs essentiels (sommeil, énergie, stress, faim, douleur…), lus par l’IA et les alertes. Pas de second moteur.
+- `checkin_templates` : modèles réutilisables de questions personnalisées (échelle, oui/non, choix simple ou multiple, nombre avec unité, texte, douleur 0–10, fatigue 0–10), conditionnelles sur une réponse précédente, avec un « pourquoi » montré à l’athlète. 20 questions au plus, forme vérifiée en base.
+- `checkin_plans` : modèle + fréquence (quotidien, hebdomadaire, toutes les deux semaines, mensuel, jour choisi) + raison de chaque habitude suivie. Le Coach actif décide ; le Solo décide seul ; un autre Coach ne voit rien. `checkin_plan_events` garde l’historique des changements.
+- Réponses stockées avec le libellé du jour (`daily_checkins.custom_answers`) : modifier ou supprimer un modèle ne réécrit jamais une réponse.
+- Écrans : Coach › Modèles de check-in (`/coach/checkins`), fiche client › Check-ins (modèle, rythme, raisons), check-in de l’athlète (rythme et prochaine date, « pourquoi » sous chaque habitude, questions du modèle), Solo › Réglages du check-in (`/checkin/settings`, ses propres questions et son rythme). L’historique affiche les réponses personnalisées.
+
+Reste (PR suivante) : utiliser la fréquence pour « check-in dû » (Aujourd’hui, alertes Coach à la place de la fenêtre fixe de 7 jours, notification). La revue hebdomadaire reste hebdomadaire.
+
+## « Check-in dû » suit la fréquence (branche `agent/p5-13-checkin-due`, en revue)
+
+Vision §11.2 et §21. Migration pending `20260924160000_checkin_due` ; preuve SQL `supabase/tests/checkin_due.sql`.
+
+- Une seule règle d’échéance, côté app (`checkinSchedule.ts`) et côté base (`checkin_last_due`), vérifiée sur les mêmes cas (hebdo, toutes les deux semaines, mensuel avec mois courts, quotidien). Un nouveau rythme commence le jour où il est choisi.
+- Aujourd’hui : « check-in » n’apparaît que lorsqu’une échéance est passée sans check-in depuis ; quotidien seulement quand aucun rythme n’a été choisi.
+- Alertes Coach : la fenêtre fixe de 7 jours est remplacée par le rythme du client + 2 jours de grâce (sans rythme : une semaine de silence, comme avant) ; jamais avant que la relation ait pu produire un check-in. Libellé « Check-in attendu non reçu ».
+- Notification « check-in dû » (catégorie réglable « checkins ») : une seule fois, le jour de l’échéance, à partir de 9 h locale, seulement pour un rythme explicitement choisi et un module check-in suivi ; jamais le lendemain, jamais pour le quotidien implicite. Texte factuel.
+
+Reste : la revue hebdomadaire de Prometheus reste hebdomadaire et ne lit pas encore les réponses personnalisées.
+
+## Mensurations (branche `agent/p5-14-mensurations`, en revue)
+
+Vision §14.4 et §13. Migration pending `20260924170000_body_measurements` ; preuve SQL `supabase/tests/body_measurements.sql`.
+
+- `body_measurements` : un tour (cm) par site et par jour (cou, épaules, poitrine, taille, hanches, bras G/D, avant-bras, cuisses G/D, mollet). L’athlète écrit et corrige ; son Coach actif lit seulement ; un Coach sans relation active ne voit rien (RLS).
+- Corps → « Mensurations » (avec le module poids) : dernière valeur, date, écart depuis la mesure précédente, courbe propre à chaque site. Aucun score, aucune couleur « bien/mal ». Saisie de quelques sites seulement ; corriger un jour préremplit ce jour ; vider un champ retire la valeur de ce jour. Unité cm/in selon le profil, virgule acceptée.
+- Calendrier : le jour affiche « N mensurations » et ouvre la vue. Fiche client Coach (Progression) : mêmes courbes en lecture seule.
+- Export personnel : `body_measurements` inclus.
+
+Reste : pas de lecture des mensurations par la revue hebdomadaire ; pas de mode hors ligne (saisie hors séance).
+
+## Import CSV « pour moi » (branche `agent/p5-15-import-solo`, en revue)
+
+Vision §24.1. Migration pending `20260924180000_personal_csv_import` ; preuve SQL `supabase/tests/personal_csv_import.sql` (et `p5_coach_csv_import.sql` ajusté).
+
+- Même moteur que l’import Coach (analyse → mapping → ambiguïtés → aperçu → corrections → confirmation → transaction), pas de second moteur. Importer **pour soi** ne demande plus la capacité Coach ; importer pour quelqu’un d’autre l’exige toujours, avec relation active.
+- Profil → « Importer mon historique » (`/import`), pour Solo, Coaché et Coach dans l’espace personnel. Séances ou pesées ; le même fichier n’est jamais importé deux fois ; un Coach voit les séances importées par son client, pas le travail d’import lui-même.
+- Traces d’échec (code seulement, 50/jour) ouvertes à tout importeur connecté.
+
+Reste : format de date ambigu (12/03) toujours à choisir à la main ; nom de séance importée = date.
+
+## Messagerie enrichie : fichiers, vocal, réponses, objets partagés (branche `agent/p5-16-messagerie-enrichie`, en revue)
+
+Vision §19 (et §20 V1 : vidéo de technique envoyée dans le fil, analysée par le Coach). Migration pending `20260924190000_rich_messages` ; preuve SQL `supabase/tests/rich_messages.sql`.
+
+- Toujours une seule conversation par relation (`coach_messages`), pas de seconde inbox.
+- Pièces jointes : image, vidéo courte, audio/vocal, fichiers courants (PDF, tableur, texte, Office) ; 4 par message, 25 Mo max. Bucket **privé** `message-attachments`, un dossier par fil ; seules les deux parties lisent, via lien signé d'une heure. Un fichier envoyé fait partie du fil (non supprimable) ; un envoi abandonné est nettoyé.
+- Message vocal enregistré dans l'app (5 min max), message « fichier seul » autorisé.
+- Réponse à un message du même fil (citation d'une ligne).
+- Références vers l'objet canonique : séance et check-in (existants), + programme, objectif, exercice. Aucune copie : l'objet est relu avec ses propres droits ; s'il n'est plus lisible, la carte reste neutre. Avant activation (prospect) : texte et fichiers seulement.
+- Entrées « En parler » : objectif (athlète coaché et Coach), exercice (athlète coaché), programme assigné (« Envoyer au client »).
+- Le destinataire ne peut toujours modifier que `read_at` : contenu immuable.
+
+Reste : propositions IA non partageables (elles sont privées au Coach ; décision produit à prendre sur ce que l'athlète en voit) ; référence à une série précise ; vidéo attachée directement à une série hors messagerie (§20) ; fichiers de messagerie à inclure dans la suppression de compte (§30).
+
+## Recherche globale contextuelle (branche `agent/p5-17-recherche`, en revue)
+
+Vision §33. Pas de migration.
+
+- Une seule recherche (⌘K / Ctrl+K, loupe du Dashboard sur mobile, bouton dans la navigation latérale) qui remplace la palette Coach. Le workspace affiché choisit **quoi** chercher ; la RLS décide de ce qui est lisible.
+- Coach : clients, prospects (conversation ouverte), programmes/templates possédés, exercices du catalogue (infos + vidéo), conversations (texte des messages de ses fils, extrait autour du mot). « Demander à Prometheus » reste accessible ; ses réponses s'affichent pour les vraies questions (« qui n'a pas… », « squat de Léa »).
+- Athlète (Solo, Coaché, Coach dans son espace personnel) : exercices (vers sa progression), séances, routines, programmes (possédés + programme du Coach), objectifs, douleurs/contraintes, recettes.
+- Jamais d'existence révélée : chaque source est une lecture RLS filtrée sur ses propres lignes ou ses propres fils ; aucune RPC élargie. Insensible aux accents, 2 lettres minimum, 5 résultats par groupe, navigation clavier, état vide explicite.
+
+Reste : pas d'index plein texte côté serveur (recherche `ilike` sur séances et messages) ; pas de page bibliothèque d'exercices côté Coach.
+
+## Suppression de compte avec fenêtre de récupération (branche `agent/p5-18-suppression-compte`, en revue)
+
+Vision §30. Migration pending `20260924200000_account_deletion_window` ; preuve SQL `supabase/tests/account_deletion_window.sql`.
+
+- Demander la suppression ne supprime plus rien tout de suite : `request_account_deletion` coupe l'accès (l'app n'affiche plus que l'écran de récupération), masque le profil marketplace, arrête notifications et rappels, vide la file d'envoi — en mémorisant l'état pour le rétablir.
+- Fenêtre : `account_deletion_window()` = **14 jours pour la bêta, durée à valider juridiquement** (paramètre unique). Annuler (`cancel_account_deletion`) rétablit exactement notifications et publication ; impossible une fois la purge commencée.
+- Purge à échéance par le cron `account-deletion-purge` (horaire) → Edge `delete-account` en mode `purge_due` : même séquence fail-closed qu'avant (préflight dernier opérateur, `close_coach_account`, fichiers, Auth), + fichiers des fils de messagerie des deux côtés. Échec → remise en file (`release_account_deletion`), arrêt après 5 essais et affichage « problème » sur l'écran de récupération.
+- **À faire au déploiement** : redéployer `delete-account` ; créer le secret `ACCOUNT_PURGE_CRON_SECRET` dans le vault **et** dans les secrets Edge (même valeur). Sans lui, les demandes restent en attente (rien n'est supprimé) et le job échoue bruyamment.
+
+Reste : notes privées Coach et analytics (conservation justifiée / agrégée) à trancher avec le juridique ; export à compléter (objectifs, contraintes, check-in personnalisés).
 ---
 
 # P6 — Architecture économique de bêta
