@@ -27,6 +27,10 @@
     {
       "version": "20260924120000",
       "name": "action_now_notifications"
+    },
+    {
+      "version": "20260924130000",
+      "name": "goal_lifecycle"
     }
   ]
 }

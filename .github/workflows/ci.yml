@@ -561,6 +561,14 @@ jobs:
         run: |
           set -euo pipefail
           grep -F 'action-now notifications: grouped, no content, marketplace and program events, muted closed, stale expired, claimed once, server only' /tmp/action-now-notifications.txt
+      - name: Test goal lifecycle
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/goal_lifecycle.sql | tee /tmp/goal-lifecycle.txt
+      - name: Confirm goal lifecycle echo
+        run: |
+          set -euo pipefail
+          grep -F 'goal lifecycle: replace keeps context, pause/resume/reach/maintain, closed stays closed, goal_at, coach scope, profile changes recorded once' /tmp/goal-lifecycle.txt
       - name: Test qualification proof Storage API withdraw
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

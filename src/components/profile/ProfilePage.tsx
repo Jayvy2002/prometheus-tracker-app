@@ -18,6 +18,7 @@ import Modal from '../ui/Modal';
 import PageTransition from '../ui/PageTransition';
 import PersonalInfoForm from './PersonalInfoForm';
 import GoalsForm from './GoalsForm';
+import GoalPanel from '../goals/GoalPanel';
 import PersonalModulesForm from './PersonalModulesForm';
 import UnitsForm from './UnitsForm';
 import PasswordForm from './PasswordForm';
@@ -222,6 +223,11 @@ export default function ProfilePage() {
 
         {!inCoaching && (
         <AccordionSection id="goals" icon={Target} label={t('profile.sections.goalsTargets')} isOpen={openSection === 'goals'} onToggle={() => toggle('goals')} animationDelay="120ms">
+          {user && (
+            <div className="mb-6">
+              <GoalPanel userId={user.id} unit={profile?.unit_weight === 'lbs' ? 'lbs' : 'kg'} recomputeSoloTargets={!coached} />
+            </div>
+          )}
           <GoalsForm onBack={() => setOpenSection(null)} inline />
         </AccordionSection>
         )}

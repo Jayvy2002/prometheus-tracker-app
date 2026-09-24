@@ -1,4 +1,5 @@
 import ClientQuestionnairePanel from '../onboarding/ClientQuestionnairePanel';
+import GoalPanel from '../goals/GoalPanel';
 import { useEffect, useMemo, useState } from 'react';
 import { useClientDossier } from '../../features/coaching/hooks/useClientDossier';
 import { useClientPhotoSharing } from '../../features/coaching/hooks/useClientPhotoSharing';
@@ -620,6 +621,13 @@ export default function ClientDetailPage() {
                     {t('coaching.client360.message')}
                   </Button>
                 </div>
+              </Card>
+            ) : null}
+
+            {/* Vision §6: the goal and its history, decided by the athlete or the coach. */}
+            {id ? (
+              <Card>
+                <GoalPanel userId={id} unit={unit} />
               </Card>
             ) : null}
 

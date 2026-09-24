@@ -918,6 +918,18 @@ Vision §21. Migration pending `20260924120000_action_now_notifications` ; preuv
 - Rappels à heure fixe : toujours facultatifs et éteints par défaut, texte factuel (« Séance prévue aujourd’hui : Lower B ») au lieu de « Tu n’as pas encore loggé ta séance. Go ! » ; pas de rappel pour un module que le Solo ne suit pas.
 
 Reste : « check-in dû » attend la fréquence de check-in choisie par le Coach (C6) ; pas de notification de changement de version de programme (à brancher avec la planification de version).
+
+## Objectifs vivants (branche `agent/p5-10-objectifs-vivants`, en revue)
+
+Vision §6. Migration pending `20260924130000_goal_lifecycle` ; preuve SQL `supabase/tests/goal_lifecycle.sql`.
+
+- `athlete_goals` + `athlete_goal_events` : états active / reached / maintenance / replaced / paused / abandoned ; un seul objectif courant (en cours ou en maintien) par athlète, garanti en base. Chaque transition garde date, raison, auteur et dernier poids connu ; un nouvel objectif remplace le courant et garde le lien vers lui.
+- RPC `start_goal` / `transition_goal` : l’athlète ou son Coach actif ; les états clos restent clos ; lecture limitée à l’athlète et à son Coach actif (un autre Coach ne voit rien). L’IA n’appelle jamais ces RPC.
+- `user_profiles.goal` reste lu par les calculs : synchronisé par les RPC ; un changement fait ailleurs (onboarding, fiche Coach) est enregistré dans l’historique, une seule fois. Reprise : chaque athlète déjà accueilli reçoit son objectif actuel.
+- `goal_at(user, instant)` : l’objectif valable à une date, pour que les analyses lisent le passé tel qu’il était.
+- Profil › Objectifs & cibles et fiche client (vue d’ensemble) : objectif courant, actions possibles (« Maintenir » n’a ni « atteint » ni « maintien »), nouvel objectif (type, précision, poids visé, échéance, raison), historique. Un Solo voit ses cibles caloriques suivre un nouvel objectif corporel si ses mesures réelles le permettent.
+
+Reste : l’IA ne propose pas encore de réévaluer un objectif (à brancher dans la revue hebdomadaire) ; contraintes et douleurs (§7.6) dans la PR suivante.
 ---
 
 # P6 — Architecture économique de bêta
