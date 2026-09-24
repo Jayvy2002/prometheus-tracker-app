@@ -624,6 +624,17 @@ const common = {
       conversation: 'Conversation',
     },
   },
+  accountDeletion: {
+    title: 'Account deletion requested',
+    scheduled_one: 'Your account and data will be deleted on {{date}} (in {{count}} day).',
+    scheduled_other: 'Your account and data will be deleted on {{date}} (in {{count}} days).',
+    scheduledNoDate: 'Your account and data will be deleted soon.',
+    meanwhile: 'Until then nothing is erased: your profile is no longer visible and you receive no notifications. If you had clients, they keep a copy of their program when the deletion happens.',
+    purging: 'Deletion is in progress. It can no longer be cancelled.',
+    failed: 'Automatic deletion ran into a problem; the Prometheus team has been told. You can still cancel.',
+    cancel: 'Cancel deletion',
+    cancelFailed: 'Could not cancel right now. Try again.',
+  },
   measurements: {
     title: 'Measurements',
     measure: 'Measure',
@@ -727,6 +738,10 @@ const common = {
       deleting: 'Deleting…',
       confirmText: 'This deletes your account and your journals (workouts, nutrition, weight, check-ins, photos, recipes). A coach’s private notes and intervention drafts are not exported and are not given to you.',
       storageCleanupFailed: 'Your files could not be cleaned up. Your account is still active — try again.',
+      window_one: 'You have {{count}} day to change your mind: access stops right away, nothing is erased before the end of that period. Signing back in lets you cancel.',
+      window_other: 'You have {{count}} days to change your mind: access stops right away, nothing is erased before the end of that period. Signing back in lets you cancel.',
+      lastOperator: 'You are the last Prometheus operator: appoint another operator before deleting your account.',
+      failed: 'The deletion request did not go through. Try again.',
     },
     dataControl: {
       title: 'Your data',

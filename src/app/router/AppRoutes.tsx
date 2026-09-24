@@ -1,3 +1,5 @@
+import { useAccountDeletion } from '../../features/account/hooks/useAccountDeletion';
+import { blocksApp } from '../../features/account/domain/accountDeletion';
 import { lazy, Suspense, useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -39,6 +41,7 @@ const ProfilePage = lazy(() => import('../../components/profile/ProfilePage'));
 const BecomeCoachPage = lazy(() => import('../../components/profile/BecomeCoachPage'));
 const AdminPage = lazy(() => import('../../components/admin/AdminPage'));
 const CalendarPage = lazy(() => import('../../components/calendar/CalendarPage'));
+const AccountDeletionPendingPage = lazy(() => import('../../components/profile/AccountDeletionPendingPage'));
 const BodyHub = lazy(() => import('../../components/navigation/BodyHub'));
 const SuiviHub = lazy(() => import('../../components/navigation/SuiviHub'));
 const WatchPage = lazy(() => import('../../components/navigation/WatchPage'));
@@ -121,6 +124,8 @@ export default function AppRoutes() {
     pendingInvite,
     pendingDossier,
   } = session;
+  // Vision §30: a pending deletion shows only the recovery screen.
+  const deletion = useAccountDeletion(user?.id);
 
   useEffect(() => {
     if (!user) return;
@@ -206,6 +211,18 @@ export default function AppRoutes() {
           {t('errors.retry')}
         </button>
       </div>
+    );
+  }
+
+  if (user && !deletion.ready) {
+    return <RouteFallback />;
+  }
+
+  if (user && blocksApp(deletion.state)) {
+    return (
+      <Suspense fallback={<RouteFallback />}>
+        <AccountDeletionPendingPage state={deletion.state} busy={deletion.busy} onCancel={deletion.cancel} />
+      </Suspense>
     );
   }
 

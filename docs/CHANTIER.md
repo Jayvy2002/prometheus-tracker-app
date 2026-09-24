@@ -1011,6 +1011,17 @@ Vision §33. Pas de migration.
 - Jamais d'existence révélée : chaque source est une lecture RLS filtrée sur ses propres lignes ou ses propres fils ; aucune RPC élargie. Insensible aux accents, 2 lettres minimum, 5 résultats par groupe, navigation clavier, état vide explicite.
 
 Reste : pas d'index plein texte côté serveur (recherche `ilike` sur séances et messages) ; pas de page bibliothèque d'exercices côté Coach.
+
+## Suppression de compte avec fenêtre de récupération (branche `agent/p5-18-suppression-compte`, en revue)
+
+Vision §30. Migration pending `20260924200000_account_deletion_window` ; preuve SQL `supabase/tests/account_deletion_window.sql`.
+
+- Demander la suppression ne supprime plus rien tout de suite : `request_account_deletion` coupe l'accès (l'app n'affiche plus que l'écran de récupération), masque le profil marketplace, arrête notifications et rappels, vide la file d'envoi — en mémorisant l'état pour le rétablir.
+- Fenêtre : `account_deletion_window()` = **14 jours pour la bêta, durée à valider juridiquement** (paramètre unique). Annuler (`cancel_account_deletion`) rétablit exactement notifications et publication ; impossible une fois la purge commencée.
+- Purge à échéance par le cron `account-deletion-purge` (horaire) → Edge `delete-account` en mode `purge_due` : même séquence fail-closed qu'avant (préflight dernier opérateur, `close_coach_account`, fichiers, Auth), + fichiers des fils de messagerie des deux côtés. Échec → remise en file (`release_account_deletion`), arrêt après 5 essais et affichage « problème » sur l'écran de récupération.
+- **À faire au déploiement** : redéployer `delete-account` ; créer le secret `ACCOUNT_PURGE_CRON_SECRET` dans le vault **et** dans les secrets Edge (même valeur). Sans lui, les demandes restent en attente (rien n'est supprimé) et le job échoue bruyamment.
+
+Reste : notes privées Coach et analytics (conservation justifiée / agrégée) à trancher avec le juridique ; export à compléter (objectifs, contraintes, check-in personnalisés).
 ---
 
 # P6 — Architecture économique de bêta
