@@ -5,11 +5,12 @@ import { useCoachingStore } from '../../stores/coachingStore';
 import { useAccountContext } from '@/features/account/hooks/useAccountContext';
 import { mobileTabs, navPersona, pathMatchesItem } from '@/app/navigation/navConfig';
 import WorkspaceSwitcher from './WorkspaceSwitcher';
+import { useClientTracking } from '@/features/coaching/hooks/useClientTracking';
 
 export default function BottomNav() {
   const { t } = useTranslation();
   const unreadMessageCount = useCoachingStore(s => s.unreadMessageCount);
-  const tracking = useCoachingStore(s => s.myTrackingConfig);
+  const tracking = useClientTracking();
   const context = useAccountContext();
   const { pathname } = useLocation();
   const tabs = mobileTabs(navPersona(context), tracking);

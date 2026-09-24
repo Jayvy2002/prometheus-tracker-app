@@ -6,12 +6,13 @@ import { useCoachingStore } from '../../stores/coachingStore';
 import { useAccountContext } from '@/features/account/hooks/useAccountContext';
 import { desktopSections, navPersona, pathMatchesItem, quickAddActions } from '@/app/navigation/navConfig';
 import WorkspaceSwitcher from './WorkspaceSwitcher';
+import { useClientTracking } from '@/features/coaching/hooks/useClientTracking';
 
 export default function SideNav() {
   const { t } = useTranslation();
   const [hoveredAction, setHoveredAction] = useState<string | null>(null);
   const unreadMessageCount = useCoachingStore(s => s.unreadMessageCount);
-  const tracking = useCoachingStore(s => s.myTrackingConfig);
+  const tracking = useClientTracking();
   const context = useAccountContext();
   const { pathname } = useLocation();
   const persona = navPersona(context);

@@ -5,7 +5,24 @@ export function calculateBMR(weightKg: number, heightCm: number, age: number, ge
   if (gender === 'female') {
     return 10 * weightKg + 6.25 * heightCm - 5 * age - 161;
   }
-  return 10 * weightKg + 6.25 * heightCm - 5 * age + 5;
+  if (gender === 'male') {
+    return 10 * weightKg + 6.25 * heightCm - 5 * age + 5;
+  }
+  // Not said: midpoint of the two Mifflin constants instead of assuming « Homme ».
+  return 10 * weightKg + 6.25 * heightCm - 5 * age - 78;
+}
+
+/**
+ * Nutrition targets are computed only from real measurements (Vision §5.3,
+ * « ne jamais inventer ») : weight, height and birth date must be known.
+ * Otherwise there is no target yet, never a target built on 175 cm / 75 kg.
+ */
+export function hasMeasuresForTargets(profile: {
+  weight_kg?: number | null;
+  height_cm?: number | null;
+  date_of_birth?: string | null;
+}): boolean {
+  return (profile.weight_kg ?? 0) > 0 && (profile.height_cm ?? 0) > 0 && Boolean(profile.date_of_birth);
 }
 
 export function calculateTDEE(bmr: number, activityLevel: string): number {

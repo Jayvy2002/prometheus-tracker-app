@@ -116,9 +116,12 @@ const nutrition = {
     },
     water: {
       title: 'Eau',
+      setTarget: 'Définir un objectif d’eau',
+      removeLast: 'Retirer le dernier ajout d’eau',
     },
     steps: {
       title: 'Pas',
+      setTarget: 'Définir un objectif de pas',
       save: 'Enregistrer',
       saved: 'Pas enregistrés',
       invalid: 'Nombre de pas invalide (0–100 000).',

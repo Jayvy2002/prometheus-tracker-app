@@ -894,6 +894,18 @@ Migration pending `20260924100000_exercise_catalog_accents` ; preuve SQL `supaba
 - Athlète : l’ajout d’aliment s’ouvre sur la recherche quand il n’y a pas de récents et indique le repas visé ; le choix d’intention dit « Tu pourras changer plus tard » (§5.1).
 
 Reste pour l’onboarding (§5.3, chantier suivant) : objectifs eau et pas encore préremplis par défaut en base (2 500 ml, 10 000 pas).
+
+## Onboarding minimal (branche `agent/p5-8-onboarding-minimal`, en revue)
+
+Vision §5.3. Migration pending `20260924110000_personal_modules_honest_defaults` ; preuve SQL `supabase/tests/personal_modules.sql`.
+
+- Quatre écrans pour le Solo : objectif, entraînement (niveau, séances par semaine, matériel, douleurs ou contraintes), modules suivis, mesures facultatives. Rien n’est présélectionné (plus de « Homme », 175 cm, 75 kg, « Maintenir »).
+- Les cibles caloriques ne sont calculées qu’avec poids, taille et date de naissance réels, et seulement si le Solo suit la nutrition. Sexe non dit : estimation neutre, pas « Homme » par défaut. Plus d’objectif eau calculé à l’inscription.
+- `personal_modules` : le Solo choisit Entraînement / Nutrition / Poids / Check-in ; un module non suivi disparaît d’Aujourd’hui, du menu et de l’ajout rapide, sans supprimer de données (Profil › Modules suivis pour changer). NULL = pas encore choisi = tout visible (comptes existants inchangés). Avec un Coach actif, la configuration du Coach prime.
+- `training_equipment` (salle, maison, poids du corps, mixte), demandé à l’accueil.
+- Nouveaux comptes : plus d’objectif eau (2 500 ml) ni pas (10 000) par défaut en base. Les suivis eau et pas affichent « Définir un objectif » au lieu d’un objectif inventé ; le formulaire Coach n’envoie plus ces valeurs quand le champ est vide.
+
+Reste : le matériel n’alimente pas encore l’IA ni la proposition de programme (à brancher avec les objectifs vivants §6).
 ---
 
 # P6 — Architecture économique de bêta
