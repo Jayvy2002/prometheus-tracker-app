@@ -26,6 +26,17 @@ import { optionLabel } from '../../lib/optionLabels';
 import { PROGRAM_SET_TYPES } from '../../lib/programSetPrescription';
 import Card from '../ui/Card';
 import Input from '../ui/Input';
+import OverflowMenu, { type OverflowAction } from '../ui/OverflowMenu';
+import { exerciseSummaryParts } from '../../features/programs/domain/programExerciseSummary';
+import {
+  isLinkedToNext,
+  isLinkedToPrevious,
+  linkWithNext,
+  removeFromSuperset,
+  supersetGroupOf,
+  supersetPartners,
+  unlinkFromNext,
+} from '../../features/programs/domain/programSupersets';
 
 const WEEKDAYS = [1, 2, 3, 4, 5, 6, 0];
 
@@ -448,7 +459,7 @@ export default function ProgramSessionEditor({
               key={`day-tab-${i}`}
               type="button"
               onClick={() => { setDayIndex(i); setSelected(null); setAnalyzed(null); }}
-              className={`px-3 py-1.5 rounded-lg text-xs whitespace-nowrap ${
+              className={`min-h-11 px-3 py-1.5 rounded-lg text-xs whitespace-nowrap ${
                 active ? 'bg-blue-600 text-white' : 'bg-neutral-900 text-neutral-400'
               }`}
             >
@@ -465,7 +476,7 @@ export default function ProgramSessionEditor({
             setDayIndex(days.length);
           }}
           className={`shrink-0 text-xs text-blue-400 bg-neutral-900 ${
-            athlete ? 'min-w-[4.75rem] rounded-2xl border border-dashed border-neutral-700 px-2.5 py-2.5' : 'px-3 py-1.5 rounded-lg'
+            athlete ? 'min-w-[4.75rem] rounded-2xl border border-dashed border-neutral-700 px-2.5 py-2.5' : 'min-h-11 px-3 py-1.5 rounded-lg'
           }`}
         >
           + {t('coaching.interventions.addDay')}
@@ -518,19 +529,54 @@ export default function ProgramSessionEditor({
                 onDaysChange(days.filter((_, i) => i !== safeIndex));
                 setDayIndex(0);
               }}
-              className="text-neutral-500 hover:text-rose-300 p-1"
-              aria-label={t('common.delete')}
+              className="shrink-0 min-h-11 min-w-11 inline-flex items-center justify-center rounded-xl text-neutral-500 hover:text-rose-300"
+              aria-label={t('programs.editor.deleteDay')}
             >
-              {athlete ? <Trash2 size={14} /> : <span className="text-[11px]">{t('common.delete')}</span>}
+              <Trash2 size={16} aria-hidden="true" />
             </button>
           </div>
-          {athlete && (
-            <p className="text-[11px] text-neutral-500">{t('programs.tapToEdit')}</p>
-          )}
+          <p className="text-[11px] text-neutral-500">{t('programs.tapToEdit')}</p>
 
           {day.exercises.map((ex, ei) => {
             const open = selected === ei;
-            const compact = athlete && !open;
+            const label = ex.name || t('coaching.interventions.liftName');
+            const group = supersetGroupOf(ex);
+            const linkedNext = isLinkedToNext(day.exercises, ei);
+            const linkedPrev = isLinkedToPrevious(day.exercises, ei);
+            const partners = supersetPartners(day.exercises, ei);
+            const nextExercise = day.exercises[ei + 1];
+            const summary = exerciseSummaryParts(ex, tracking).map(part => t(part.key, part.params)).join(' · ');
+            const setType = ex.set_type ?? 'working';
+            // One menu for the secondary actions; the row itself opens the settings.
+            const actions: OverflowAction[] = [
+              {
+                id: 'replace',
+                label: t('programs.editor.replace'),
+                onSelect: () => { void fetchExercises(); setSelected(ei); setPickerMode('replace'); setPickerOpen(true); },
+              },
+              {
+                id: 'analyze',
+                label: t('programs.editor.analyze'),
+                onSelect: () => { void fetchExercises(); setAnalyzed(ei); onAnalyze?.(ex.name); },
+              },
+              ...(onAsk && ex.name ? [{
+                id: 'ask',
+                label: t('coaching.programEditor.ask'),
+                onSelect: () => onAsk(t('coaching.ask.liftPrompt', { lift: ex.name })),
+              }] : []),
+              {
+                id: 'remove',
+                label: t('programs.editor.remove'),
+                danger: true,
+                onSelect: () => {
+                  updateDay(safeIndex, { exercises: day.exercises.filter((_, j) => j !== ei) });
+                  setSelected(null);
+                  setAnalyzed(null);
+                },
+              },
+            ];
+            const fieldClass = 'mt-0.5 w-full min-h-11 bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1 text-sm text-white';
+            const labelClass = 'text-[11px] text-neutral-400';
             return (
               <div
                 key={`ex-${safeIndex}-${ei}`}
@@ -538,58 +584,60 @@ export default function ProgramSessionEditor({
                 onDragStart={() => setDragFrom(ei)}
                 onDragOver={e => e.preventDefault()}
                 onDrop={() => { if (dragFrom != null) reorder(dragFrom, ei); setDragFrom(null); }}
+                data-superset={group || undefined}
                 className={`rounded-xl border ${
                   open ? 'border-blue-500/50 bg-blue-500/5' : 'border-neutral-800'
-                } ${compact ? '' : 'px-2 py-2 space-y-2'}`}
+                } ${group ? 'border-l-4 border-l-blue-400/60' : ''}`}
               >
-                {compact ? (
+                <div className="flex items-center gap-1 pr-1">
                   <button
                     type="button"
-                    onClick={() => setSelected(ei)}
-                    className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left"
+                    onClick={() => setSelected(open ? null : ei)}
+                    aria-expanded={open}
+                    className="flex-1 min-w-0 min-h-11 flex items-center gap-2.5 px-3 py-2.5 text-left"
                   >
-                    <span className="w-6 h-6 rounded-lg bg-neutral-800 text-[11px] text-neutral-400 flex items-center justify-center shrink-0">{ei + 1}</span>
+                    <GripVertical size={14} aria-hidden="true" className="text-neutral-600 shrink-0 cursor-grab" />
+                    <span aria-hidden="true" className="w-6 h-6 rounded-lg bg-neutral-800 text-[11px] text-neutral-400 flex items-center justify-center shrink-0">{ei + 1}</span>
                     <span className="flex-1 min-w-0">
-                      <span className="block text-sm font-medium text-white truncate">{ex.name || t('coaching.interventions.liftName')}</span>
-                      <span className="text-[11px] text-neutral-500">{formatExercisePrescription(ex, tracking)}</span>
+                      <span className="block text-sm font-medium text-white truncate">{label}</span>
+                      <span className="block text-[11px] text-neutral-400">{summary || '—'}</span>
                     </span>
-                    <GripVertical size={14} className="text-neutral-700 shrink-0" />
+                    {group ? (
+                      <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/15 text-blue-200">
+                        {t('programs.editor.supersetBadge', { group })}
+                      </span>
+                    ) : null}
+                    <ChevronDown size={16} aria-hidden="true" className={`shrink-0 text-neutral-500 transition-transform ${open ? 'rotate-180' : ''}`} />
                   </button>
-                ) : (
-                  <>
-                    <div className="flex items-center gap-2">
-                      <GripVertical size={14} className="text-neutral-600 shrink-0 cursor-grab" />
+                  <OverflowMenu label={t('programs.editor.actions', { name: label })} actions={actions} />
+                </div>
+
+                {open && (
+                  <div className="px-3 pb-3 pt-3 space-y-3 border-t border-neutral-800/70">
+                    <label className={`block ${labelClass}`}>
+                      {t('programs.editor.exerciseName')}
                       <input
                         value={ex.name}
                         onChange={e => updateExercise(ei, { name: e.target.value })}
                         placeholder={t('coaching.interventions.liftName')}
-                        className="flex-1 bg-transparent text-sm text-white outline-none"
+                        className={fieldClass}
                       />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          updateDay(safeIndex, { exercises: day.exercises.filter((_, j) => j !== ei) });
-                          setSelected(null);
-                        }}
-                        className="text-neutral-600 hover:text-rose-300 text-xs"
-                      >
-                        ×
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-1">
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       {showTrainingField(tracking, 'sets') && (
-                        <label className="text-[10px] text-neutral-500">
+                        <label className={labelClass}>
                           {t('coaching.interventions.sets')}
                           <input
                             type="number"
+                            inputMode="numeric"
                             value={ex.default_sets}
                             onChange={e => updateExercise(ei, { default_sets: Math.max(1, Math.min(PROGRAM_EXERCISE_MAX_SETS, +e.target.value || 1)) })}
-                            className="mt-0.5 w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1 text-xs text-white"
+                            className={fieldClass}
                           />
                         </label>
                       )}
                       {repsInputMode(tracking) !== 'hidden' && (
-                        <label className="text-[10px] text-neutral-500">
+                        <label className={labelClass}>
                           {repsInputMode(tracking) === 'range'
                             ? t('coaching.programEditor.repRange')
                             : t('coaching.interventions.reps')}
@@ -614,53 +662,54 @@ export default function ProgramSessionEditor({
                                 default_reps: high,
                               });
                             }}
-                            className="mt-0.5 w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1 text-xs text-white"
+                            className={fieldClass}
                           />
                         </label>
                       )}
-                      {showTrainingField(tracking, 'load') && (!athlete || open) && (
-                        <label className="text-[10px] text-neutral-500">
+                      {showTrainingField(tracking, 'load') && (
+                        <label className={labelClass}>
                           {t('coaching.tracking.train.load')}
                           <input
                             type="number"
+                            inputMode="decimal"
                             value={ex.default_weight_kg ?? ''}
                             placeholder={athlete ? '—' : undefined}
                             onChange={e => updateExercise(ei, {
                               default_weight_kg: e.target.value === '' ? null : Number(e.target.value),
                             })}
-                            className="mt-0.5 w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1 text-xs text-white"
+                            className={fieldClass}
                           />
                         </label>
                       )}
                       {showTrainingField(tracking, 'rir') && (
-                        <label className="text-[10px] text-neutral-500">
+                        <label className={labelClass}>
                           RIR
                           <input
                             type="number"
+                            inputMode="numeric"
                             value={ex.default_rir ?? ''}
                             placeholder={athlete ? '—' : undefined}
                             onChange={e => updateExercise(ei, { default_rir: e.target.value === '' ? null : Number(e.target.value) })}
-                            className="mt-0.5 w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1 text-xs text-white"
+                            className={fieldClass}
                           />
                         </label>
                       )}
                       {showTrainingField(tracking, 'rest') && (
-                        <label className="text-[10px] text-neutral-500">
+                        <label className={labelClass}>
                           {t('coaching.programEditor.rest')}
                           <input
                             type="number"
+                            inputMode="numeric"
                             value={ex.default_rest_seconds ?? 90}
                             onChange={e => updateExercise(ei, { default_rest_seconds: Math.max(0, +e.target.value || 0) })}
-                            className="mt-0.5 w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1 text-xs text-white"
+                            className={fieldClass}
                           />
                         </label>
                       )}
-                    </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-1">
-                      <label className="text-[10px] text-neutral-500">
+                      <label className={labelClass}>
                         {t('workout.exerciseCard.type')}
                         <select
-                          value={ex.set_type ?? 'working'}
+                          value={setType}
                           onChange={e => {
                             const set_type = e.target.value as ProgramExerciseDraft['set_type'];
                             updateExercise(ei, {
@@ -670,24 +719,15 @@ export default function ProgramSessionEditor({
                                 : {}),
                             });
                           }}
-                          className="mt-0.5 w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1 text-xs text-white"
+                          className={fieldClass}
                         >
                           {SET_TYPES.filter(st => PROGRAM_SET_TYPES.includes(st.value as typeof PROGRAM_SET_TYPES[number])).map(st => (
                             <option key={st.value} value={st.value}>{optionLabel(t, 'setTypes', st.value, st.label)}</option>
                           ))}
                         </select>
                       </label>
-                      <label className="text-[10px] text-neutral-500">
-                        {t('coaching.programEditor.supersetGroup')}
-                        <input
-                          value={ex.superset_group ?? ''}
-                          onChange={e => updateExercise(ei, { superset_group: e.target.value || null })}
-                          placeholder="A"
-                          className="mt-0.5 w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1 text-xs text-white"
-                        />
-                      </label>
-                      {(ex.set_type ?? 'working') === 'drop' && (
-                        <label className="text-[10px] text-neutral-500">
+                      {setType === 'drop' && (
+                        <label className={labelClass}>
                           {t('coaching.programEditor.dropCount')}
                           <input
                             type="number"
@@ -695,44 +735,44 @@ export default function ProgramSessionEditor({
                             max={6}
                             value={ex.drop_count ?? 2}
                             onChange={e => updateExercise(ei, { drop_count: Math.max(2, +e.target.value || 2) })}
-                            className="mt-0.5 w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1 text-xs text-white"
+                            className={fieldClass}
                           />
                         </label>
                       )}
-                      {(ex.set_type ?? 'working') === 'tempo' && (
-                        <label className="text-[10px] text-neutral-500">
+                      {setType === 'tempo' && (
+                        <label className={labelClass}>
                           Tempo
                           <input
                             value={ex.tempo ?? ''}
                             onChange={e => updateExercise(ei, { tempo: e.target.value || null })}
                             placeholder="3-1-2-0"
-                            className="mt-0.5 w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1 text-xs text-white"
+                            className={fieldClass}
                           />
                         </label>
                       )}
-                      {(ex.set_type ?? 'working') === 'isometric' && (
-                        <label className="text-[10px] text-neutral-500">
+                      {setType === 'isometric' && (
+                        <label className={labelClass}>
                           {t('coaching.programEditor.isoSeconds')}
                           <input
                             type="number"
                             value={ex.isometric_seconds ?? 20}
                             onChange={e => updateExercise(ei, { isometric_seconds: Math.max(1, +e.target.value || 1) })}
-                            className="mt-0.5 w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1 text-xs text-white"
+                            className={fieldClass}
                           />
                         </label>
                       )}
-                      {(ex.set_type ?? 'working') === 'cluster' && (
+                      {setType === 'cluster' && (
                         <>
-                          <label className="text-[10px] text-neutral-500">
+                          <label className={labelClass}>
                             {t('coaching.programEditor.clusterRest')}
                             <input
                               type="number"
                               value={ex.cluster_rest_seconds ?? 20}
                               onChange={e => updateExercise(ei, { cluster_rest_seconds: Math.max(0, +e.target.value || 0) })}
-                              className="mt-0.5 w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1 text-xs text-white"
+                              className={fieldClass}
                             />
                           </label>
-                          <label className="text-[10px] text-neutral-500">
+                          <label className={labelClass}>
                             {t('coaching.programEditor.clusterBurst')}
                             <input
                               type="number"
@@ -740,13 +780,13 @@ export default function ProgramSessionEditor({
                               onChange={e => updateExercise(ei, {
                                 cluster_reps_per_burst: e.target.value === '' ? null : Math.max(1, +e.target.value || 1),
                               })}
-                              className="mt-0.5 w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1 text-xs text-white"
+                              className={fieldClass}
                             />
                           </label>
                         </>
                       )}
-                      {(ex.set_type ?? 'working') === 'myo' && (
-                        <label className="text-[10px] text-neutral-500 flex items-center gap-2 mt-4">
+                      {setType === 'myo' && (
+                        <label className={`${labelClass} flex items-center gap-2 min-h-11 mt-4`}>
                           <input
                             type="checkbox"
                             checked={!!ex.myo_activation}
@@ -756,49 +796,59 @@ export default function ProgramSessionEditor({
                         </label>
                       )}
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      {athlete && (
-                        <button type="button" className="text-[11px] text-neutral-500" onClick={() => setSelected(null)}>
-                          {t('common.close')}
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        className="text-[11px] text-neutral-300"
-                        onClick={() => { setSelected(ei); setPickerMode('replace'); setPickerOpen(true); }}
-                      >
-                        {t('coaching.programEditor.modify')}
-                      </button>
-                      <button
-                        type="button"
-                        className="text-[11px] text-blue-400"
-                        onClick={() => {
-                          void fetchExercises();
-                          setAnalyzed(ei);
-                          onAnalyze?.(ex.name);
-                        }}
-                      >
-                        {t('coaching.programEditor.analyze')}
-                      </button>
-                      {onAsk && ex.name && (
+
+                    {/* Supersets: the same superset_group values as before, set by linking neighbours. */}
+                    {nextExercise ? (
+                      <label className="flex items-start gap-2 min-h-11 cursor-pointer" data-testid="program-superset-link">
+                        <input
+                          type="checkbox"
+                          className="mt-1"
+                          checked={linkedNext}
+                          onChange={e => updateDay(safeIndex, {
+                            exercises: e.target.checked
+                              ? linkWithNext(day.exercises, ei)
+                              : unlinkFromNext(day.exercises, ei),
+                          })}
+                        />
+                        <span>
+                          <span className="block text-xs text-white">
+                            {t('programs.editor.supersetLink', { name: nextExercise.name || t('coaching.interventions.liftName') })}
+                          </span>
+                          <span className="block text-[11px] text-neutral-500">{t('programs.editor.supersetHint')}</span>
+                        </span>
+                      </label>
+                    ) : null}
+                    {group && !linkedNext && !linkedPrev ? (
+                      <div className="flex flex-wrap items-center gap-x-3 text-[11px] text-neutral-400" data-testid="program-superset-kept">
+                        <span>
+                          {partners.length > 0
+                            ? t('programs.editor.supersetElsewhere', {
+                              group,
+                              names: partners.map(i => day.exercises[i]?.name || t('coaching.interventions.liftName')).join(', '),
+                            })
+                            : t('programs.editor.supersetAlone', { group })}
+                        </span>
                         <button
                           type="button"
-                          className="text-[11px] text-blue-400"
-                          onClick={() => onAsk(t('coaching.ask.liftPrompt', { lift: ex.name }))}
+                          className="min-h-11 text-blue-400 hover:text-blue-300"
+                          onClick={() => updateDay(safeIndex, { exercises: removeFromSuperset(day.exercises, ei) })}
                         >
-                          {t('coaching.programEditor.ask')}
+                          {t('programs.editor.supersetRemove')}
                         </button>
-                      )}
-                    </div>
-                    {analyzed === ei && (
-                      <ExerciseAnalyzeCard
-                        name={ex.name}
-                        library={exercisesLib}
-                        sessionVolumes={volumes}
-                        weekVolumes={weekVol}
-                      />
-                    )}
-                  </>
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+
+                {analyzed === ei && (
+                  <div className="px-3 pb-3">
+                    <ExerciseAnalyzeCard
+                      name={ex.name}
+                      library={exercisesLib}
+                      sessionVolumes={volumes}
+                      weekVolumes={weekVol}
+                    />
+                  </div>
                 )}
               </div>
             );
@@ -811,9 +861,9 @@ export default function ProgramSessionEditor({
               setPickerMode('add');
               setPickerOpen(true);
             }}
-            className="text-[11px] text-blue-400 inline-flex items-center gap-1"
+            className="min-h-11 text-sm text-blue-400 inline-flex items-center gap-1.5"
           >
-            <Plus size={12} /> {t('coaching.interventions.addLift')}
+            <Plus size={14} aria-hidden="true" /> {t('coaching.interventions.addLift')}
           </button>
         </div>
       )}

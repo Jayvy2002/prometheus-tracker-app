@@ -41,6 +41,7 @@ export function createLifecycleSlice(set: CoachingSet, get: CoachingGet): Pick<C
       sentMessages: [],
       latestCoachMessage: null,
       unreadMessageCount: 0,
+      messagesFetchError: false,
       threadExhausted: {},
       coachSettings: null,
       myTrackingConfig: cloneTracking(ALL_ON_TRACKING),

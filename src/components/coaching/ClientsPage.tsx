@@ -10,19 +10,14 @@ import { shouldOpenSetup } from '../../lib/coachAlerts';
 import { parseRosterFilter, rosterHitsForFilter, ROSTER_FILTERS } from '../../lib/coachAsk';
 import { todayStr } from '../../lib/utils';
 import { clientFileHref } from '../../lib/coachSituation';
-import { rosterBackPath, rosterChainState, sortRosterClients, type RosterGoalStatus } from '../../lib/coachRoster';
+import { rosterBackPath, rosterChainState, sortRosterClients } from '../../lib/coachRoster';
+import { useClientGoalKinds } from '../../features/coaching/hooks/useClientGoalKinds';
+import { goalKindLabelKey } from '../../features/coaching/domain/clientGoal';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import Modal from '../ui/Modal';
 import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
-
-function goalChipKey(status: RosterGoalStatus): 'coaching.rosterList.goalCut' | 'coaching.rosterList.goalBulk' | 'coaching.rosterList.goalPerf' | null {
-  if (status === 'cut') return 'coaching.rosterList.goalCut';
-  if (status === 'bulk') return 'coaching.rosterList.goalBulk';
-  if (status === 'perf') return 'coaching.rosterList.goalPerf';
-  return null;
-}
 
 export default function ClientsPage() {
   const canCoach = useAccountContext().capabilities.coach;
@@ -44,6 +39,8 @@ export default function ClientsPage() {
   // file (« Retirer de mes clients ») with its explicit confirmation.
   const [clientQuery, setClientQuery] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
+  // Same goal as the client file: the current goal, else the legacy profile goal.
+  const { kinds: goalKinds } = useClientGoalKinds(clients);
 
   useEffect(() => {
     if (!user) return;
@@ -214,8 +211,8 @@ export default function ClientsPage() {
               const c = row.client;
               const ops = opsRows.find(r => r.client.id === c.id);
               const forceSetup = ops ? shouldOpenSetup(ops) : row.forceSetup;
-              const goalKey = goalChipKey(row.goalStatus);
-              const goal = goalKey ? t(goalKey) : null;
+              const goalKind = goalKinds[c.id] ?? null;
+              const goal = goalKind ? t(goalKindLabelKey(goalKind)) : null;
               const kcal = row.kcal.kind === 'vs_target'
                 ? t('coaching.rosterList.kcalVs', { logged: row.kcal.logged, target: row.kcal.target })
                 : row.kcal.kind === 'logged_only'

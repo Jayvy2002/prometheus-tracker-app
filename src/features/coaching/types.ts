@@ -107,7 +107,11 @@ export type CoachPriorityKind =
   | 'onboarding_incomplete'
   | 'program_unassigned'
   /** A fleet/agent draft waiting for the coach, with no matching local priority. */
-  | 'draft_pending';
+  | 'draft_pending'
+  /** Messages from an active client the coach has not read yet (File du jour). */
+  | 'unread_messages'
+  /** A check-in submitted since the coach last opened the file, with no other flag. */
+  | 'checkin_received';
 
 export type CoachClientTab =
   | 'overview'
@@ -179,7 +183,7 @@ export type CoachNudgeTemplateKey = 'missed_training' | 'missed_checkins' | 'gen
 
 export type CoachMessageTemplateKey = CoachNudgeTemplateKey | 'reply' | 'prospect';
 
-export type CoachQueueActionKind = 'compose' | 'open_draft' | 'open_setup' | 'open_360';
+export type CoachQueueActionKind = 'compose' | 'open_draft' | 'open_setup' | 'open_360' | 'open_thread';
 
 export interface CoachQueueAction {
   kind: CoachQueueActionKind;

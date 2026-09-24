@@ -10,12 +10,14 @@ import type { ProgramPhaseDraft } from '../../features/programs/domain/programPh
 import { multiPhaseSharedWeekdaysNeedDuration, phasesHaveMixedDurations } from '../../features/programs/domain/programPhases';
 import ProgramSessionEditor from '../coaching/ProgramSessionEditor';
 import ProgramRevisionHistory from './ProgramRevisionHistory';
+import FixedActionBar from '../coaching/FixedActionBar';
 import Button from '../ui/Button';
 import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
 import { mapProgramWriteError } from '../../lib/programWrite';
 import { normalizeSessionOrganization } from '../../features/programs/domain/sessionOrganization';
 import { useProgramCivilClock } from '../../features/programs/hooks/useProgramCivilClock';
+import { programDayExerciseToDraft } from '../../features/programs/domain/soloProgram';
 
 export default function ProgramEditorPage() {
   const { t, i18n } = useTranslation();
@@ -77,15 +79,8 @@ export default function ProgramEditorPage() {
         weekday: d.weekday,
         name: d.name,
         phase_id: d.phase_id ?? null,
-        exercises: (d.exercises ?? []).map(ex => ({
-          name: ex.name,
-          default_sets: ex.default_sets,
-          default_reps: ex.default_reps,
-          default_reps_min: ex.default_reps_min,
-          default_rir: ex.default_rir,
-          default_rest_seconds: ex.default_rest_seconds,
-          default_weight_kg: ex.default_weight_kg,
-        })),
+        // Every stored field survives the round trip (set types, supersets…).
+        exercises: (d.exercises ?? []).map(programDayExerciseToDraft),
       })) : [emptyDay]);
       if (id && !isNew) {
         void fetchProgramRevisionInfo(id).then(setRevision);
@@ -246,8 +241,8 @@ export default function ProgramEditorPage() {
 
   return (
     <PageTransition>
-      <div className="px-4 pt-6 pb-28 md:px-6">
-        <button onClick={() => navigate('/programs')} className="flex items-center gap-2 text-neutral-400 hover:text-white mb-4">
+      <div className="px-4 pt-6 pb-8 md:px-6">
+        <button onClick={() => navigate('/programs')} className="flex items-center gap-2 min-h-11 text-neutral-400 hover:text-white mb-4">
           <ArrowLeft size={18} /> {t('programs.title')}
         </button>
         <h1 className="text-xl font-bold text-white mb-1">
@@ -283,13 +278,6 @@ export default function ProgramEditorPage() {
           onDaysChange={setDays}
           onAsk={q => navigate(`/prometheus?q=${encodeURIComponent(q)}`)}
         />
-        {/* Always reachable above the tab bar, however long the program is. */}
-        <div className="sticky bottom-20 md:bottom-4 z-10 mt-3 -mx-4 px-4 pt-2 pb-2 bg-black/90 backdrop-blur md:mx-0 md:px-0 md:rounded-2xl" data-testid="program-editor-save">
-          <p className="text-[11px] text-neutral-500 mb-2">{dirtyLabel}</p>
-          <Button className="w-full" onClick={handleSave} loading={saving} disabled={!name.trim()}>
-            {t('common.save')}
-          </Button>
-        </div>
         {!isNew && (
           <details className="mt-4 rounded-2xl border border-neutral-800 bg-neutral-900/40 px-3 py-2" data-testid="program-versions-advanced">
             <summary className="flex items-center justify-between cursor-pointer list-none text-sm text-neutral-300">
@@ -370,15 +358,7 @@ export default function ProgramEditorPage() {
                   weekday: d.weekday,
                   name: d.name,
                   phase_id: d.phase_id ?? null,
-                  exercises: (d.exercises ?? []).map(ex => ({
-                    name: ex.name,
-                    default_sets: ex.default_sets,
-                    default_reps: ex.default_reps,
-                    default_reps_min: ex.default_reps_min,
-                    default_rir: ex.default_rir,
-                    default_rest_seconds: ex.default_rest_seconds,
-                    default_weight_kg: ex.default_weight_kg,
-                  })),
+                  exercises: (d.exercises ?? []).map(programDayExerciseToDraft),
                 })));
               }
               void fetchProgramRevisionInfo(id).then(setRevision);
@@ -386,6 +366,12 @@ export default function ProgramEditorPage() {
             }}
           />
         )}
+        {/* Always reachable above the tab bar, however long the program is — never over a field. */}
+        <FixedActionBar testId="program-editor-save" hint={dirtyLabel}>
+          <Button onClick={handleSave} loading={saving} disabled={!name.trim()}>
+            {t('common.save')}
+          </Button>
+        </FixedActionBar>
       </div>
     </PageTransition>
   );

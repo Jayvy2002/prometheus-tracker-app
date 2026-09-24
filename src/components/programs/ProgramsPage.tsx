@@ -22,7 +22,7 @@ import ErrorState from '../ui/ErrorState';
 import { toast } from '../ui/Toast';
 import { assignStartLabel } from '../../lib/programWrite';
 import { programSessionLabel } from '../../features/programs/domain/namedSession';
-import { programListStatus, type ProgramUsage } from '../../features/programs/domain/programListStatus';
+import { programListSummary, type ProgramUsage } from '../../features/programs/domain/programListStatus';
 
 function programDeleteToast(error: string, t: (key: string) => string): string {
   if (error.includes('program_has_history')) return t('programs.deleteHasHistory');
@@ -38,6 +38,8 @@ export default function ProgramsPage() {
   const { user } = useAuthStore();
   const { programs, programsError, loading, fetchPrograms, fetchProgramUsage, createProgram, deleteProgram, assignProgram, duplicateProgram } = useProgramStore();
   const [usage, setUsage] = useState<Record<string, ProgramUsage>>({});
+  // Who follows which program decides « Actif »: nothing is claimed before it is known.
+  const [usageKey, setUsageKey] = useState<string | null>(null);
   const { routines, fetchRoutines } = useRoutineStore();
   const { clients, fetchClients, coachingRole, myCoach } = useCoachingStore();
   const isCoach = useAccountContext().capabilities.coach;
@@ -64,26 +66,32 @@ export default function ProgramsPage() {
   useEffect(() => {
     if (!isCoach || !programIdsKey) return;
     let live = true;
-    void fetchProgramUsage(programIdsKey.split(',')).then(next => { if (live) setUsage(next); });
+    void fetchProgramUsage(programIdsKey.split(',')).then(next => {
+      if (!live) return;
+      setUsage(next);
+      setUsageKey(programIdsKey);
+    });
     return () => { live = false; };
   }, [isCoach, programIdsKey, fetchProgramUsage]);
 
+  // Brouillon ≠ enregistré ≠ actif (Vision §7.4), then the version and who follows it.
   const statusLabel = (p: Program): string => {
-    const status = programListStatus(p);
-    if (status.kind === 'draft') return t('programs.listStatus.draft');
+    const usageKnown = usageKey === programIdsKey;
+    const summary = programListSummary(p, usage[p.id]);
+    const { status } = summary;
+    const parts: string[] = usageKnown ? [t(`programs.listStatus.lifecycle.${summary.lifecycle}`)] : [];
+    if (status.kind !== 'draft') parts.push(t('programs.listStatus.versionShort', { revision: status.revision }));
     if (status.kind === 'scheduled') {
-      return status.on
-        ? t('programs.listStatus.scheduledOn', { revision: status.revision, next: status.nextRevision, date: formatDateShort(status.on, i18n.language) })
-        : t('programs.listStatus.scheduled', { revision: status.revision, next: status.nextRevision });
+      parts.push(status.on
+        ? t('programs.listStatus.nextOn', { next: status.nextRevision, date: formatDateShort(status.on, i18n.language) })
+        : t('programs.listStatus.next', { next: status.nextRevision }));
     }
-    return t('programs.listStatus.version', { revision: status.revision });
-  };
-
-  const usageLabel = (p: Program): string => {
-    const u = usage[p.id];
-    if (!u || u.active + u.paused === 0) return t('programs.listStatus.noClient');
-    const active = t('programs.listStatus.clients', { count: u.active });
-    return u.paused > 0 ? `${active} · ${t('programs.listStatus.paused', { count: u.paused })}` : active;
+    if (usageKnown) {
+      if (summary.activeClients > 0) parts.push(t('programs.listStatus.clients', { count: summary.activeClients }));
+      if (summary.pausedClients > 0) parts.push(t('programs.listStatus.paused', { count: summary.pausedClients }));
+      if (summary.activeClients + summary.pausedClients === 0) parts.push(t('programs.listStatus.noClient'));
+    }
+    return parts.join(' · ');
   };
 
   const weekdayLabel = (d: number) => t(`programs.weekdays.${d}`);
@@ -189,8 +197,8 @@ export default function ProgramsPage() {
                       {t('programs.weeksCount', { n: p.duration_weeks })}
                     </p>
                     {isCoach && (
-                      <p className="text-xs text-neutral-500 mt-1" data-testid="program-list-status">
-                        {statusLabel(p)} · {usageLabel(p)}
+                      <p className="text-xs text-neutral-500 mt-1 min-h-4 first-letter:uppercase" data-testid="program-list-status">
+                        {statusLabel(p)}
                       </p>
                     )}
                     <div className="flex flex-wrap gap-1 mt-2">

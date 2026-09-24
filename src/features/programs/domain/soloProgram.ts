@@ -9,10 +9,43 @@ import {
   parseProgramPatch,
   parseTalkingPoints,
 } from '../../../lib/coachInterventions';
-import type { AiProgramDayDraft, CoachIntervention, Program, ProgramDay } from '../../../lib/types';
+import type {
+  AiProgramDayDraft,
+  CoachIntervention,
+  Program,
+  ProgramDay,
+  ProgramDayExercise,
+  ProgramExerciseDraft,
+} from '../../../lib/types';
 
 export function emptyProgramDraftDay(weekday: number | null = 1): AiProgramDayDraft {
   return { weekday, name: '', exercises: [] };
+}
+
+/**
+ * A saved exercise → the editor draft, carrying every stored prescription field
+ * (catalog identity, set type, superset group, drop/tempo/iso/cluster/myo).
+ * Dropping one here would make the next save silently reset it.
+ */
+export function programDayExerciseToDraft(ex: ProgramDayExercise): ProgramExerciseDraft {
+  return {
+    name: ex.name,
+    catalog_exercise_id: ex.catalog_exercise_id ?? null,
+    default_sets: ex.default_sets,
+    default_reps: ex.default_reps,
+    default_reps_min: ex.default_reps_min,
+    default_rir: ex.default_rir,
+    default_rest_seconds: ex.default_rest_seconds,
+    default_weight_kg: ex.default_weight_kg,
+    set_type: ex.set_type,
+    superset_group: ex.superset_group ?? null,
+    drop_count: ex.drop_count ?? null,
+    tempo: ex.tempo ?? null,
+    isometric_seconds: ex.isometric_seconds ?? null,
+    cluster_rest_seconds: ex.cluster_rest_seconds ?? null,
+    cluster_reps_per_burst: ex.cluster_reps_per_burst ?? null,
+    myo_activation: ex.myo_activation ?? false,
+  };
 }
 
 /** Assigned program days → the same draft shape the session editor / copilot outline use. */
@@ -26,15 +59,7 @@ export function programDaysToDraft(days: ProgramDay[] | undefined | null): AiPro
     phase_id: d.phase_id ?? null,
     exercises: [...(d.exercises ?? [])]
       .sort((a, b) => a.order_index - b.order_index)
-      .map(ex => ({
-        name: ex.name,
-        default_sets: ex.default_sets,
-        default_reps: ex.default_reps,
-        default_reps_min: ex.default_reps_min,
-        default_rir: ex.default_rir,
-        default_rest_seconds: ex.default_rest_seconds,
-        default_weight_kg: ex.default_weight_kg,
-      })),
+      .map(programDayExerciseToDraft),
   }));
 }
 

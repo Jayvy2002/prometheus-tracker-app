@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ClipboardCheck } from 'lucide-react';
 import { useCoachingStore } from '../../stores/coachingStore';
+import { useAuthStore } from '../../stores/authStore';
+import { checkinReceivedQueueItems, unreadMessageQueueItems } from '../../features/coaching/domain/coachDayQueue';
 import {
   draftQueueItems,
   groupQueueByClient,
@@ -31,22 +33,37 @@ const SEVERITY_CLASS: Record<CoachPrioritySeverity, string> = {
   yellow: 'bg-neutral-800 text-neutral-300',
 };
 
-export default function CoachTodayQueue() {
+export default function CoachTodayQueue({
+  otherDecisions = 0,
+  incomplete = false,
+}: {
+  /** Decisions shown outside the per-client list (coaching requests). */
+  otherDecisions?: number;
+  /** Something failed to load: « nothing urgent » cannot be claimed. */
+  incomplete?: boolean;
+}) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const viewerId = useAuthStore(s => s.user?.id ?? null);
   const {
     priorities, pendingInterventions, clients, queueDismissedIds, sentMessages, dismissQueueItems,
-    restoreQueueItems,
+    restoreQueueItems, opsRows, rosterSignals,
   } = useCoachingStore();
 
   const groups = useMemo(() => {
     const dismissed = new Set(queueDismissedIds);
     const local = visibleQueueItems(priorities, queueDismissedIds, clients, todayStr());
     const drafts = draftQueueItems(pendingInterventions, priorities, clients).filter(item => !dismissed.has(item.id));
-    return groupQueueByClient([...local, ...drafts]);
-  }, [priorities, pendingInterventions, queueDismissedIds, clients]);
+    // What already arrived and waits on the coach: unread messages, check-ins not yet read.
+    const arrived = [
+      ...unreadMessageQueueItems(sentMessages, clients, viewerId),
+      ...checkinReceivedQueueItems(opsRows, rosterSignals, priorities),
+    ].filter(item => !dismissed.has(item.id));
+    return groupQueueByClient([...local, ...drafts, ...arrived]);
+  }, [priorities, pendingInterventions, queueDismissedIds, clients, sentMessages, viewerId, opsRows, rosterSignals]);
 
   if (groups.length === 0) {
+    if (otherDecisions > 0 || incomplete) return null;
     return (
       <Card className="flex items-center gap-3">
         <ClipboardCheck size={18} className="text-emerald-400" />
@@ -65,11 +82,11 @@ export default function CoachTodayQueue() {
   return (
     <>
       <div className="flex items-center justify-between mb-3 gap-3">
-        <p className="text-sm font-semibold text-neutral-300">
+        <h2 className="text-sm font-semibold text-neutral-300">
           {t('coaching.queue.attentionCount', { count: groups.length })}
-        </p>
+        </h2>
         {nextNames ? (
-          <p className="text-xs text-neutral-500 truncate">{t('coaching.queue.nextUp', { names: nextNames })}</p>
+          <p className="text-xs text-neutral-500 truncate min-w-0">{t('coaching.queue.nextUp', { names: nextNames })}</p>
         ) : null}
       </div>
 

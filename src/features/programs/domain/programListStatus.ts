@@ -41,3 +41,32 @@ export function programUsageById(
   }
   return usage;
 }
+
+/**
+ * What a program is right now, in the Coach's words (brouillon ≠ enregistré ≠
+ * actif). A program followed by at least one client is active — whether or not
+ * it already carries a version number; « draft » is only a program nobody
+ * follows or followed and that was never saved as a version. Paused assignments (ended
+ * relationships) are history the program still carries, not activity.
+ */
+export type ProgramLifecycle = 'draft' | 'saved' | 'active';
+
+export interface ProgramListSummary {
+  lifecycle: ProgramLifecycle;
+  status: ProgramListStatus;
+  activeClients: number;
+  pausedClients: number;
+}
+
+export function programListSummary(
+  program: Pick<Program, 'active_revision_no' | 'scheduled_revision_no' | 'scheduled_activates_on'>,
+  usage: ProgramUsage | null | undefined,
+): ProgramListSummary {
+  const status = programListStatus(program);
+  const activeClients = usage?.active ?? 0;
+  const pausedClients = usage?.paused ?? 0;
+  const lifecycle: ProgramLifecycle = activeClients > 0
+    ? 'active'
+    : status.kind === 'draft' && pausedClients === 0 ? 'draft' : 'saved';
+  return { lifecycle, status, activeClients, pausedClients };
+}

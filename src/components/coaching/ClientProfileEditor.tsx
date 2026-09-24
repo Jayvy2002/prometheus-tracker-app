@@ -112,13 +112,15 @@ export default function ClientProfileEditor({
               key={g.value}
               type="button"
               onClick={() => setGoal(g.value)}
-              className={`rounded-xl px-2 py-2 text-xs border ${
+              aria-pressed={goal === g.value}
+              className={`min-h-11 rounded-xl px-2 py-2 text-xs border ${
                 goal === g.value
                   ? 'bg-blue-600/20 border-blue-500 text-white'
                   : 'bg-neutral-900 border-neutral-800 text-neutral-400'
               }`}
             >
-              {t(`coaching.goalLabels.${g.value}`)}
+              {/* Same labels as the goal panel and the client list (Vision §6). */}
+              {t(`goals.kinds.${g.value}`)}
             </button>
           ))}
         </div>
