@@ -4,15 +4,16 @@
 >
 > Les migrations SQL sont append-only. Les inventaires dans Git doivent rester cohérents avec Supabase production. Ce document décrit le contrat et l’état vérifié ; les fichiers lock contiennent le détail machine-readable.
 
-## État vérifié — 23 septembre 2026
+## État vérifié — 24 septembre 2026
 
 Vérification directe contre le projet Supabase `phyuijjekxtjvipjtdfv` :
 
-- projet `ACTIVE_HEALTHY`, PostgreSQL 17.6 ;
-- **138 migrations** dans le lock production `supabase/schema_migrations.lock.json` ;
-- **138 migrations** observées en production, dans le même ordre ;
-- dernière version appliquée : `20260923021000_p5_minimal_admin` ;
-- `migrations.pending.json` est vide ;
+- **154 migrations** dans le lock production `supabase/schema_migrations.lock.json` ;
+- **154 migrations** observées en production, dans le même ordre ;
+- dernière version appliquée : `20260924205000_p6_entitlements` ;
+- `migrations.pending.json` contient `20260924210000_constraint_backfill_quiet` (PR `#237`) ;
+- les 15 migrations de l’audit 2 (`20260923082313` à `20260924200000`) et P6.1 ont été appliquées **automatiquement au merge sur `new-JV`** par l’intégration GitHub Supabase, avec le timestamp Git ;
+- P6.1 a été renommée de `20260923140000` en `20260924205000` **avant** son application : la production avait déjà `20260924200000` et la CLI refuse d’insérer une version plus ancienne. Rien d’appliqué n’a été réécrit ;
 - P5.4 a été observé avec le **même timestamp Git** `20260923021000` (aucun restamp, 79 statements, `created_by` null) ; `grant_platform_operator` et `admin_revoke_platform_operator` revalident `is_platform_operator()` après `lock_platform_operators()` ;
 - P5.3 a été appliqué avec le **même timestamp Git** `20260923014500` (aucun restamp, 74 statements, `created_by` null, empreinte `d0c9455e78a9b5090d76cf6ee5764a52`) ;
 - P5.2 a été appliqué avec le **même timestamp Git** `20260922223000` (aucun restamp, 129 statements, `created_by` null) ;
@@ -85,7 +86,7 @@ Voir [P1.1](P1_1_COACH_CAPABILITY.md). Une PR verte ne constitue pas un déploie
 5. Rejouer la base locale et lancer les tests du domaine.
 6. Exécuter les advisors Supabase lorsque la sécurité/performance est concernée.
 7. Vérifier les permissions Data API + RLS/RPC.
-8. Appliquer via `workflow_dispatch` du workflow CI, input `confirm_apply=APPLY_PENDING`. Le job `apply pending migrations` relance la preuve dry-run, puis `supabase db push --linked --yes --skip-vault`. Le timestamp du fichier Git est conservé. Ne pas passer par le MCP `apply_migration` : il réécrit la version.
+8. **Le merge sur `new-JV` applique la migration en production** (intégration GitHub Supabase, timestamp Git conservé, constaté le 24 septembre 2026). La version doit donc être postérieure à la dernière version distante au moment du merge ; la preuve dry-run du job `verify` le contrôle. Le `workflow_dispatch` `confirm_apply=APPLY_PENDING` (preuve dry-run puis `supabase db push --linked --yes --skip-vault`) reste disponible si l’intégration est désactivée. Ne pas passer par le MCP `apply_migration` : il réécrit la version.
 9. Vérifier production.
 10. Rafraîchir `supabase/schema_migrations.lock.json` uniquement avec l’état réellement observé.
 
@@ -93,12 +94,13 @@ Voir [P1.1](P1_1_COACH_CAPABILITY.md). Une PR verte ne constitue pas un déploie
 
 L’inventaire machine-readable est `supabase/functions.deployed.lock.json`.
 
-État live vérifié directement le 22 septembre 2026 après le merge `#213` : **13 fonctions ACTIVE**. `delete-account` est en **v17**, `verify_jwt=false`, cleanup Storage fail-closed. Exemples importants au moment du contrôle :
+État live vérifié directement le 24 septembre 2026 après les merges de l’audit 2 : **13 fonctions ACTIVE**, redéployées automatiquement au merge sur `new-JV` par l’intégration GitHub Supabase. Exemples importants au moment du contrôle :
 
-- `delete-account` : v17, `verify_jwt=false` ;
-- `coach-agent` : v156, `verify_jwt=true` ;
-- `coach-fleet-round` : v163, `verify_jwt=false` ;
-- `notify-onboarding-complete` : v152, `verify_jwt=false`.
+- `delete-account` : v20, `verify_jwt=false` (demande sous fenêtre de récupération, purge `purge_due` par le cron) ;
+- `send-daily-reminders` : v163, `verify_jwt=false` ;
+- `coach-agent` : v177, `verify_jwt=true` ;
+- `coach-fleet-round` : v185, `verify_jwt=false` ;
+- `notify-onboarding-complete` : v173, `verify_jwt=false`.
 
 Les numéros de version Supabase sont volatils et augmentent lors des redéploiements. Après toute modification d’Edge Function :
 
@@ -108,4 +110,4 @@ Les numéros de version Supabase sont volatils et augmentent lors des redéploie
 4. rafraîchir `supabase/functions.deployed.lock.json` avec ce qui est réellement déployé ;
 5. ne jamais considérer un job `skipped` comme une preuve de déploiement.
 
-Le vieux job CI conditionné à une branche d’audit spécifique a été retiré : le workflow CI vérifie le code ; le déploiement Edge reste une opération explicite et vérifiée.
+Le vieux job CI conditionné à une branche d’audit spécifique a été retiré : le workflow CI vérifie le code. Le déploiement Edge suit le merge sur `new-JV` (intégration Supabase) et doit toujours être vérifié en live avant de rafraîchir le lock.

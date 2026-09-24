@@ -61,8 +61,10 @@ test('SQL contract: separate table, service-only writes, own reads, coach grace 
   assert.doesNotMatch(sql, /user_capabilities/);
   // The legacy free/premium model is not an input.
   assert.doesNotMatch(sql, /FROM public\.subscriptions|role = 'premium'/);
+  // Tracked by the migration inventory: pending before deployment, lock once observed in production.
+  const lock = JSON.parse(src('supabase/schema_migrations.lock.json')) as { applied: Array<{ version: string }> };
   const pending = JSON.parse(src('supabase/migrations.pending.json')) as { pending: Array<{ version: string }> };
-  assert.ok(pending.pending.some(row => row.version === '20260924205000'));
+  assert.ok([...lock.applied, ...pending.pending].some(row => row.version === '20260924205000'));
   assert.match(src('.github/workflows/ci.yml'), /supabase\/tests\/p6_entitlements\.sql/);
 });
 
