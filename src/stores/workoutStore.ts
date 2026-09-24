@@ -21,9 +21,10 @@ import { migrateFieldDraftIds } from '../lib/fieldDraftKeys';
 import { parseDate, toLocalDateStr } from '../lib/utils';
 import { track } from '../lib/telemetryClient';
 import { useStreakStore } from './streakStore';
-import { offlineTempId, isOfflineTempId } from '../features/workout/data/offlineIds';
+import { offlineTempId, isOfflineTempId, referencesOfflineTempId } from '../features/workout/data/offlineIds';
 import { loadFullWorkout, type ExerciseSession, type PreviousSet } from '../features/workout/data/loadFullWorkout';
 import { replayOfflineOp } from '../features/workout/data/replayOfflineOp';
+import { buildOfflineStartedWorkout, type OfflineStartInput } from '../features/workout/domain/offlineStart';
 
 export { offlineTempId, isOfflineTempId } from '../features/workout/data/offlineIds';
 export type { ExerciseSession } from '../features/workout/data/loadFullWorkout';
@@ -88,6 +89,10 @@ async function guardedMutation(
     return { error: null as string | null, queued: true };
   };
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return queueIt();
+  // A temporary id only exists locally until its create op replays: sending it
+  // now would fail on the server and lose the edit. It waits in the queue,
+  // behind the op that will give it a real id.
+  if (referencesOfflineTempId(payload)) return queueIt();
   try {
     const { error } = await send();
     if (!error) {
@@ -123,6 +128,8 @@ interface WorkoutState {
   fetchWorkout: (workoutId: string) => Promise<void>;
   peekWorkout: (workoutId: string) => Promise<Workout | null>;
   createWorkout: (workout: Partial<Workout>) => Promise<string | null>;
+  /** Vision §26 : séance prévue démarrée sans réseau, rejouée plus tard sans doublon. */
+  startTemplateOffline: (input: Omit<OfflineStartInput, 'opId' | 'userId'>) => string | null;
   updateWorkout: (id: string, data: Partial<Workout>) => Promise<{ error: string | null }>;
   reset: () => void;
   deleteWorkout: (id: string) => Promise<void>;
@@ -315,6 +322,24 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
     if (full && owner && full.user_id !== owner) return null;
     if (full) setCacheItem(workoutCacheKey(workoutId), full);
     return full;
+  },
+
+  startTemplateOffline: (input) => {
+    const owner = getSessionOwner();
+    if (!owner) return null;
+    const op = takeQueuedOp('workout.startTemplate', {
+      name: input.name,
+      date: input.date,
+      routineId: input.routineId ?? null,
+      programAssignmentId: input.programAssignmentId ?? null,
+      programDayId: input.programDayId ?? null,
+      exercises: input.exercises,
+    }, owner);
+    if (!op) return null;
+    const temp = buildOfflineStartedWorkout({ ...input, opId: op.id, userId: owner });
+    setCacheItem(workoutCacheKey(temp.id), temp);
+    set(s => ({ workouts: [temp, ...s.workouts], currentWorkout: temp, ...queueCounts(owner) }));
+    return temp.id;
   },
 
   createWorkout: async (workout) => {

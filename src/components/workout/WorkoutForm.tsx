@@ -4,7 +4,7 @@ import FullPageLayout from '../layout/FullPageLayout';
 import { ArrowLeft, Plus, Timer, CloudOff, RefreshCw, AlertTriangle, MoreVertical } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
-import { useWorkoutStore } from '../../stores/workoutStore';
+import { useWorkoutStore, isOfflineTempId } from '../../stores/workoutStore';
 import { supabase } from '../../lib/supabase';
 import Button from '../ui/Button';
 import EmptyState from '../ui/EmptyState';
@@ -219,6 +219,14 @@ function WorkoutFormInner() {
     // Seeding is handled in startWorkoutFromTemplate for /new + routineId.
     routineAppliedRef.current = true;
   }, [currentWorkout?.id, routineId, isNew]);
+
+  // Once an offline session has synced, the URL follows its real id so a
+  // reload opens the server copy instead of a cleared local draft.
+  useEffect(() => {
+    if (id && isOfflineTempId(id) && currentWorkout && !isOfflineTempId(currentWorkout.id)) {
+      navigate(`/workout/${currentWorkout.id}`, { replace: true });
+    }
+  }, [id, currentWorkout?.id, navigate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (currentWorkout) {

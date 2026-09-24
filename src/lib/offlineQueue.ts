@@ -2,6 +2,7 @@ import { getSessionOwner } from './sessionScope';
 
 export type OfflineOpType =
   | 'workout.create'
+  | 'workout.startTemplate'
   | 'workout.update'
   | 'workout.delete'
   | 'exercise.add'
@@ -243,6 +244,7 @@ export function isQuotaError(error: unknown): boolean {
 
 const OFFLINE_OP_KEYS: Record<OfflineOpType, string> = {
   'workout.create': 'workout.offlineOp.create',
+  'workout.startTemplate': 'workout.offlineOp.startTemplate',
   'workout.update': 'workout.offlineOp.update',
   'workout.delete': 'workout.offlineOp.delete',
   'exercise.add': 'workout.offlineOp.exerciseAdd',
