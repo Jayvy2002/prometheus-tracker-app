@@ -9,6 +9,7 @@ import { useDraftContext } from './WorkoutDraftContext';
 import { optionLabel } from '../../lib/optionLabels';
 import { applySetPlaceholders, parseDecimalInput } from '../../lib/workoutSetComplete';
 import { parseDropSegments, emptyDropSegments } from '../../lib/programSetPrescription';
+import { placeholderLoadKg, placeholderReps, prescriptionAppliesToSet } from '../../features/workout/domain/setPlaceholders';
 
 // --- Set Type Picker ---
 
@@ -78,6 +79,7 @@ export function SetRow({
   showReps,
   showSets,
   suggestedWeight,
+  prescription,
   prevSet,
   previousSet,
   onDelete,
@@ -92,6 +94,8 @@ export function SetRow({
   showReps: boolean;
   showSets: boolean;
   suggestedWeight?: number | null;
+  /** The exercise's prescription: the fallback when the last session says nothing. */
+  prescription?: { reps?: number | null; repsMin?: number | null; weightKg?: number | null } | null;
   prevSet?: { weight_kg: number; reps: number; rir: number } | null;
   previousSet?: WorkoutSet | null;
   onDelete: () => void;
@@ -236,10 +240,27 @@ export function SetRow({
   }, [set.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const typeInfo = SET_TYPES.find(t => t.value === localType) || SET_TYPES[1];
-  const displaySuggested = suggestedWeight ? toDisplay(suggestedWeight) : 0;
   const displayPrev = prevSet?.weight_kg ? toDisplay(prevSet.weight_kg) : 0;
-  const weightPlaceholder = suggestedWeight && !localWeight ? String(displaySuggested) : prevSet?.weight_kg ? String(displayPrev) : '0';
-  const repsPlaceholder = prevSet?.reps ? String(prevSet.reps) : '0';
+  // Last session first, then the prescription; unknown stays empty — never « 0 ».
+  const usePrescription = prescriptionAppliesToSet({ set_type: localType, myo_is_activation: set.myo_is_activation });
+  const loadKg = placeholderLoadKg({
+    suggestedKg: suggestedWeight,
+    previousKg: prevSet?.weight_kg,
+    prescribedKg: prescription?.weightKg,
+    usePrescription,
+  });
+  const repsValue = placeholderReps({
+    previousReps: prevSet?.reps,
+    prescribedReps: prescription?.reps,
+    prescribedRepsMin: prescription?.repsMin,
+    usePrescription,
+  });
+  /** Values a single tap records (see applySetPlaceholders). */
+  const weightPlaceholder = loadKg != null ? String(toDisplay(loadKg)) : '';
+  const repsPlaceholder = repsValue != null ? String(repsValue) : '';
+  /** What the empty box shows: the value, or a neutral unit hint. */
+  const weightHint = weightPlaceholder || weightUnit;
+  const repsHint = repsPlaceholder || t('workout.exerciseCard.repsPlaceholder');
 
   const handleToggleComplete = () => {
     if (set.completed) {
@@ -283,7 +304,7 @@ export function SetRow({
 
   const isFilled = isDrop
     ? segments.every(row => row.weight_kg > 0 && row.reps > 0)
-    : !!localWeight && (isIsometric ? !!localDuration : !!localReps);
+    : (!showLoad || !!localWeight) && (isIsometric ? !!localDuration : !!localReps);
 
   // Drop percentage badge (ratio — computed in display units consistently)
   const prevDisplay = previousSet && previousSet.weight_kg > 0 ? toDisplay(previousSet.weight_kg) : 0;
@@ -386,7 +407,7 @@ export function SetRow({
               }}
               className={`w-full min-h-11 rounded-lg px-1.5 py-2.5 text-base text-white text-center font-medium focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all
                 ${suggestedWeight && !localWeight && !set.weight_kg ? 'bg-blue-500/10 border border-blue-500/30' : 'bg-neutral-800/80 border border-transparent'}`}
-              placeholder={weightPlaceholder}
+              placeholder={weightHint}
             />
           </div>
           )}
@@ -419,7 +440,7 @@ export function SetRow({
                 onFocus={e => e.target.select()}
                 onBlur={handleRepsBlur}
                 className="w-full min-h-11 bg-neutral-800/80 border border-transparent rounded-lg px-1.5 py-2.5 text-base text-white text-center font-medium focus:outline-none focus:ring-1 focus:ring-blue-500"
-                placeholder={repsPlaceholder}
+                placeholder={repsHint}
               />
             )}
           </div>
@@ -476,7 +497,7 @@ export function SetRow({
                   }}
                   onBlur={() => updateSet(set.id, { drop_segments: segments, weight_kg: segments[0]?.weight_kg ?? 0 })}
                   className="flex-1 min-h-11 rounded-lg px-2 py-2 text-sm text-white text-center bg-neutral-800/80"
-                  placeholder={weightPlaceholder}
+                  placeholder={weightHint}
                 />
               )}
               {showReps && (
@@ -491,7 +512,7 @@ export function SetRow({
                   }}
                   onBlur={() => updateSet(set.id, { drop_segments: segments, reps: segments.reduce((sum, s) => sum + s.reps, 0) })}
                   className="flex-1 min-h-11 rounded-lg px-2 py-2 text-sm text-white text-center bg-neutral-800/80"
-                  placeholder={repsPlaceholder}
+                  placeholder={repsHint}
                 />
               )}
             </div>

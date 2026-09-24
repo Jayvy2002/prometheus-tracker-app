@@ -115,8 +115,8 @@ export default function RecipeForm({ recipe, onClose, onSaved }: Props) {
     <div className="fixed inset-0 z-50 bg-black overflow-y-auto animate-fade-in">
       <div className="max-w-lg mx-auto px-4 py-6 animate-fade-in-up">
         <div className="flex items-center gap-3 mb-6">
-          <button onClick={onClose} className="p-2 -ml-2 text-neutral-400 hover:text-white transition-colors">
-            <ArrowLeft size={20} />
+          <button type="button" onClick={onClose} aria-label={t('common.back')} className="inline-flex min-h-11 min-w-11 items-center justify-center -ml-3 rounded-xl text-neutral-400 hover:text-white transition-colors">
+            <ArrowLeft size={20} aria-hidden="true" />
           </button>
           <h2 className="text-xl font-bold text-white flex-1">{recipe ? t('nutrition.recipeForm.editTitle') : t('nutrition.recipeForm.newTitle')}</h2>
           <Button onClick={handleSave} loading={saving} size="sm">{t('common.save')}</Button>
@@ -156,10 +156,11 @@ export default function RecipeForm({ recipe, onClose, onSaved }: Props) {
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider">{t('nutrition.recipeForm.ingredients')}</h3>
             <button
+              type="button"
               onClick={() => setShowPicker(true)}
-              className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors"
+              className="min-h-11 px-2 -mr-2 text-sm text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors"
             >
-              <Plus size={14} /> {t('common.add')}
+              <Plus size={14} aria-hidden="true" /> {t('common.add')}
             </button>
           </div>
 
@@ -176,8 +177,13 @@ export default function RecipeForm({ recipe, onClose, onSaved }: Props) {
                   <p className="text-sm font-medium text-white truncate">{ing.name}</p>
                   <p className="text-xs text-neutral-500">{ing.quantity}{ing.unit} · {Math.round(ing.calories || 0)} kcal</p>
                 </div>
-                <button onClick={() => removeDraftIngredient(i)} className="p-1.5 text-neutral-600 hover:text-rose-400 transition-colors">
-                  <Trash2 size={14} />
+                <button
+                  type="button"
+                  onClick={() => removeDraftIngredient(i)}
+                  aria-label={t('nutrition.recipeForm.removeIngredient', { name: ing.name })}
+                  className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center -my-2 -mr-2 rounded-xl text-neutral-400 hover:text-rose-400 transition-colors"
+                >
+                  <Trash2 size={16} aria-hidden="true" />
                 </button>
               </Card>
             ))}

@@ -403,6 +403,8 @@ const common = {
     steps: {
       goalTitle: 'Your goal',
       goalSub: 'What matters to you now. You can change it.',
+      welcomeTitle: 'Let’s get to know you',
+      welcomeSub: 'Your first name, then what matters to you now. You can change everything later.',
       trainingSubMinimal: 'So the sessions fit you.',
       measuresTitle: 'Your measurements (optional)',
       measuresSub: 'Without measurements, no invented calorie target: you can add them later.',
@@ -426,6 +428,8 @@ const common = {
     },
     fields: {
       firstName: 'First name',
+      firstNameQuestion: 'What’s your first name?',
+      bodyGoalHint: 'For your body weight. A performance, strength or health goal is set afterwards in Profile › Goals & Targets.',
       equipment: 'Available equipment',
       constraints: 'Pain or constraints (optional)',
       sex: 'Sex (to estimate your needs)',
@@ -487,6 +491,20 @@ const common = {
       mixed: 'A bit of both',
       mixedHint: 'Gym sometimes, home otherwise.',
     },
+    // Said next to « Continue » as soon as something blocks it.
+    missing: {
+      intro: 'To continue, still missing: {{list}}.',
+      and: 'and',
+      measures: 'A measurement is not valid: fix it or clear it (they are optional).',
+      items: {
+        firstName: 'your first name',
+        goal: 'your goal',
+        experience: 'your level',
+        frequency: 'your sessions per week',
+        equipment: 'your equipment',
+        modules: 'at least one module to track',
+      },
+    },
     summary: {
       yourStats: 'Your Stats',
       yourDailyTargets: 'Your Daily Targets',
@@ -529,6 +547,19 @@ const common = {
     viewProgress: 'Progress',
     progressDesc: 'PRs & performance',
     programHint: 'Your plans and templates',
+    planProgram: 'Plan a program',
+    planProgramHint: 'Your sessions over several weeks, at your pace',
+    startHero: {
+      title: 'No session planned yet',
+      body: 'Start a free session now, or create a routine you can start again in one tap.',
+      createRoutine: 'Create my first routine',
+    },
+    reviewCompact: {
+      insufficient: 'Not enough data to conclude yet',
+      noChange: 'Nothing to change for now',
+      moreData: 'A few more days of data are needed to conclude',
+      guarded: 'No automatic adjustment for your profile',
+    },
     reminders: {
       weight: "Last weigh-in was {{days}} days ago.",
       meal: "Lunch has not been recorded.",

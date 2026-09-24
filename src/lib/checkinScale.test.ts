@@ -12,6 +12,7 @@ import {
   invertScoreOnTen,
   isLegacyFiveScaleCheckin,
   isLegacyFiveScaleRow,
+  scoreFromKey,
   scoreFromTrackRatio,
   scoreOnTen,
 } from './checkinScale';
@@ -119,4 +120,55 @@ test('client check-in form uses 0–10 sliders, not a button grid', () => {
   assert.match(editor, /data-testid="checkin-vars-editor"/);
   assert.match(src('src/components/coaching/CheckinReviewPanel.tsx'), /CheckinFilledScores/);
   assert.match(src('src/components/coaching/ClientDetailPage.tsx'), /CheckinFilledScores/);
+});
+
+test('keyboard on a 0–10 score: first arrow answers, Delete goes back to not answered', () => {
+  assert.equal(scoreFromKey(null, 'ArrowRight'), 0);
+  assert.equal(scoreFromKey(null, 'ArrowLeft'), 0);
+  assert.equal(scoreFromKey(4, 'ArrowUp'), 5);
+  assert.equal(scoreFromKey(10, 'ArrowRight'), 10);
+  assert.equal(scoreFromKey(0, 'ArrowDown'), 0);
+  assert.equal(scoreFromKey(null, 'End'), 10);
+  assert.equal(scoreFromKey(7, 'Home'), 0);
+  assert.equal(scoreFromKey(7, 'Delete'), null);
+  assert.equal(scoreFromKey(7, 'Backspace'), null);
+  assert.equal(scoreFromKey(7, 'Tab'), undefined);
+});
+
+test('lot D: « not answered » never looks like 0, and the check-in form stays calm', () => {
+  const slider = src('src/components/checkin/ScoreSlider.tsx');
+  // Not answered: dashed neutral track, no thumb, a « tap to answer » cue, spoken as not set.
+  assert.match(slider, /border-dashed/);
+  assert.match(slider, /checkin\.tapToAnswer/);
+  assert.match(slider, /aria-valuetext=\{set \? t\('checkin\.scoreValueText'[^}]*\}\) : unsetLabel\}/);
+  assert.doesNotMatch(slider, /value \?\? CHECKIN_SCORE_MIN/, 'an unset score must not be drawn at 0');
+  // Clearing is a real, named, 44 px button.
+  assert.match(slider, /checkin\.clearAnswerLabel/);
+  assert.match(slider, /onChange\(null\)/);
+  assert.match(slider, /min-h-11/);
+  assert.match(slider, /scoreFromKey/);
+
+  const page = src('src/components/checkin/CheckInPage.tsx');
+  // Sleep hours: unit, example, decimal keypad, comma accepted by the shared parser.
+  assert.match(page, /parseSleepHours/);
+  assert.match(page, /inputMode="decimal"/);
+  assert.match(page, /checkin\.sleepHoursUnit/);
+  assert.match(page, /checkin\.sleepHoursPlaceholder/);
+  assert.match(page, /checkin\.sleepHoursInvalid/);
+  // Scores start unset and go through clampCheckinScore: null stays null (absence ≠ 0).
+  assert.match(page, /sleep_quality: null,/);
+  assert.match(page, /clampCheckinScore\(scales\.sleep_quality\)/);
+  // « Demander à Prometheus » is a secondary action after the save button, not the first thing.
+  const save = page.indexOf("t('checkin.save')");
+  const ask = page.indexOf('<SoloAskBar');
+  assert.ok(save > 0 && ask > save, 'the ask bar comes after the save button');
+  assert.match(page, /checkin\.askNoteAdded/);
+
+  const fr = src('src/i18n/locales/fr/coaching.ts');
+  const en = src('src/i18n/locales/en/coaching.ts');
+  for (const key of ['tapToAnswer', 'clearAnswer', 'clearAnswerLabel', 'scoreValueText', 'sleepHoursUnit', 'sleepHoursPlaceholder', 'sleepHoursHint', 'askNoteAdded']) {
+    assert.match(fr, new RegExp(`\\b${key}:`), `fr ${key}`);
+    assert.match(en, new RegExp(`\\b${key}:`), `en ${key}`);
+  }
+  assert.match(fr, /notSet: 'Non renseigné'/);
 });

@@ -1,43 +1,43 @@
-import { Link, useSearchParams } from 'react-router-dom';
+import { Navigate, Outlet, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Eye } from 'lucide-react';
-import ExerciseProgressPage from '../workout/ExerciseProgressPage';
-import StatsPage from '../stats/StatsPage';
-import CalendarPage from '../calendar/CalendarPage';
-import HubTabs from './HubTabs';
+import HubTabs, { HubLoading } from './HubTabs';
 import { useResourcePermissions } from '../../lib/useResourcePermissions';
+import { hubRedirectPath, suiviHubItems, suiviWatchItem } from '../../app/navigation/navConfig';
 
-type View = 'exercises' | 'trends' | 'calendar';
+/**
+ * Suivi : Calendrier (page principale, Vision §13) · Exercices · Résumé, with
+ * « Ce que Prometheus surveille » beside the tabs. Calendar and summary are
+ * personal read surfaces: shown only to who may open them.
+ */
+function useSuiviHubItems() {
+  const { actor, canReadOwnHistory, canOpenPersonalCalendarRoute } = useResourcePermissions();
+  return {
+    ready: actor.ready,
+    items: suiviHubItems({ calendar: canOpenPersonalCalendarRoute, history: canReadOwnHistory }),
+  };
+}
 
-/** Suivi : Calendrier (page principale, Vision §13) · Exercices · Tendances. */
+/**
+ * Layout of every Suivi page (/calendar, /exercise-progress, /stats, /watch):
+ * the page (CalendarPage, ExerciseProgressPage, StatsPage…) keeps its own
+ * route and guards, and always shows the same sub-tabs.
+ */
 export default function SuiviHub() {
   const { t } = useTranslation();
-  const { canReadOwnHistory, canOpenPersonalCalendarRoute } = useResourcePermissions();
-  const [params, setParams] = useSearchParams();
-  const views: View[] = [
-    ...(canOpenPersonalCalendarRoute ? ['calendar' as const] : []),
-    'exercises',
-    ...(canReadOwnHistory ? ['trends' as const] : []),
-  ];
-  const requested = params.get('view') as View | null;
-  const view = requested && views.includes(requested) ? requested : views[0];
-  const labels: Record<View, string> = {
-    exercises: t('nav.progressTraining'),
-    trends: t('nav.progressSummary'),
-    calendar: t('nav.calendar'),
-  };
-
+  const { ready, items } = useSuiviHubItems();
   return (
     <div>
-      <HubTabs label={t('nav.suivi')} views={views} value={view} labels={labels} onChange={next => setParams({ view: next })} />
-      <div className="px-4 pt-3">
-        <Link to="/watch" className="inline-flex min-h-11 items-center gap-2 text-sm text-neutral-300 hover:text-white">
-          <Eye size={16} className="text-blue-300" /> {t('prometheusWatch.title')}
-        </Link>
-      </div>
-      {view === 'exercises' ? <ExerciseProgressPage embedded /> : null}
-      {view === 'trends' ? <StatsPage embedded /> : null}
-      {view === 'calendar' ? <CalendarPage /> : null}
+      {ready ? <HubTabs label={t('nav.suivi')} items={items} extra={suiviWatchItem} /> : null}
+      <Outlet />
     </div>
   );
+}
+
+/** `/suivi` (the Suivi tab, and old `/suivi?view=` links) opens the first available sub-page. */
+export function SuiviHubIndex() {
+  const [params] = useSearchParams();
+  const { ready, items } = useSuiviHubItems();
+  if (!ready) return <HubLoading />;
+  const target = hubRedirectPath(items, params.get('view')) ?? '/exercise-progress';
+  return <Navigate to={target} replace />;
 }

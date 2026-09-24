@@ -403,6 +403,8 @@ const common = {
     steps: {
       goalTitle: 'Ton objectif',
       goalSub: 'Ce qui compte pour toi maintenant. Tu pourras le changer.',
+      welcomeTitle: 'Faisons connaissance',
+      welcomeSub: 'Ton prénom, puis ce qui compte pour toi maintenant. Tu pourras tout changer.',
       trainingSubMinimal: 'Pour proposer des séances qui te ressemblent.',
       measuresTitle: 'Tes mesures (facultatif)',
       measuresSub: 'Sans mesures, pas d’objectif calorique inventé : tu pourras les ajouter plus tard.',
@@ -426,6 +428,8 @@ const common = {
     },
     fields: {
       firstName: 'Prénom',
+      firstNameQuestion: 'Comment tu t’appelles ?',
+      bodyGoalHint: 'Pour ton poids. Un objectif de performance, de force ou de santé se définit ensuite dans Profil › Objectifs & cibles.',
       equipment: 'Matériel disponible',
       constraints: 'Douleurs ou contraintes (facultatif)',
       sex: 'Sexe (pour estimer tes besoins)',
@@ -487,6 +491,20 @@ const common = {
       mixed: 'Un peu des deux',
       mixedHint: 'Salle parfois, maison sinon.',
     },
+    // Said next to « Continuer » as soon as something blocks it.
+    missing: {
+      intro: 'Pour continuer, il manque : {{list}}.',
+      and: 'et',
+      measures: 'Une mesure n’est pas valable : corrige-la ou efface-la (elles sont facultatives).',
+      items: {
+        firstName: 'ton prénom',
+        goal: 'ton objectif',
+        experience: 'ton niveau',
+        frequency: 'tes séances par semaine',
+        equipment: 'ton matériel',
+        modules: 'au moins un module à suivre',
+      },
+    },
     summary: {
       yourStats: 'Tes statistiques',
       yourDailyTargets: 'Tes objectifs quotidiens',
@@ -529,6 +547,19 @@ const common = {
     viewProgress: 'Progression',
     progressDesc: 'Records et perfs',
     programHint: 'Tes plans et modèles',
+    planProgram: 'Planifier un programme',
+    planProgramHint: 'Tes séances sur plusieurs semaines, à ton rythme',
+    startHero: {
+      title: 'Aucune séance prévue pour l’instant',
+      body: 'Lance une séance libre maintenant, ou crée une routine à relancer en un geste.',
+      createRoutine: 'Créer ma première routine',
+    },
+    reviewCompact: {
+      insufficient: 'Pas encore assez de données pour conclure',
+      noChange: 'Rien à changer pour l’instant',
+      moreData: 'Encore quelques jours de données pour conclure',
+      guarded: 'Pas d’ajustement automatique pour ton profil',
+    },
     reminders: {
       weight: "Dernière pesée il y a {{days}} jours.",
       meal: "Déjeuner non renseigné.",

@@ -158,17 +158,18 @@ export default function IngredientPicker({ onAdd, onClose }: Props) {
       <div className="max-w-lg mx-auto px-4 py-6 animate-fade-in-up">
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-3">
-            <button onClick={onClose} className="p-2 -ml-2 text-neutral-400 hover:text-white transition-colors">
-              <ArrowLeft size={20} />
+            <button type="button" onClick={onClose} aria-label={t('common.back')} className="inline-flex min-h-11 min-w-11 items-center justify-center -ml-3 rounded-xl text-neutral-400 hover:text-white transition-colors">
+              <ArrowLeft size={20} aria-hidden="true" />
             </button>
             <h2 className="text-xl font-bold text-white">{t('nutrition.ingredientPicker.title')}</h2>
           </div>
           <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={() => setShowScanner(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white hover:border-neutral-700 text-sm transition-colors"
+              className="flex min-h-11 items-center gap-1.5 px-3 rounded-xl bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white hover:border-neutral-700 text-sm transition-colors"
             >
-              <ScanLine size={14} />
+              <ScanLine size={14} aria-hidden="true" />
               {t('nutrition.ingredientPicker.scannerButton')}
             </button>
           </div>
@@ -179,7 +180,8 @@ export default function IngredientPicker({ onAdd, onClose }: Props) {
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-medium transition-all
+              type="button"
+              className={`flex-1 flex items-center justify-center gap-1 min-h-11 rounded-lg text-xs font-medium transition-all
                 ${tab === t.id ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
             >
               <t.Icon size={11} />
@@ -224,10 +226,11 @@ export default function IngredientPicker({ onAdd, onClose }: Props) {
                 )}
                 <FoodSearchHits results={catalog.results} onSelect={selectProduct} />
                 <button
+                  type="button"
                   onClick={() => setShowScanner(true)}
-                  className="mt-2 w-full flex items-center justify-center gap-1.5 py-2 text-xs text-neutral-500 hover:text-blue-400 transition-colors"
+                  className="mt-2 w-full flex min-h-11 items-center justify-center gap-1.5 text-xs text-neutral-400 hover:text-blue-400 transition-colors"
                 >
-                  <Sparkles size={12} />
+                  <Sparkles size={12} aria-hidden="true" />
                   {t('nutrition.ingredientPicker.notRight')}
                 </button>
               </div>
@@ -322,10 +325,11 @@ export default function IngredientPicker({ onAdd, onClose }: Props) {
 
           {selectedProduct && selectedProduct.serving_size > 0 && (selectedProduct.serving_size !== +quantity || selectedProduct.serving_unit !== unit) && (
             <button
+              type="button"
               onClick={() => { setQuantity(selectedProduct.serving_size.toString()); setUnit(selectedProduct.serving_unit); }}
-              className="text-xs text-blue-400 hover:text-blue-300 transition-colors -mt-1"
+              className="inline-flex min-h-11 items-center text-sm text-blue-400 hover:text-blue-300 transition-colors -my-2"
             >
-              → 1 serving ({selectedProduct.serving_size} {selectedProduct.serving_unit})
+              {t('nutrition.foodForm.oneServing', { size: selectedProduct.serving_size, unit: selectedProduct.serving_unit })}
             </button>
           )}
 

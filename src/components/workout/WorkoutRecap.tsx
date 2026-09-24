@@ -6,6 +6,7 @@ import { useProfileStore } from '../../stores/profileStore';
 import { optionLabel } from '../../lib/optionLabels';
 import { isCompletedSet, isPerformedSet, isWarmupSet } from '../../lib/performedSets';
 import { usePlanSessionLabel } from '../../features/programs/hooks/usePlanSessionLabel';
+import { namedSetType } from '../../features/workout/domain/timedExercise';
 import type { Workout } from '../../lib/types';
 import ReminderPermissionPrompt from '../profile/ReminderPermissionPrompt';
 import Button from '../ui/Button';
@@ -65,6 +66,7 @@ export default function WorkoutRecap({ workout, onEdit }: Props) {
               <div className="space-y-1">
                 {(ex.sets ?? []).map((s, i) => {
                   const done = isCompletedSet(s);
+                  const named = namedSetType(s.set_type);
                   return (
                     <p
                       key={s.id}
@@ -72,7 +74,7 @@ export default function WorkoutRecap({ workout, onEdit }: Props) {
                     >
                       {i + 1}. {formatWeight(s.weight_kg, unit)} × {s.set_type === 'isometric' ? `${s.duration_seconds ?? 0}s` : s.reps}
                       {s.rir ? ` · RIR ${s.rir}` : ''}
-                      {s.set_type && s.set_type !== 'working' ? ` · ${optionLabel(t, 'setTypes', s.set_type)}` : ''}
+                      {named ? ` · ${optionLabel(t, 'setTypes', named)}` : ''}
                       {!done && !isWarmupSet(s) ? ` · ${t('workout.recap.skippedSet')}` : ''}
                     </p>
                   );

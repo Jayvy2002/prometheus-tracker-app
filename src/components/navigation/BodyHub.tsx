@@ -1,68 +1,51 @@
-import { useSearchParams } from 'react-router-dom';
+import { Navigate, Outlet, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import NutritionPage from '../nutrition/NutritionPage';
-import WeightPage from '../weight/WeightPage';
-import CheckInPage from '../checkin/CheckInPage';
-import ClientPhotosPage from '../coaching/ClientPhotosPage';
-import StepsTracker from '../nutrition/StepsTracker';
-import MeasurementsPage from '../measurements/MeasurementsPage';
-import HubTabs from './HubTabs';
+import HubTabs, { HubLoading } from './HubTabs';
 import { useClientTracking } from '../../lib/useClientTracking';
-import { useAuthStore } from '../../stores/authStore';
-import { useProfileStore } from '../../stores/profileStore';
-import { checkinHasAnyField, showModule, showNutritionField } from '../../lib/clientTracking';
-
-type View = 'nutrition' | 'weight' | 'measurements' | 'checkin' | 'photos';
+import { useCoachingStore } from '../../stores/coachingStore';
+import { isCoachedAthlete } from '../../lib/coachRole';
+import { checkinHasAnyField } from '../../lib/clientTracking';
+import { bodyHubItems, hubRedirectPath } from '../../app/navigation/navConfig';
 
 /**
- * Corps : ce qui se logge sur soi. Seuls les modules actifs apparaissent :
- * un module coupé par le coach n'est pas une vue vide, il n'existe pas.
- * Les photos (privées par défaut) sont toujours là. Les mensurations suivent
- * le module poids (composition corporelle, Vision §14.4).
+ * Corps : what is logged about oneself. Only active modules appear: a module
+ * switched off by the coach is not an empty view, it does not exist. Photos
+ * (private by default) are always there; measurements follow the weight module
+ * (Vision §14.4). The same list feeds the desktop « Corps » section.
+ */
+function useBodyHubItems() {
+  const tracking = useClientTracking();
+  const coached = useCoachingStore(s => isCoachedAthlete(s.coachingRole, s.myCoach));
+  const trackingReady = useCoachingStore(s => s.trackingReady);
+  return {
+    // A coached athlete's modules come from his coach: wait for them rather
+    // than show tabs that vanish a moment later.
+    ready: !coached || trackingReady,
+    items: bodyHubItems(tracking, { checkinHasFields: checkinHasAnyField(tracking) }),
+  };
+}
+
+/**
+ * Layout of every Corps page (/nutrition, /weight, /measurements, /checkin,
+ * /photos): opened from the tab, from quick add or from a direct link, the page
+ * always shows the same sub-tabs. Each route keeps its own TrackingGate.
  */
 export default function BodyHub() {
   const { t } = useTranslation();
-  const tracking = useClientTracking();
-  const [params, setParams] = useSearchParams();
-  const userId = useAuthStore(state => state.user?.id ?? null);
-  const unitHeight = useProfileStore(state => state.profile?.unit_height ?? 'cm');
-  const views: View[] = [
-    ...(showModule(tracking, 'nutrition') ? ['nutrition' as const] : []),
-    ...(showModule(tracking, 'weight') ? ['weight' as const, 'measurements' as const] : []),
-    ...(showModule(tracking, 'checkins') && checkinHasAnyField(tracking) ? ['checkin' as const] : []),
-    'photos',
-  ];
-  const requested = params.get('view') as View | null;
-  const view: View = requested && views.includes(requested) ? requested : views[0];
-  const labels: Record<View, string> = {
-    nutrition: t('nav.nutrition'),
-    weight: t('nav.weight'),
-    measurements: t('nav.measurements'),
-    checkin: t('nav.checkin'),
-    photos: t('nav.photos'),
-  };
-
+  const { ready, items } = useBodyHubItems();
   return (
     <div>
-      <HubTabs label={t('nav.sectionBody')} views={views} value={view} labels={labels} onChange={next => setParams({ view: next })} />
-      {view === 'nutrition' ? <NutritionPage /> : null}
-      {view === 'weight' ? (
-        <>
-          <WeightPage />
-          {showNutritionField(tracking, 'steps') ? (
-            <div className="px-4 pb-28">
-              <StepsTracker />
-            </div>
-          ) : null}
-        </>
-      ) : null}
-      {view === 'measurements' && userId ? (
-        <div className="px-4 pt-6 pb-28">
-          <MeasurementsPage userId={userId} unit={unitHeight} />
-        </div>
-      ) : null}
-      {view === 'checkin' ? <CheckInPage /> : null}
-      {view === 'photos' ? <ClientPhotosPage /> : null}
+      {ready ? <HubTabs label={t('nav.sectionBody')} items={items} /> : null}
+      <Outlet />
     </div>
   );
+}
+
+/** `/body` (the Corps tab, and old `/body?view=` links) opens the first available sub-page. */
+export function BodyHubIndex() {
+  const [params] = useSearchParams();
+  const { ready, items } = useBodyHubItems();
+  if (!ready) return <HubLoading />;
+  const target = hubRedirectPath(items, params.get('view')) ?? '/photos';
+  return <Navigate to={target} replace />;
 }

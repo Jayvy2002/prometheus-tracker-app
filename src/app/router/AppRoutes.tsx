@@ -34,7 +34,6 @@ const WorkoutForm = lazy(loadWorkoutForm);
 const ExerciseProgressPage = lazy(() => import('../../components/workout/ExerciseProgressPage'));
 const StatsPage = lazy(() => import('../../components/stats/StatsPage'));
 const RoutinesPage = lazy(() => import('../../components/routines/RoutinesPage'));
-const WeightPage = lazy(() => import('../../components/weight/WeightPage'));
 const NutritionPage = lazy(() => import('../../components/nutrition/NutritionPage'));
 const ScannerPage = lazy(() => import('../../components/scanner/ScannerPage'));
 const ProfilePage = lazy(() => import('../../components/profile/ProfilePage'));
@@ -43,7 +42,11 @@ const AdminPage = lazy(() => import('../../components/admin/AdminPage'));
 const CalendarPage = lazy(() => import('../../components/calendar/CalendarPage'));
 const AccountDeletionPendingPage = lazy(() => import('../../components/profile/AccountDeletionPendingPage'));
 const BodyHub = lazy(() => import('../../components/navigation/BodyHub'));
+const BodyHubIndex = lazy(() => import('../../components/navigation/BodyHub').then(m => ({ default: m.BodyHubIndex })));
+const BodyWeightPage = lazy(() => import('../../components/navigation/BodyPages').then(m => ({ default: m.BodyWeightPage })));
+const BodyMeasurementsPage = lazy(() => import('../../components/navigation/BodyPages').then(m => ({ default: m.BodyMeasurementsPage })));
 const SuiviHub = lazy(() => import('../../components/navigation/SuiviHub'));
+const SuiviHubIndex = lazy(() => import('../../components/navigation/SuiviHub').then(m => ({ default: m.SuiviHubIndex })));
 const WatchPage = lazy(() => import('../../components/navigation/WatchPage'));
 const RecipesPage = lazy(() => import('../../components/nutrition/RecipesPage'));
 const CheckInPage = lazy(() => import('../../components/checkin/CheckInPage'));
@@ -301,19 +304,28 @@ export default function AppRoutes() {
       <Route element={<AppLayout />}>
         <Route path="/dashboard" element={<HomeDashboard />} />
         <Route path="/workout" element={<CoachTrackerRedirect><TrackingGate module="workouts"><WorkoutPage /></TrackingGate></CoachTrackerRedirect>} />
-        <Route path="/body" element={<CoachTrackerRedirect><BodyHub /></CoachTrackerRedirect>} />
-        <Route path="/suivi" element={<CoachTrackerRedirect><SuiviHub /></CoachTrackerRedirect>} />
-        <Route path="/watch" element={<CoachTrackerRedirect><WatchPage /></CoachTrackerRedirect>} />
-        <Route path="/nutrition" element={<CoachTrackerRedirect><TrackingGate module="nutrition"><NutritionPage /></TrackingGate></CoachTrackerRedirect>} />
-        <Route path="/weight" element={<CoachTrackerRedirect><TrackingGate module="weight"><WeightPage /></TrackingGate></CoachTrackerRedirect>} />
-        <Route path="/calendar" element={<CoachTrackerRedirect><CalendarPage /></CoachTrackerRedirect>} />
+        {/* Corps and Suivi: /body and /suivi open their first sub-page; every
+            sub-page, however it is reached, shows the hub tabs. Each route keeps
+            its own guard (TrackingGate for a module the coach can switch off). */}
+        <Route path="/body" element={<CoachTrackerRedirect><BodyHubIndex /></CoachTrackerRedirect>} />
+        <Route element={<CoachTrackerRedirect><BodyHub /></CoachTrackerRedirect>}>
+          <Route path="/nutrition" element={<CoachTrackerRedirect><TrackingGate module="nutrition"><NutritionPage /></TrackingGate></CoachTrackerRedirect>} />
+          <Route path="/weight" element={<CoachTrackerRedirect><TrackingGate module="weight"><BodyWeightPage /></TrackingGate></CoachTrackerRedirect>} />
+          <Route path="/measurements" element={<CoachTrackerRedirect><TrackingGate module="weight"><BodyMeasurementsPage /></TrackingGate></CoachTrackerRedirect>} />
+          <Route path="/checkin" element={<CoachTrackerRedirect><TrackingGate module="checkins"><CheckInPage /></TrackingGate></CoachTrackerRedirect>} />
+          <Route path="/photos" element={<CoachTrackerRedirect><ClientPhotosPage /></CoachTrackerRedirect>} />
+        </Route>
+        <Route path="/suivi" element={<CoachTrackerRedirect><SuiviHubIndex /></CoachTrackerRedirect>} />
+        <Route element={<CoachTrackerRedirect><SuiviHub /></CoachTrackerRedirect>}>
+          <Route path="/calendar" element={<CoachTrackerRedirect><CalendarPage /></CoachTrackerRedirect>} />
+          <Route path="/exercise-progress" element={<CoachTrackerRedirect><ExerciseProgressPage embedded /></CoachTrackerRedirect>} />
+          <Route path="/progress/exercise/:exerciseName" element={<CoachTrackerRedirect><ExerciseProgressPage embedded /></CoachTrackerRedirect>} />
+          <Route path="/stats" element={<CoachTrackerRedirect><StatsPage embedded /></CoachTrackerRedirect>} />
+          <Route path="/watch" element={<CoachTrackerRedirect><WatchPage /></CoachTrackerRedirect>} />
+        </Route>
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/become-coach" element={<BecomeCoachPage />} />
         <Route path="/admin" element={<AdminPage />} />
-        <Route path="/exercise-progress" element={<CoachTrackerRedirect><ExerciseProgressPage /></CoachTrackerRedirect>} />
-        <Route path="/progress/exercise/:exerciseName" element={<CoachTrackerRedirect><ExerciseProgressPage /></CoachTrackerRedirect>} />
-        <Route path="/stats" element={<CoachTrackerRedirect><StatsPage /></CoachTrackerRedirect>} />
-        <Route path="/checkin" element={<CoachTrackerRedirect><TrackingGate module="checkins"><CheckInPage /></TrackingGate></CoachTrackerRedirect>} />
         <Route path="/checkin/settings" element={<CoachTrackerRedirect><TrackingGate module="checkins"><CheckinSettingsPage /></TrackingGate></CoachTrackerRedirect>} />
         <Route path="/clients" element={<CoachOnly><ClientsPage /></CoachOnly>} />
         <Route path="/clients/:id" element={<CoachOnly><ActiveRelationshipBoundary><ClientDetailPage /></ActiveRelationshipBoundary></CoachOnly>} />
@@ -322,7 +334,6 @@ export default function AppRoutes() {
         <Route path="/inbox/:interventionId" element={<CoachOnly><InterventionDraftPage /></CoachOnly>} />
         <Route path="/messages" element={<MessagesHome />} />
         <Route path="/messages/:clientId" element={<CoachOnly><CoachMessageAccess><CoachInboxPage /></CoachMessageAccess></CoachOnly>} />
-        <Route path="/photos" element={<CoachTrackerRedirect><ClientPhotosPage /></CoachTrackerRedirect>} />
         <Route path="/prometheus" element={<CoachOnly><AskPrometheusPage /></CoachOnly>} />
         <Route path="/coach/questionnaire" element={<CoachOnly><CoachQuestionnairePage key={user.id} /></CoachOnly>} />
         <Route path="/coach/checkins" element={<CoachOnly><CheckinTemplatesPage key={user.id} /></CoachOnly>} />

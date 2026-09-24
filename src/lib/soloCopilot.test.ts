@@ -238,7 +238,10 @@ test('solo copilot lives on the solo home, writes targets only on an explicit ac
   const dash = src('src/components/dashboard/Dashboard.tsx') + src('src/features/dashboard/hooks/useDashboardBootstrap.ts');
   // The weekly review is the solo's one AI card on the home: it renders only
   // when a decision waits, and its mount persists the weekly cycle.
-  assert.match(dash, /\{!hasCoach && !activityPending && !firstRun && <SoloWeeklyReview \/>\}/);
+  // Solo only, once the day is loaded (attentionReady implies !activityPending), never on a first run.
+  assert.match(dash, /const attentionReady = !activityPending && /);
+  assert.match(dash, /\{attentionReady && \(\s*<DashboardInsights[\s\S]*?showReview=\{!hasCoach && !firstRun\}/);
+  assert.match(dash, /\{showReview && <SoloWeeklyReview onSettled=\{settleReview\} \/>\}/);
   assert.match(dash, /SoloProgramProposal/);
   const nutrition = src('src/components/nutrition/NutritionPage.tsx');
   assert.doesNotMatch(nutrition, /WeeklyAdjustment/);

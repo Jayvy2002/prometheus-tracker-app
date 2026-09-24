@@ -21,6 +21,13 @@ const nutrition = {
     itemRemoved: '{{name}} removed',
     copyFromYesterday: 'Copy from yesterday',
     copyWholeDay: 'Copy all of yesterday',
+    // Meal actions: a visible short label for reuse, and a spoken name for every icon.
+    reuseShort: 'Reuse',
+    reuseMealFor: 'Reuse a meal — {{meal}}',
+    addFoodTo: 'Add food — {{meal}}',
+    editItem: 'Edit “{{name}}”',
+    deleteItem: 'Delete “{{name}}”',
+    kcalPerServing: '{{value}} kcal / serving',
     foodForm: {
       forMeal: 'Meal: {{meal}}',
       forMealOn: 'Meal: {{meal}} · {{date}}',
@@ -72,6 +79,8 @@ const nutrition = {
       lowConfidence: 'Low AI confidence — verify the nutritional values before saving',
       removedFromFavorites: 'Removed from favorites',
       addedToFavorites: 'Added to favorites',
+      addFavorite: 'Add to favorites',
+      removeFavorite: 'Remove from favorites',
       showMore: 'Show more ({{count}} remaining)',
       errors: {
         quantityPositive: 'Quantity must be greater than 0.',
@@ -108,6 +117,7 @@ const nutrition = {
       perServing: 'Per serving ({{n}} servings total)',
       ingredients: 'Ingredients',
       noIngredients: 'No ingredients yet',
+      removeIngredient: 'Remove “{{name}}”',
       updated: 'Recipe updated',
       created: 'Recipe created',
     },
@@ -131,6 +141,7 @@ const nutrition = {
       save: 'Save',
       saved: 'Steps saved',
       invalid: 'Invalid step count (0–100,000).',
+      reset: 'Reset today’s steps to zero',
     },
   },
 

@@ -1,7 +1,8 @@
 import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Target, Dumbbell, LayoutList, Ruler, ChevronRight, ChevronLeft, Check } from 'lucide-react';
+import type { TFunction } from 'i18next';
+import { Target, Dumbbell, LayoutList, Ruler, ChevronRight, ChevronLeft, Check, UserRound } from 'lucide-react';
 import { useProfileStore } from '../../stores/profileStore';
 import { useWeightStore } from '../../stores/weightStore';
 import { useAuthStore } from '../../stores/authStore';
@@ -19,6 +20,8 @@ import {
   canContinueSoloOnboarding,
   emptySoloOnboardingForm,
   measureErrors,
+  missingSoloOnboarding,
+  type OnboardingMissing,
   type SoloOnboardingForm,
 } from '../../features/account/domain/soloOnboarding';
 import PersonalModulesPicker from '../profile/PersonalModulesPicker';
@@ -102,14 +105,14 @@ function OptionGrid({ options, value, onChange, group, columns = 2 }: {
   );
 }
 
-// 1. Goal — what matters now.
+// 1. You, then your goal. The first name comes first, under a title that asks for it.
 function StepGoal({ form, setForm }: { form: SoloOnboardingForm; setForm: SetForm }) {
   const { t } = useTranslation();
   return (
     <div className="space-y-5 animate-fade-in-up">
-      <StepHeader icon={Target} title={t('onboarding.steps.goalTitle')} subtitle={t('onboarding.steps.goalSub')} />
+      <StepHeader icon={UserRound} title={t('onboarding.steps.welcomeTitle')} subtitle={t('onboarding.steps.welcomeSub')} />
       <div>
-        <label htmlFor="onboarding-name" className={labelClass}>{t('onboarding.fields.firstName')}</label>
+        <label htmlFor="onboarding-name" className={labelClass}>{t('onboarding.fields.firstNameQuestion')}</label>
         <input
           id="onboarding-name"
           type="text"
@@ -119,9 +122,13 @@ function StepGoal({ form, setForm }: { form: SoloOnboardingForm; setForm: SetFor
           className={inputClass}
         />
       </div>
-      <div>
-        <p className={labelClass}>{t('onboarding.fields.bodyGoal')}</p>
+      <div role="group" aria-labelledby="onboarding-goal-label" aria-describedby="onboarding-goal-hint">
+        <p id="onboarding-goal-label" className={`${labelClass} flex items-center gap-1.5`}>
+          <Target size={14} className="text-blue-400" aria-hidden="true" /> {t('onboarding.fields.bodyGoal')}
+        </p>
         <OptionGrid group="goals" options={GOALS} value={form.goal} onChange={v => setForm({ ...form, goal: v as SoloOnboardingForm['goal'] })} columns={3} />
+        {/* Performance / strength / health goals live in the goal cycle (Profile), not in this body-weight choice. */}
+        <p id="onboarding-goal-hint" className="mt-2 text-xs text-neutral-400">{t('onboarding.fields.bodyGoalHint')}</p>
       </div>
     </div>
   );
@@ -189,7 +196,8 @@ function StepModules({ form, setForm }: { form: SoloOnboardingForm; setForm: Set
     <div className="space-y-5 animate-fade-in-up">
       <StepHeader icon={LayoutList} title={t('modules.onboardingTitle')} subtitle={t('modules.onboardingHint')} />
       <PersonalModulesPicker value={form.modules} onChange={modules => setForm({ ...form, modules })} />
-      {none && <p role="alert" className="text-sm text-amber-300">{t('modules.noneSelected')}</p>}
+      {/* Announced once, by the live hint next to « Continue ». */}
+      {none && <p className="text-sm text-amber-300">{t('modules.noneSelected')}</p>}
     </div>
   );
 }
@@ -262,6 +270,17 @@ function StepMeasures({ form, setForm }: { form: SoloOnboardingForm; setForm: Se
   );
 }
 
+/** « Continue » never stays grey without saying what is missing. */
+function missingText(missing: OnboardingMissing[], t: TFunction): string {
+  if (missing.length === 0) return '';
+  if (missing.includes('measures')) return t('onboarding.missing.measures');
+  const items = missing.map(m => t(`onboarding.missing.items.${m}`));
+  const list = items.length === 1
+    ? items[0]
+    : `${items.slice(0, -1).join(', ')} ${t('onboarding.missing.and')} ${items[items.length - 1]}`;
+  return t('onboarding.missing.intro', { list });
+}
+
 export default function OnboardingFlow() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -277,6 +296,7 @@ export default function OnboardingFlow() {
 
   const canProceed = canContinueSoloOnboarding(step, form);
   const last = step === SOLO_ONBOARDING_STEPS - 1;
+  const missingHint = missingText(missingSoloOnboarding(step, form), t);
 
   const finish = async () => {
     if (!user || saving || !canProceed) return;
@@ -316,7 +336,7 @@ export default function OnboardingFlow() {
 
   return (
     <div className="min-h-screen bg-black flex flex-col">
-      <div className="flex-1 overflow-y-auto px-5 pt-8 pb-32 max-w-lg mx-auto w-full">
+      <div className="flex-1 overflow-y-auto px-5 pt-8 pb-48 max-w-lg mx-auto w-full">
         <div className="flex justify-end mb-3">
           <WallSignOut />
         </div>
@@ -332,15 +352,24 @@ export default function OnboardingFlow() {
             </Button>
           )}
           {!last ? (
-            <Button onClick={() => setStep(step + 1)} disabled={!canProceed} className="flex-1">
+            <Button onClick={() => setStep(step + 1)} disabled={!canProceed} className="flex-1" aria-describedby="onboarding-missing">
               {t('onboarding.continue')} <ChevronRight size={16} aria-hidden="true" />
             </Button>
           ) : (
-            <Button onClick={finish} disabled={saving || !canProceed} className="flex-1">
+            <Button onClick={finish} disabled={saving || !canProceed} className="flex-1" aria-describedby="onboarding-missing">
               {saving ? t('onboarding.settingUp') : t('onboarding.getStarted')} <Check size={16} aria-hidden="true" />
             </Button>
           )}
         </div>
+        {/* Always in the DOM so screen readers hear each change; empty when nothing is missing. */}
+        <p
+          id="onboarding-missing"
+          aria-live="polite"
+          data-testid="onboarding-missing"
+          className="max-w-lg mx-auto mt-2 text-center text-xs text-amber-200"
+        >
+          {missingHint}
+        </p>
         {myCoach && (
           <button
             type="button"

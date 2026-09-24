@@ -8,6 +8,7 @@ import {
   canContinueSoloOnboarding,
   emptySoloOnboardingForm,
   measureErrors,
+  missingSoloOnboarding,
   type SoloOnboardingForm,
 } from './soloOnboarding';
 
@@ -80,4 +81,41 @@ test('the onboarding screen uses this contract and no longer prefills Homme / 17
   assert.match(flow, /PersonalModulesPicker/);
   assert.match(flow, /WallSignOut/);
   assert.doesNotMatch(flow, /height_cm: 175|weight_kg: 75|gender: 'male'|goal: 'maintain'/);
+});
+
+test('« Continue » says what is missing, in screen order', () => {
+  const empty = emptySoloOnboardingForm();
+  assert.deepEqual(missingSoloOnboarding(0, empty), ['firstName', 'goal']);
+  assert.deepEqual(missingSoloOnboarding(0, { ...empty, full_name: '  ', goal: 'bulk' }), ['firstName']);
+  assert.deepEqual(missingSoloOnboarding(1, filled({ training_experience: '', training_frequency: null, training_equipment: '' })), ['experience', 'frequency', 'equipment']);
+  assert.deepEqual(missingSoloOnboarding(1, filled({ training_frequency: null })), ['frequency']);
+  assert.deepEqual(missingSoloOnboarding(2, filled({ modules: { workouts: false, nutrition: false, weight: false, checkins: false } })), ['modules']);
+  assert.deepEqual(missingSoloOnboarding(3, filled({ weight: '12' })), ['measures']);
+  // Measurements stay optional: nothing typed, nothing missing.
+  assert.deepEqual(missingSoloOnboarding(3, filled()), []);
+  for (let step = 0; step < SOLO_ONBOARDING_STEPS; step += 1) {
+    assert.equal(canContinueSoloOnboarding(step, filled()), missingSoloOnboarding(step, filled()).length === 0);
+  }
+  assert.equal(canContinueSoloOnboarding(4, filled()), false);
+});
+
+test('lot D: the first name opens the flow, the blocked button explains itself, no invented goal', () => {
+  const flow = readFileSync(resolve(process.cwd(), 'src/components/onboarding/OnboardingFlow.tsx'), 'utf8');
+  // Name first, under a title that asks for it; the goal follows on the same screen (still four steps).
+  const name = flow.indexOf('onboarding.fields.firstNameQuestion');
+  const goal = flow.indexOf('onboarding.fields.bodyGoal\'');
+  assert.ok(name > 0 && goal > name, 'first name before the goal');
+  assert.match(flow, /onboarding\.steps\.welcomeTitle/);
+  // The hint is live and tied to the button.
+  assert.match(flow, /missingSoloOnboarding\(step, form\)/);
+  assert.match(flow, /id="onboarding-missing"[\s\S]*?aria-live="polite"/);
+  assert.match(flow, /aria-describedby="onboarding-missing"/);
+  // Performance is not a body-weight goal here: it lives in the goal cycle (see the lot D report).
+  assert.match(flow, /onboarding\.fields\.bodyGoalHint/);
+  for (const lang of ['fr', 'en']) {
+    const common = readFileSync(resolve(process.cwd(), `src/i18n/locales/${lang}/common.ts`), 'utf8');
+    for (const key of ['welcomeTitle', 'welcomeSub', 'firstNameQuestion', 'bodyGoalHint', 'intro', 'measures', 'frequency', 'equipment']) {
+      assert.match(common, new RegExp(`\\b${key}:`), `${lang} ${key}`);
+    }
+  }
 });

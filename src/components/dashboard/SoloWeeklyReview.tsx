@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Check, Flame, Minus, Sparkles, TrendingDown, TrendingUp } from 'lucide-react';
+import { Check, ChevronDown, Flame, Minus, Sparkles, TrendingDown, TrendingUp } from 'lucide-react';
+import { soloReviewCompactKey, soloReviewPresentation } from '../../features/dashboard/domain/dashboardHome';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useWeightStore } from '../../stores/weightStore';
@@ -34,8 +35,13 @@ import { toast } from '../ui/Toast';
  * rules as the coach fleet, explains the why, and lets him accept or keep. Never shown to a
  * coached client (their coach receives the proposal). Professional capability is independent.
  */
-export default function SoloWeeklyReview() {
+export default function SoloWeeklyReview({ onSettled }: { onSettled?: () => void } = {}) {
   const { t } = useTranslation();
+  const panelId = useId();
+  const [expanded, setExpanded] = useState(false);
+  // The week whose decision has been checked: until then nothing shows, so a
+  // card never appears only to vanish once the decision arrives.
+  const [checkedWeek, setCheckedWeek] = useState<string | null>(null);
   const { user } = useAuthStore();
   const { profile } = useProfileStore();
   const coachingRole = useCoachingStore(s => s.coachingRole);
@@ -81,9 +87,13 @@ export default function SoloWeeklyReview() {
             .map(r => ({ effective_from: r.effective_from.slice(0, 10), calories: Number(r.calories) })));
         }
       });
-    void listAthleteDecisionLogBestEffort(user.id).then(rows => {
-      if (!cancelled) setDecisions(rows);
-    });
+    void listAthleteDecisionLogBestEffort(user.id)
+      .then(rows => {
+        if (!cancelled) setDecisions(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setDecisions([]);
+      });
     return () => {
       cancelled = true;
     };
@@ -143,9 +153,25 @@ export default function SoloWeeklyReview() {
 
   useEffect(() => {
     if (!user || !review) return;
-    if (decidedFor === user.id && decidedWeek === review.weekStart) return;
-    void fetchDecision(user.id, review.weekStart);
+    const week = review.weekStart;
+    if (decidedFor === user.id && decidedWeek === week) {
+      setCheckedWeek(week);
+      return;
+    }
+    let cancelled = false;
+    void fetchDecision(user.id, week).catch(() => undefined).finally(() => {
+      if (!cancelled) setCheckedWeek(week);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [user?.id, review?.weekStart, decidedFor, decidedWeek, fetchDecision]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Settled: nothing to show for this viewer, or the review and its decision are known.
+  const settled = !user || !solo || (!!review && checkedWeek === review.weekStart);
+  useEffect(() => {
+    if (settled) onSettled?.();
+  }, [settled, onSettled]);
 
   useEffect(() => {
     if (!user || !solo || !profile || !review) return;
@@ -192,8 +218,11 @@ export default function SoloWeeklyReview() {
   }, [persistVersion]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!user || !solo || !review) return null;
+  if (checkedWeek !== review.weekStart) return null;
   if (decidedFor === user.id && decidedWeek === review.weekStart) return null;
   if (review.status === 'insufficient' && !soloReviewHasAnyData(review.evidence)) return null;
+  // Full card only when a decision waits; otherwise one folded line (Dashboard = today first).
+  const decisionWaiting = soloReviewPresentation(review) === 'decision';
 
   const { proposal, evidence } = review;
   const draft = proposal.draft;
@@ -234,8 +263,8 @@ export default function SoloWeeklyReview() {
     if (decision === 'accepted' && draft) toast(t('soloReview.applied', { n: draft.calories }));
   };
 
-  return (
-    <div className={`mb-4 rounded-2xl border p-4 animate-fade-in-scale ${tone}`}>
+  const card = (
+    <div id={decisionWaiting ? undefined : panelId} className={`${decisionWaiting ? 'mb-4 animate-fade-in-scale' : 'mt-2'} rounded-2xl border p-4 ${tone}`}>
       <p className="text-[11px] uppercase tracking-wider text-neutral-400 flex items-center gap-1.5 mb-2">
         <Sparkles size={12} className="text-blue-300" /> {t('soloReview.title')}
       </p>
@@ -290,6 +319,30 @@ export default function SoloWeeklyReview() {
           )}
         </div>
       )}
+    </div>
+  );
+
+  if (decisionWaiting) return card;
+
+  return (
+    <div className="mb-4" data-testid="solo-review-compact">
+      <button
+        type="button"
+        aria-expanded={expanded}
+        aria-controls={expanded ? panelId : undefined}
+        onClick={() => setExpanded(open => !open)}
+        className="w-full flex items-center gap-3 rounded-2xl border px-3.5 py-3 min-h-11 text-left bg-neutral-900/60 border-neutral-800/50 hover:border-neutral-700/70 transition-colors"
+      >
+        <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-neutral-800 text-neutral-300" aria-hidden="true">
+          <Sparkles size={16} />
+        </span>
+        <span className="flex-1 min-w-0">
+          <span className="block text-sm font-medium text-white truncate">{t('soloReview.title')}</span>
+          <span className="block text-xs mt-0.5 line-clamp-2 text-neutral-400">{t(soloReviewCompactKey(review))}</span>
+        </span>
+        <ChevronDown size={16} className={`text-neutral-500 shrink-0 transition-transform ${expanded ? 'rotate-180' : ''}`} aria-hidden="true" />
+      </button>
+      {expanded ? card : null}
     </div>
   );
 }
