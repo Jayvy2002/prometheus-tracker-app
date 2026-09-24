@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { GOALS } from '../../lib/constants';
-import { calculateBMR, calculateTDEE, calculateCalorieTarget, calculateMacros, getAge } from '../../lib/utils';
+import { calculateBMR, calculateTDEE, calculateCalorieTarget, calculateMacros, getAge, hasMeasuresForTargets } from '../../lib/utils';
 import { toast } from '../ui/Toast';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
@@ -23,18 +23,19 @@ export default function GoalsForm({ onBack, inline }: { onBack: () => void; inli
   const storedKg = profile?.target_weight_kg ?? 0;
   const displayWeight = profile?.unit_weight === 'lbs' && storedKg ? Math.round(storedKg * 2.20462).toString() : (storedKg ? storedKg.toString() : '');
   const [targetWeight, setTargetWeight] = useState(displayWeight);
-  const [waterTarget, setWaterTarget] = useState(profile?.daily_water_target_ml?.toString() ?? '2500');
-  const [stepsTarget, setStepsTarget] = useState(profile?.daily_steps_target?.toString() ?? '10000');
+  // Empty = no goal (never a prefilled 2 500 ml / 10 000 steps).
+  const [waterTarget, setWaterTarget] = useState(profile?.daily_water_target_ml ? String(profile.daily_water_target_ml) : '');
+  const [stepsTarget, setStepsTarget] = useState(profile?.daily_steps_target ? String(profile.daily_steps_target) : '');
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
     if (!user || !profile) return;
 
-    const water = +waterTarget;
-    const steps = +stepsTarget;
+    const water = waterTarget.trim() === '' ? null : Number(waterTarget.replace(/\s/g, ''));
+    const steps = stepsTarget.trim() === '' ? null : Number(stepsTarget.replace(/\s/g, ''));
     if (canUpdateCoachOwnedTargets) {
-      if (water < 500 || water > 10000) { toast(t('profile.goals.errors.waterInvalidRange', { min: 500, max: '10 000' }), 'error'); return; }
-      if (steps < 0 || steps > 100000) { toast(t('profile.goals.errors.stepsInvalidRange', { min: 0, max: '100 000' }), 'error'); return; }
+      if (water != null && !(water >= 500 && water <= 10000)) { toast(t('profile.goals.errors.waterInvalidRange', { min: 500, max: '10 000' }), 'error'); return; }
+      if (steps != null && !(steps >= 0 && steps <= 100000)) { toast(t('profile.goals.errors.stepsInvalidRange', { min: 0, max: '100 000' }), 'error'); return; }
     }
     if (targetWeight) {
       const minW = profile.unit_weight === 'lbs' ? 66 : 30;
@@ -45,11 +46,13 @@ export default function GoalsForm({ onBack, inline }: { onBack: () => void; inli
 
     setSaving(true);
 
-    const age = profile.date_of_birth ? getAge(profile.date_of_birth) : 25;
-    const bmr = calculateBMR(profile.weight_kg, profile.height_cm, age, profile.gender);
-    const tdee = calculateTDEE(bmr, profile.activity_level);
-    const calorieTarget = calculateCalorieTarget(tdee, goal, bmr);
-    const macros = calculateMacros(calorieTarget, goal, profile.diet_type, profile.weight_kg);
+    // Targets only from real measurements; otherwise the current ones stay as they are.
+    const canCompute = hasMeasuresForTargets(profile);
+    const age = canCompute ? getAge(profile.date_of_birth as string) : 0;
+    const bmr = canCompute ? calculateBMR(profile.weight_kg, profile.height_cm, age, profile.gender) : 0;
+    const tdee = canCompute ? calculateTDEE(bmr, profile.activity_level) : 0;
+    const calorieTarget = canCompute ? calculateCalorieTarget(tdee, goal, bmr) : null;
+    const macros = calorieTarget != null ? calculateMacros(calorieTarget, goal, profile.diet_type, profile.weight_kg) : null;
 
     const rawWeight = +targetWeight || 0;
     const targetKg = profile.unit_weight === 'lbs' ? rawWeight / 2.20462 : rawWeight;
@@ -59,10 +62,12 @@ export default function GoalsForm({ onBack, inline }: { onBack: () => void; inli
       target_weight_kg: targetKg,
       daily_water_target_ml: water,
       daily_steps_target: steps,
-      daily_calorie_target: calorieTarget,
-      protein_target: macros.protein,
-      carbs_target: macros.carbs,
-      fat_target: macros.fat,
+      ...(calorieTarget != null && macros ? {
+        daily_calorie_target: calorieTarget,
+        protein_target: macros.protein,
+        carbs_target: macros.carbs,
+        fat_target: macros.fat,
+      } : {}),
     }, !canUpdateCoachOwnedTargets);
 
     const result = await updateProfile(user.id, updates);

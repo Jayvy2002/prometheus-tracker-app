@@ -19,6 +19,10 @@
     {
       "version": "20260924100000",
       "name": "exercise_catalog_accents"
+    },
+    {
+      "version": "20260924110000",
+      "name": "personal_modules_honest_defaults"
     }
   ]
 }

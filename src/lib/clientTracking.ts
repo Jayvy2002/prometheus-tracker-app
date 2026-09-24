@@ -455,3 +455,38 @@ export function resolveViewerTracking(
   }
   return parseResolvedTracking(row);
 }
+
+export type PersonalModuleKey = 'workouts' | 'nutrition' | 'weight' | 'checkins';
+export type PersonalModules = Partial<Record<PersonalModuleKey, boolean>>;
+
+export const PERSONAL_MODULE_KEYS: readonly PersonalModuleKey[] = ['workouts', 'nutrition', 'weight', 'checkins'];
+
+/**
+ * Vision §5.3 — without a coach, the Solo chooses what they follow. A module
+ * left out is hidden from Today and the navigation, never forbidden: the page
+ * stays reachable. Null (not chosen yet) keeps everything, as before.
+ */
+export function applyPersonalModules(
+  cfg: ResolvedTrackingConfig,
+  modules: PersonalModules | null | undefined,
+): ResolvedTrackingConfig {
+  if (!modules) return cfg;
+  const on = (key: PersonalModuleKey) => modules[key] !== false;
+  return {
+    ...cfg,
+    track_workouts: cfg.track_workouts && on('workouts'),
+    track_nutrition: cfg.track_nutrition && on('nutrition'),
+    track_weight: cfg.track_weight && on('weight'),
+    track_checkins: cfg.track_checkins && on('checkins'),
+  };
+}
+
+/** Every key explicit, so « off » is stored and « on » is never a missing value. */
+export function normalizePersonalModules(modules: PersonalModules): Required<PersonalModules> {
+  return {
+    workouts: modules.workouts !== false,
+    nutrition: modules.nutrition !== false,
+    weight: modules.weight !== false,
+    checkins: modules.checkins !== false,
+  };
+}

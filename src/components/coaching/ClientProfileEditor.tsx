@@ -28,8 +28,9 @@ export default function ClientProfileEditor({
   const { saveTrackingConfig, setClientVisibleProfile, fetchClientProfile } = useCoachingStore();
   const [goal, setGoal] = useState(profile?.goal ?? 'maintain');
   const [targetWeight, setTargetWeight] = useState(String(profile?.target_weight_kg || ''));
-  const [water, setWater] = useState(profile?.daily_water_target_ml ?? 2500);
-  const [steps, setSteps] = useState(profile?.daily_steps_target ?? 10000);
+  // Empty = no goal sent (never a prefilled 2 500 ml / 10 000 steps).
+  const [water, setWater] = useState(profile?.daily_water_target_ml ? String(profile.daily_water_target_ml) : '');
+  const [steps, setSteps] = useState(profile?.daily_steps_target ? String(profile.daily_steps_target) : '');
   const [experience, setExperience] = useState(profile?.training_experience ?? 'beginner');
   const [frequency, setFrequency] = useState(profile?.training_frequency ?? 3);
   const [focus, setFocus] = useState(profile?.training_focus ?? 'hypertrophy');
@@ -43,8 +44,8 @@ export default function ClientProfileEditor({
     if (!profile) return;
     setGoal(profile.goal || 'maintain');
     setTargetWeight(profile.target_weight_kg ? String(profile.target_weight_kg) : '');
-    setWater(profile.daily_water_target_ml ?? 2500);
-    setSteps(profile.daily_steps_target ?? 10000);
+    setWater(profile.daily_water_target_ml ? String(profile.daily_water_target_ml) : '');
+    setSteps(profile.daily_steps_target ? String(profile.daily_steps_target) : '');
     setExperience(profile.training_experience || 'beginner');
     setFrequency(profile.training_frequency || 3);
     setFocus(profile.training_focus || 'hypertrophy');
@@ -70,8 +71,6 @@ export default function ClientProfileEditor({
 
     const raw: Record<string, unknown> = {
       goal,
-      daily_water_target_ml: water,
-      daily_steps_target: steps,
       training_experience: experience,
       training_frequency: frequency,
       training_focus: focus,
@@ -80,6 +79,8 @@ export default function ClientProfileEditor({
       food_allergies: allergies,
     };
     if (targetWeight !== '') raw.target_weight_kg = Number(targetWeight);
+    if (water.trim() !== '') raw.daily_water_target_ml = Number(water);
+    if (steps.trim() !== '') raw.daily_steps_target = Number(steps);
     if (sleepAvg !== '') raw.sleep_hours_average = Number(sleepAvg);
     const parsed = parseClientVisiblePatch(raw);
     if (!parsed.ok) {
@@ -213,13 +214,13 @@ export default function ClientProfileEditor({
           label={t('profile.goals.dailyWater')}
           type="number"
           value={water}
-          onChange={e => setWater(+e.target.value || 0)}
+          onChange={e => setWater(e.target.value)}
         />
         <Input
           label={t('profile.goals.dailySteps')}
           type="number"
           value={steps}
-          onChange={e => setSteps(+e.target.value || 0)}
+          onChange={e => setSteps(e.target.value)}
         />
       </div>
 

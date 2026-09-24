@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { User, Target, Ruler, Lock, LogOut, ChevronDown, MessageSquare, Bell, Trash2, Globe, Users, SlidersHorizontal, ClipboardList, Inbox, Shield, Sparkles, Upload, FolderOpen } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { User, Target, Ruler, Lock, LogOut, ChevronDown, MessageSquare, Bell, Trash2, Globe, Users, SlidersHorizontal, ClipboardList, Inbox, Shield, Sparkles, Upload, FolderOpen, LayoutList } from 'lucide-react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
@@ -18,6 +18,7 @@ import Modal from '../ui/Modal';
 import PageTransition from '../ui/PageTransition';
 import PersonalInfoForm from './PersonalInfoForm';
 import GoalsForm from './GoalsForm';
+import PersonalModulesForm from './PersonalModulesForm';
 import UnitsForm from './UnitsForm';
 import PasswordForm from './PasswordForm';
 import FeedbackForm from './FeedbackForm';
@@ -29,7 +30,7 @@ import ClientCoachRelationshipPanel from '../coaching/ClientCoachRelationshipPan
 import SoloHub from './SoloHub';
 import WorkspaceSwitcher from '../layout/WorkspaceSwitcher';
 
-type Section = 'personal' | 'goals' | 'units' | 'password' | 'feedback' | 'notifications' | 'language' | 'coachPrefs';
+type Section = 'personal' | 'goals' | 'modules' | 'units' | 'password' | 'feedback' | 'notifications' | 'language' | 'coachPrefs';
 
 interface AccordionSectionProps {
   id: Section;
@@ -81,7 +82,12 @@ export default function ProfilePage() {
   const canCoach = context.capabilities.coach;
   const coached = context.personalCoaching === 'coached';
 
-  const [openSection, setOpenSection] = useState<Section | null>(null);
+  // « Définir un objectif » from Nutrition lands on the right section.
+  const [searchParams] = useSearchParams();
+  const requestedSection = searchParams.get('section');
+  const [openSection, setOpenSection] = useState<Section | null>(
+    requestedSection === 'goals' || requestedSection === 'modules' ? requestedSection : null,
+  );
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deleting, setDeleting] = useState(false);
@@ -217,6 +223,12 @@ export default function ProfilePage() {
         {!inCoaching && (
         <AccordionSection id="goals" icon={Target} label={t('profile.sections.goalsTargets')} isOpen={openSection === 'goals'} onToggle={() => toggle('goals')} animationDelay="120ms">
           <GoalsForm onBack={() => setOpenSection(null)} inline />
+        </AccordionSection>
+        )}
+
+        {!inCoaching && !coached && (
+        <AccordionSection id="modules" icon={LayoutList} label={t('modules.title')} isOpen={openSection === 'modules'} onToggle={() => toggle('modules')} animationDelay="150ms">
+          <PersonalModulesForm onDone={() => setOpenSection(null)} />
         </AccordionSection>
         )}
 

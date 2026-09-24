@@ -116,9 +116,12 @@ const nutrition = {
     },
     water: {
       title: 'Water',
+      setTarget: 'Set a water goal',
+      removeLast: 'Remove the last water entry',
     },
     steps: {
       title: 'Steps',
+      setTarget: 'Set a steps goal',
       save: 'Save',
       saved: 'Steps saved',
       invalid: 'Invalid step count (0–100,000).',
