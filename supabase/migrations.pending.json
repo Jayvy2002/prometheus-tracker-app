@@ -35,6 +35,10 @@
     {
       "version": "20260924140000",
       "name": "athlete_constraints"
+    },
+    {
+      "version": "20260924150000",
+      "name": "checkin_templates_plans"
     }
   ]
 }

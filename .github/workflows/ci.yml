@@ -577,6 +577,14 @@ jobs:
         run: |
           set -euo pipefail
           grep -F 'athlete constraints: declared in session, idempotent replay, updated, resolved kept, coach scope, coach told' /tmp/athlete-constraints.txt
+      - name: Test checkin templates and plans
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/checkin_templates_plans.sql | tee /tmp/checkin-templates-plans.txt
+      - name: Confirm checkin templates and plans echo
+        run: |
+          set -euo pipefail
+          grep -F 'checkin templates and plans: typed questions, coach decides, solo decides alone, answers keep labels, other coach blind, history kept' /tmp/checkin-templates-plans.txt
       - name: Test qualification proof Storage API withdraw
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

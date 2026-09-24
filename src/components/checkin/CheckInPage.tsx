@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Check, ChevronDown, Sparkles } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -8,7 +8,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useCheckinStore } from '../../stores/checkinStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useCoachingStore } from '../../stores/coachingStore';
-import { formatNumber, todayStr } from '../../lib/utils';
+import { formatDate, formatNumber, todayStr } from '../../lib/utils';
 import { clampCheckinScore } from '../../lib/checkinScale';
 import { isSoloAthlete } from '../../lib/coachRole';
 import { displayName } from '../../lib/coachText';
@@ -38,6 +38,10 @@ import CheckinFilledScores from './CheckinFilledScores';
 import CheckinHistoryList from './CheckinHistoryList';
 import { adherencePercentFromScore, adherenceScoreFromPercent } from '../../lib/checkinScale';
 import { parseDecimalInput } from '../../features/workout/domain/workoutSetComplete';
+import { useCheckinPlan } from '../../features/checkins/hooks/useCheckinPlan';
+import { missingRequired, snapshotAnswers, visibleQuestions, type AnswerValue } from '../../features/checkins/domain/checkinTemplate';
+import { nextDueDate } from '../../features/checkins/domain/checkinSchedule';
+import CustomQuestionField from './CustomQuestionField';
 
 const SCALE_COPY: Record<CheckinScaleKey, { field: string; low: string; high: string }> = {
   sleep_quality: { field: 'sleep_quality', low: 'poor', high: 'excellent' },
@@ -78,6 +82,9 @@ export default function CheckInPage() {
     () => fields.filter(key => !CHECKIN_CORE_VAR_KEYS.includes(key) && key !== 'notes'),
     [fields],
   );
+  const { plan, template } = useCheckinPlan(user?.id);
+  const [answers, setAnswers] = useState<Record<string, AnswerValue>>({});
+  const customQuestions = useMemo(() => visibleQuestions(template?.questions ?? [], answers), [template, answers]);
   const [saving, setSaving] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [askOpen, setAskOpen] = useState(false);
@@ -134,6 +141,8 @@ export default function CheckInPage() {
     if (!todayCheckin || logDate !== todayStr()) return;
     setSleepHours(todayCheckin.sleep_hours != null ? formatNumber(todayCheckin.sleep_hours) : '');
     setNotes(todayCheckin.notes || '');
+    // Answers already given today come back (matched by question id).
+    setAnswers(Object.fromEntries((todayCheckin.custom_answers ?? []).map(a => [a.id, a.value])));
     setScales({
       sleep_quality: todayCheckin.sleep_quality,
       energy_level: todayCheckin.energy_level,
@@ -164,8 +173,21 @@ export default function CheckInPage() {
       toast(t('checkin.sleepHoursInvalid'), 'error');
       return;
     }
+    const allQuestions = template?.questions ?? [];
+    if (missingRequired(allQuestions, answers).length > 0) {
+      setSaving(false);
+      toast(t('checkinPlan.requiredMissing'), 'error');
+      return;
+    }
+    if (visibleQuestions(allQuestions, answers).some(q => q.type === 'number' && typeof answers[q.id] === 'string')) {
+      setSaving(false);
+      toast(t('checkinPlan.numberInvalid'), 'error');
+      return;
+    }
     const payload: DailyCheckinInput = {
       checked_at: logDate,
+      custom_answers: snapshotAnswers(allQuestions, answers, i18n.language),
+      template_id: template?.id ?? null,
       notes: showCheckinField(tracking, 'notes') || notes.trim()
         ? notes
         : (todayCheckin?.notes || ''),
@@ -226,9 +248,10 @@ export default function CheckInPage() {
     const col = CHECKIN_SCALE_BY_VAR[key];
     if (!col) return null;
     const copy = SCALE_COPY[col];
+    const reason = plan?.habit_reasons?.[key];
     return (
+      <div key={key}>
       <ScoreSlider
-        key={key}
         label={t(`checkin.fields.${copy.field}`)}
         low={t(`checkin.low.${copy.low}`)}
         high={t(`checkin.high.${copy.high}`)}
@@ -236,6 +259,8 @@ export default function CheckInPage() {
         unsetLabel={t('checkin.notSet')}
         onChange={v => setScale(col, v)}
       />
+      {reason && <p className="mt-1 text-xs text-neutral-500">{t('checkinPlan.whyPrefix')} {reason}</p>}
+      </div>
     );
   };
 
@@ -243,7 +268,15 @@ export default function CheckInPage() {
     <PageTransition>
       <div className="px-4 pt-6 pb-8">
         <PageHeader title={t('checkin.title')} subtitle={solo ? t('checkin.subtitleSolo') : t('checkin.subtitle')} />
-        <p className="text-xs text-neutral-600 -mt-4 mb-6">{t('checkin.scaleHint')}</p>
+        <p className="text-xs text-neutral-600 -mt-4 mb-3">{t('checkin.scaleHint')}</p>
+        <p className="text-xs text-neutral-400 mb-6" data-testid="checkin-plan-summary">
+          {t(`checkinPlan.frequencies.${plan?.frequency ?? 'daily'}`)}
+          {plan && plan.frequency !== 'daily'
+            ? ` · ${t('checkinPlan.next', { date: formatDate(nextDueDate(plan, todayStr()), i18n.language) })}`
+            : ''}
+          {' · '}
+          <Link to="/checkin/settings" className="text-blue-400">{t('checkinPlan.settingsLink')}</Link>
+        </p>
 
         {ficheGone ? (
           <div className="mb-6" data-testid="ux32-checkin-gone">
@@ -300,6 +333,9 @@ export default function CheckInPage() {
                 label={t('checkin.sleepHours')}
               />
             )}
+            {coreVars.includes('sleep_hours') && plan?.habit_reasons?.sleep_hours && (
+              <p className="-mt-3 text-xs text-neutral-500">{t('checkinPlan.whyPrefix')} {plan.habit_reasons.sleep_hours}</p>
+            )}
 
             {coreVars.filter(key => key !== 'sleep_hours').map(renderSlider)}
           </div>
@@ -322,6 +358,20 @@ export default function CheckInPage() {
             <div className="space-y-5" data-testid="checkin-extra">
               <p className="text-xs text-neutral-500">{t('checkin.extraHint')}</p>
               {extraVars.map(renderSlider)}
+            </div>
+          )}
+
+          {customQuestions.length > 0 && (
+            <div className="space-y-5" data-testid="checkin-custom">
+              {template && <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">{template.name}</p>}
+              {customQuestions.map(q => (
+                <CustomQuestionField
+                  key={q.id}
+                  question={q}
+                  value={answers[q.id] ?? null}
+                  onChange={v => setAnswers(prev => ({ ...prev, [q.id]: v }))}
+                />
+              ))}
             </div>
           )}
 

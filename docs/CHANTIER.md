@@ -942,6 +942,18 @@ Vision §7.6. Migration pending `20260924140000_athlete_constraints` ; preuve SQ
 - Profil › Douleurs et contraintes pour l’athlète. Reprise : le texte libre de l’accueil devient une limitation persistante ouverte.
 
 Reste : l’IA ne lit pas encore les contraintes ouvertes (Solo : propositions prudentes ; Coaché : brouillon pour le Coach) ; à brancher avec la revue hebdomadaire.
+
+## Check-in : constructeur, fréquence, habitudes expliquées (branche `agent/p5-12-checkin-builder`, en revue)
+
+Vision §10–11. Migration pending `20260924150000_checkin_templates_plans` ; preuve SQL `supabase/tests/checkin_templates_plans.sql`.
+
+- Le check-in garde ses champs essentiels (sommeil, énergie, stress, faim, douleur…), lus par l’IA et les alertes. Pas de second moteur.
+- `checkin_templates` : modèles réutilisables de questions personnalisées (échelle, oui/non, choix simple ou multiple, nombre avec unité, texte, douleur 0–10, fatigue 0–10), conditionnelles sur une réponse précédente, avec un « pourquoi » montré à l’athlète. 20 questions au plus, forme vérifiée en base.
+- `checkin_plans` : modèle + fréquence (quotidien, hebdomadaire, toutes les deux semaines, mensuel, jour choisi) + raison de chaque habitude suivie. Le Coach actif décide ; le Solo décide seul ; un autre Coach ne voit rien. `checkin_plan_events` garde l’historique des changements.
+- Réponses stockées avec le libellé du jour (`daily_checkins.custom_answers`) : modifier ou supprimer un modèle ne réécrit jamais une réponse.
+- Écrans : Coach › Modèles de check-in (`/coach/checkins`), fiche client › Check-ins (modèle, rythme, raisons), check-in de l’athlète (rythme et prochaine date, « pourquoi » sous chaque habitude, questions du modèle), Solo › Réglages du check-in (`/checkin/settings`, ses propres questions et son rythme). L’historique affiche les réponses personnalisées.
+
+Reste (PR suivante) : utiliser la fréquence pour « check-in dû » (Aujourd’hui, alertes Coach à la place de la fenêtre fixe de 7 jours, notification). La revue hebdomadaire reste hebdomadaire.
 ---
 
 # P6 — Architecture économique de bêta

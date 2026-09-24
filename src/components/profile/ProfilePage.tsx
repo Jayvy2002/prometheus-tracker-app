@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { User, Target, Ruler, Lock, LogOut, ChevronDown, MessageSquare, Bell, Trash2, Globe, Users, SlidersHorizontal, ClipboardList, Inbox, Shield, Sparkles, Upload, FolderOpen, LayoutList, Activity } from 'lucide-react';
+import { User, Target, Ruler, Lock, LogOut, ChevronDown, MessageSquare, Bell, Trash2, Globe, Users, SlidersHorizontal, ClipboardList, Inbox, Shield, Sparkles, Upload, FolderOpen, LayoutList, Activity, ClipboardCheck } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
@@ -200,6 +200,10 @@ export default function ProfilePage() {
           {/* « Trouver un coach » is a personal step: it lives in the personal space, not here. */}
           <Link to="/prometheus" className="w-full flex min-h-11 items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
             <Sparkles size={16} className="text-blue-400" /> {t('nav.copilot')}
+          </Link>
+          <Link to="/coach/checkins" className="w-full flex min-h-11 items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
+            <ClipboardCheck size={16} className="text-blue-400" aria-hidden="true" />
+            {t('checkinPlan.templatesTitle')}
           </Link>
           <Link to="/coach/import" className="w-full flex min-h-11 items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
             <Upload size={16} className="text-blue-400" /> {t('nav.importCsv')}
