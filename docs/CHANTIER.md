@@ -906,6 +906,18 @@ Vision §5.3. Migration pending `20260924110000_personal_modules_honest_defaults
 - Nouveaux comptes : plus d’objectif eau (2 500 ml) ni pas (10 000) par défaut en base. Les suivis eau et pas affichent « Définir un objectif » au lieu d’un objectif inventé ; le formulaire Coach n’envoie plus ces valeurs quand le champ est vide.
 
 Reste : le matériel n’alimente pas encore l’IA ni la proposition de programme (à brancher avec les objectifs vivants §6).
+
+## Notifications « action maintenant » (branche `agent/p5-9-notifications`, en revue)
+
+Vision §21. Migration pending `20260924120000_action_now_notifications` ; preuve SQL `supabase/tests/action_now_notifications.sql`. **Effet réel après redéploiement de `send-daily-reminders`** (le lock Edge n’est pas modifié par cette PR).
+
+- Événements mis en file par la base (déclencheurs, jamais bloquants) : message reçu (Coach ↔ athlète, regroupé par expéditeur sur 2 min, sans contenu), nouvelle demande de coaching, Coach qui accepte (l’athlète doit confirmer), athlète qui confirme, programme reçu d’un Coach, propositions de Prometheus à décider (regroupées sur 10 min).
+- `notification_outbox` : file serveur seule (RLS sans policy, droits retirés au client). États distincts : en attente, réservée, envoyée (`delivered` / `muted` / `no_device` / `failed`) ; « envoyée » ne veut pas dire « lue ». Historique purgé après 30 jours.
+- `claim_notification_batch` (service seul) : réservation SKIP LOCKED, reprise d’une réservation abandonnée après 5 min, catégorie coupée fermée en `muted`.
+- Réglages par catégorie dans Profil › Notifications (`notification_categories`, NULL = tout activé ; « décisions » visible pour un Coach).
+- Rappels à heure fixe : toujours facultatifs et éteints par défaut, texte factuel (« Séance prévue aujourd’hui : Lower B ») au lieu de « Tu n’as pas encore loggé ta séance. Go ! » ; pas de rappel pour un module que le Solo ne suit pas.
+
+Reste : « check-in dû » attend la fréquence de check-in choisie par le Coach (C6) ; pas de notification de changement de version de programme (à brancher avec la planification de version).
 ---
 
 # P6 — Architecture économique de bêta

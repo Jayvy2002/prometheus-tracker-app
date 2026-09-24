@@ -553,6 +553,14 @@ jobs:
         run: |
           set -euo pipefail
           grep -F 'personal modules: own choice saved, unknown or malformed refused, others blind, no invented water/steps target' /tmp/personal-modules.txt
+      - name: Test action-now notifications
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/action_now_notifications.sql | tee /tmp/action-now-notifications.txt
+      - name: Confirm action-now notifications echo
+        run: |
+          set -euo pipefail
+          grep -F 'action-now notifications: grouped, no content, marketplace and program events, muted closed, claimed once, server only' /tmp/action-now-notifications.txt
       - name: Test qualification proof Storage API withdraw
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

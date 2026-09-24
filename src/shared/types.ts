@@ -44,6 +44,8 @@ export interface UserProfile {
   /** Solo module choice (Vision §5.3). Null = not chosen yet: everything shown. Ignored while a coach is active. */
   /** Available equipment, asked at onboarding. Null = not said. */
   training_equipment?: 'gym' | 'home' | 'bodyweight' | 'mixed' | null;
+  /** « Action now » push categories (Vision §21). Null = all on. */
+  notification_categories?: Partial<Record<'messages' | 'coaching' | 'program' | 'decisions', boolean>> | null;
   personal_modules?: Partial<Record<'workouts' | 'nutrition' | 'weight' | 'checkins', boolean>> | null;
   kinesiology_intake_completed_at?: string | null;
   /** Last time the coaching link ended (client or coach). The athlete is solo again. */

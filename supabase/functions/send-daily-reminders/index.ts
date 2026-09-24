@@ -1,8 +1,14 @@
 /**
  * send-daily-reminders
  *
- * Called by pg_cron every minute. Sends Web Push notifications to users whose
- * configured reminder time falls within the current UTC minute.
+ * Called by pg_cron every minute. Two jobs:
+ *  1. « Action now » notifications (Vision §21): drains notification_outbox
+ *     (message, coaching request, coach accepted → confirm, athlete confirmed,
+ *     program received, proposals to decide). Grouped and muted per category
+ *     in SQL (claim_notification_batch); rendered by _shared/actionNotifications.
+ *  2. Opt-in fixed-time reminders, factual (never « you haven't logged… »).
+ *
+ * Needs the next deploy of this function to take effect.
  *
  * Required Supabase secrets (set via Dashboard → Project Settings → Edge Functions):
  *   VAPID_PUBLIC_KEY   — VAPID public key (base64url)
@@ -106,6 +112,138 @@ function shouldSendDailyReminder(facts: {
   if (facts.kind === 'workout' && facts.hasAssignedProgram && !facts.todayIsTrainingDay) return false;
   return true;
 }
+
+// BEGIN inlined _shared/actionNotifications.ts (one-file deploy; a test keeps them identical)
+/**
+ * Vision §21 — copy for « action now » notifications. Pure, FR/EN, shared by the
+ * send-daily-reminders cron (Deno) and the app tests (Node). A notification says
+ * what happened and where to act; it never carries message content.
+ */
+
+type ActionNotificationKind =
+  | 'coach_message'
+  | 'client_message'
+  | 'coaching_request'
+  | 'coach_accepted'
+  | 'athlete_confirmed'
+  | 'program_assigned'
+  | 'proposals_waiting';
+
+interface ActionNotificationRow {
+  kind: ActionNotificationKind | string;
+  item_count: number;
+  payload: Record<string, unknown> | null;
+  url: string;
+  language: string | null;
+}
+
+interface PushPayload {
+  title: string;
+  body: string;
+  tag: string;
+  url: string;
+}
+
+function text(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function renderActionNotification(row: ActionNotificationRow): PushPayload | null {
+  const fr = (row.language ?? 'fr').toLowerCase().startsWith('fr');
+  const n = Math.max(1, Math.floor(row.item_count || 1));
+  const name = text(row.payload?.name);
+  const program = text(row.payload?.program);
+  const title = 'Prometheus';
+
+  switch (row.kind) {
+    case 'coach_message':
+    case 'client_message': {
+      const fromCoach = row.kind === 'coach_message';
+      // « de Marie » / « de ton coach » / « d'un client » — French elides « de un ».
+      const from = fr
+        ? (name ? `de ${name}` : fromCoach ? 'de ton coach' : "d'un client")
+        : `from ${name ?? (fromCoach ? 'your coach' : 'a client')}`;
+      const body = fr
+        ? (n > 1 ? `${n} nouveaux messages ${from}` : `Nouveau message ${from}`)
+        : (n > 1 ? `${n} new messages ${from}` : `New message ${from}`);
+      return { title, body, tag: `messages:${row.url}`, url: row.url };
+    }
+    case 'coaching_request':
+      return {
+        title,
+        body: fr
+          ? `Nouvelle demande de coaching${name ? ` : ${name}` : ''}`
+          : `New coaching request${name ? `: ${name}` : ''}`,
+        tag: 'coaching-requests',
+        url: row.url,
+      };
+    case 'coach_accepted':
+      return {
+        title,
+        body: fr
+          ? `${name ?? 'Le coach'} a accepté ta demande. Confirme pour commencer.`
+          : `${name ?? 'The coach'} accepted your request. Confirm to start.`,
+        tag: 'coaching-requests',
+        url: row.url,
+      };
+    case 'athlete_confirmed':
+      return {
+        title,
+        body: fr
+          ? `${name ?? 'Ton nouveau client'} a confirmé : le suivi peut commencer.`
+          : `${name ?? 'Your new client'} confirmed: coaching can start.`,
+        tag: 'coaching-confirmed',
+        url: row.url,
+      };
+    case 'program_assigned':
+      return {
+        title,
+        body: fr
+          ? (program ? `Nouveau programme de ton coach : ${program}` : 'Nouveau programme de ton coach')
+          : (program ? `New program from your coach: ${program}` : 'New program from your coach'),
+        tag: 'program',
+        url: row.url,
+      };
+    case 'proposals_waiting':
+      return {
+        title,
+        body: fr
+          ? (n > 1 ? `${n} propositions de Prometheus à décider` : 'Une proposition de Prometheus à décider')
+          : (n > 1 ? `${n} Prometheus proposals to decide` : 'A Prometheus proposal to decide'),
+        tag: 'decisions',
+        url: row.url,
+      };
+    default:
+      // Unknown kind: never send a vague notification.
+      return null;
+  }
+}
+
+/** Opt-in fixed-time reminders: factual, never guilt (« Tu n'as pas encore… Go ! »). */
+function renderFixedReminder(
+  kind: 'workout' | 'nutrition',
+  language: string | null,
+  sessionName: string | null,
+): PushPayload {
+  const fr = (language ?? 'fr').toLowerCase().startsWith('fr');
+  if (kind === 'workout') {
+    return {
+      title: 'Prometheus',
+      body: sessionName
+        ? (fr ? `Séance prévue aujourd'hui : ${sessionName}` : `Session planned today: ${sessionName}`)
+        : (fr ? "C'est l'heure que tu as choisie pour t'entraîner." : "It's the time you chose to train."),
+      tag: 'workout-reminder',
+      url: '/workout',
+    };
+  }
+  return {
+    title: 'Prometheus',
+    body: fr ? "C'est l'heure que tu as choisie pour noter tes repas." : "It's the time you chose to log your meals.",
+    tag: 'nutrition-reminder',
+    url: '/nutrition',
+  };
+}
+// END inlined _shared/actionNotifications.ts
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -330,7 +468,7 @@ Deno.serve(async (req) => {
 
   const { data: reminderRows } = await admin
     .from('user_profiles')
-    .select('id, language, timezone, notification_workout_enabled, notification_workout_time, notification_nutrition_enabled, notification_nutrition_time')
+    .select('id, language, timezone, personal_modules, notification_workout_enabled, notification_workout_time, notification_nutrition_enabled, notification_nutrition_time')
     .or('notification_workout_enabled.eq.true,notification_nutrition_enabled.eq.true');
 
   type ReminderRow = {
@@ -341,6 +479,7 @@ Deno.serve(async (req) => {
     notification_workout_time: string | null;
     notification_nutrition_enabled: boolean;
     notification_nutrition_time: string | null;
+    personal_modules: Record<string, boolean> | null;
   };
   const rows = ((reminderRows ?? []) as ReminderRow[]).filter(r => r.id);
 
@@ -355,10 +494,13 @@ Deno.serve(async (req) => {
       trackingByClient.set(c.client_id, { track_workouts: c.track_workouts !== false, track_nutrition: c.track_nutrition !== false });
     }
   }
+  const personalModules = new Map(rows.map(r => [r.id, r.personal_modules]));
   const moduleOn = (userId: string, mod: 'track_workouts' | 'track_nutrition'): boolean => {
     const cfg = trackingByClient.get(userId);
-    if (!cfg) return true;
-    return cfg[mod] !== false;
+    if (cfg) return cfg[mod] !== false;
+    // Solo (Vision §5.3): no reminder for a module they chose not to follow.
+    const chosen = personalModules.get(userId);
+    return chosen?.[mod === 'track_workouts' ? 'workouts' : 'nutrition'] !== false;
   };
 
   const workoutUsers = rows.filter((r) => {
@@ -397,6 +539,7 @@ Deno.serve(async (req) => {
 
       let hasAssignedProgram = false;
       let todayIsTrainingDay = false;
+      let sessionName: string | null = null;
       if (type === 'workout') {
         const { data: asg } = await admin.from('program_assignments')
           .select('program_id')
@@ -414,14 +557,16 @@ Deno.serve(async (req) => {
             name: string | null;
             program_day_exercises?: { id: string }[] | null;
           }>;
+          const weekday = weekdayInTimeZone(now, timezone);
           todayIsTrainingDay = isProgramTrainingWeekday(
             rows.map(row => ({
               weekday: row.weekday,
               name: row.name,
               exerciseCount: row.program_day_exercises?.length ?? 0,
             })),
-            weekdayInTimeZone(now, timezone),
+            weekday,
           );
+          sessionName = rows.find(row => row.weekday === weekday && (row.name ?? '').trim())?.name?.trim() ?? null;
         }
       }
 
@@ -441,14 +586,7 @@ Deno.serve(async (req) => {
 
       if (!subs?.length) continue;
 
-      const fr = (language ?? 'fr').toLowerCase().startsWith('fr');
-      const payload = type === 'workout'
-        ? fr
-          ? { title: 'Prometheus 💪', body: "Tu n'as pas encore loggé ta séance aujourd'hui. Go !", tag: 'workout-reminder', url: '/workout' }
-          : { title: 'Prometheus 💪', body: "You haven't logged a workout today. Go crush it!", tag: 'workout-reminder', url: '/workout' }
-        : fr
-          ? { title: 'Prometheus 🥗', body: "N'oublie pas de logger tes repas aujourd'hui.", tag: 'nutrition-reminder', url: '/nutrition' }
-          : { title: 'Prometheus 🥗', body: "Don't forget to track your nutrition today.", tag: 'nutrition-reminder', url: '/nutrition' };
+      const payload = renderFixedReminder(type, language, sessionName);
 
       for (const sub of subs) {
         try {
@@ -466,12 +604,54 @@ Deno.serve(async (req) => {
     processUsers(nutritionUsers, 'nutrition'),
   ]);
 
+  // ── « Action now » queue ──
+  let actionSent = 0;
+  const { data: due, error: claimError } = await admin.rpc('claim_notification_batch', { p_limit: 200 });
+  if (!claimError && Array.isArray(due) && due.length > 0) {
+    type DueRow = {
+      id: string; user_id: string; kind: string; item_count: number;
+      payload: Record<string, unknown> | null; url: string; language: string | null;
+    };
+    const dueRows = due as DueRow[];
+    const { data: allSubs } = await admin
+      .from('push_subscriptions')
+      .select('user_id, endpoint, p256dh, auth')
+      .in('user_id', [...new Set(dueRows.map(row => row.user_id))]);
+    const subsByUser = new Map<string, Array<{ endpoint: string; p256dh: string; auth: string }>>();
+    for (const sub of (allSubs ?? []) as Array<{ user_id: string; endpoint: string; p256dh: string; auth: string }>) {
+      const list = subsByUser.get(sub.user_id) ?? [];
+      list.push(sub);
+      subsByUser.set(sub.user_id, list);
+    }
+    for (const row of dueRows) {
+      const message = renderActionNotification(row);
+      const subs = subsByUser.get(row.user_id) ?? [];
+      let outcome: 'delivered' | 'no_device' | 'failed' = subs.length === 0 ? 'no_device' : 'failed';
+      if (message) {
+        for (const sub of subs) {
+          try {
+            const ok = await sendPush(sub.endpoint, sub.p256dh, sub.auth, vapidPublicKey, vapidPrivateKey, vapidSubject, { ...message });
+            if (ok) { outcome = 'delivered'; actionSent++; } else { staleEndpoints.push(sub.endpoint); }
+          } catch {
+            staleEndpoints.push(sub.endpoint);
+          }
+        }
+      } else {
+        outcome = 'failed';
+      }
+      // Sent ≠ read: this only records what the push service accepted.
+      await admin.from('notification_outbox')
+        .update({ sent_at: new Date().toISOString(), outcome })
+        .eq('id', row.id);
+    }
+  }
+
   // Clean up dead endpoints
   if (staleEndpoints.length) {
     await admin.from('push_subscriptions').delete().in('endpoint', staleEndpoints);
   }
 
-  return new Response(JSON.stringify({ sent, cleaned: staleEndpoints.length }), {
+  return new Response(JSON.stringify({ sent, actionSent, cleaned: staleEndpoints.length }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 });
