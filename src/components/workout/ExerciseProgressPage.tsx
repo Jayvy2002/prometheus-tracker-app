@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { ArrowLeft, TrendingUp, Trophy, Search, ChevronRight, Dumbbell, Scale, CalendarDays, BarChart2 } from 'lucide-react';
+import { ArrowLeft, TrendingUp, Trophy, Search, ChevronRight, Dumbbell, Scale, CalendarDays, BarChart2, MessageCircle } from 'lucide-react';
+import { objectRefHref } from '../../features/messages/domain/messageContent';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../lib/supabase';
 import { parseDate, toLocalDateStr, formatChartDate, formatWeekdayShort, formatWeight, kgToLbs } from '../../lib/utils';
@@ -26,7 +27,9 @@ export default function ExerciseProgressPage({ embedded = false }: { embedded?: 
   const selectedExercise = exerciseName ? decodeURIComponent(exerciseName) : null;
   const openExercise = (name: string) => navigate(`/progress/exercise/${encodeURIComponent(name)}`);
   const { user } = useAuthStore();
-  const { canReadOwnHistory, canOpenPersonalCalendarRoute } = useResourcePermissions();
+  const { actor, canReadOwnHistory, canOpenPersonalCalendarRoute } = useResourcePermissions();
+  // Only a coached athlete has a thread to talk in (Vision §19).
+  const hasCoach = actor.personalCoaching === 'coached';
   const unit = useProfileStore(s => s.profile?.unit_weight) ?? 'kg';
   const showKg = (kg: number) => formatWeight(kg, unit);
   const chartKg = (kg: number) => (unit === 'lbs' ? kgToLbs(kg) : Math.round(kg * 10) / 10);
@@ -118,6 +121,16 @@ export default function ExerciseProgressPage({ embedded = false }: { embedded?: 
               <ArrowLeft size={20} />
             </button>
             <h1 className="text-lg font-bold text-white flex-1 truncate">{detail.name}</h1>
+            {hasCoach ? (
+              <Link
+                to={objectRefHref('/messages', { kind: 'exercise', name: detail.name })}
+                className="inline-flex min-h-11 items-center gap-1.5 rounded-xl px-2 text-sm text-blue-300 hover:text-blue-200"
+                data-testid="exercise-talk"
+              >
+                <MessageCircle size={16} aria-hidden="true" />
+                <span>{t('messages.refs.talkAbout')}</span>
+              </Link>
+            ) : null}
           </div>
 
           <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-5 mb-4 text-center animate-fade-in-up">

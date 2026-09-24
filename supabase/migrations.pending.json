@@ -51,6 +51,10 @@
     {
       "version": "20260924180000",
       "name": "personal_csv_import"
+    },
+    {
+      "version": "20260924190000",
+      "name": "rich_messages"
     }
   ]
 }

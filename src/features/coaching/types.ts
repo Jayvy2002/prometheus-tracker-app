@@ -1,4 +1,5 @@
 /** Contrats coaching / file / interventions / fleet — lot 22a. */
+import type { MessageAttachment } from '../messages/domain/messageContent';
 import type { DailyCheckin, LastSessionView, LiftSetSnapshot, WeightMeasurement } from '../../shared/types';
 
 export interface CoachClientLink {
@@ -209,6 +210,12 @@ export interface CoachMessage {
   read_at: string | null;
   workout_id: string | null;
   checkin_id: string | null;
+  /** Vision §19: reply, canonical references, private attachments. */
+  reply_to_id: string | null;
+  program_id: string | null;
+  goal_id: string | null;
+  exercise_name: string | null;
+  attachments: MessageAttachment[];
 }
 
 export interface CoachMessageThread {

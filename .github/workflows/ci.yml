@@ -609,6 +609,14 @@ jobs:
         run: |
           set -euo pipefail
           grep -F 'personal csv import: solo previews and commits own history, never twice, never for others, coach sees sessions not the job' /tmp/personal-csv-import.txt
+      - name: Test rich messages
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/rich_messages.sql | tee /tmp/rich-messages.txt
+      - name: Confirm rich messages echo
+        run: |
+          set -euo pipefail
+          grep -F 'rich messages: replies in thread, canonical references owned, attachments private per thread, prospect text only, content immutable' /tmp/rich-messages.txt
       - name: Test qualification proof Storage API withdraw
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

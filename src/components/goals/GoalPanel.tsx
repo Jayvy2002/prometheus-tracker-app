@@ -1,6 +1,8 @@
+import { Link } from 'react-router-dom';
+import { objectRefHref } from '../../features/messages/domain/messageContent';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Flag } from 'lucide-react';
+import { Flag, MessageCircle } from 'lucide-react';
 import Button from '../ui/Button';
 import ErrorState from '../ui/ErrorState';
 import { toast } from '../ui/Toast';
@@ -31,10 +33,13 @@ export default function GoalPanel({
   userId,
   unit,
   recomputeSoloTargets = false,
+  talkHref,
 }: {
   userId: string;
   unit: 'kg' | 'lbs';
   recomputeSoloTargets?: boolean;
+  /** Thread base (« /messages » or « /messages/<client> ») when a conversation exists (Vision §19). */
+  talkHref?: string;
 }) {
   const { t, i18n } = useTranslation();
   const { goals, events, loading, error, busy, reload, start, transition } = useGoals(userId, { recomputeSoloTargets });
@@ -108,6 +113,15 @@ export default function GoalPanel({
                   {t(`goals.actions.${focus.status === 'paused' && to === 'active' ? 'resume' : to}`)}
                 </Button>
               ))}
+              {talkHref ? (
+                <Link
+                  to={objectRefHref(talkHref, { kind: 'goal', id: focus.id })}
+                  className="inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3 text-sm text-blue-300 hover:text-blue-200"
+                  data-testid="goal-talk"
+                >
+                  <MessageCircle size={14} aria-hidden="true" /> {t('messages.refs.talkAbout')}
+                </Link>
+              ) : null}
             </div>
           )}
           {pending && (

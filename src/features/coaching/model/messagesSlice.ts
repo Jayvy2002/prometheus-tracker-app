@@ -14,6 +14,7 @@ import {
   confirmedReadIds,
 } from '../../../lib/messageDrafts';
 import { MARKETPLACE_MESSAGE_MAX_LENGTH } from '../../../lib/marketplace';
+import { objectRefInsertFields } from '../../messages/domain/messageContent';
 import {
   liveMessageState,
 } from '../../../lib/clientLive';
@@ -98,11 +99,12 @@ export function createMessagesSlice(set: CoachingSet, get: CoachingGet): Pick<Co
     set({ unreadMessageCount: total });
   },
 
-  sendCoachMessage: async (clientId, body, templateKey, clientMsgId, bilan) => {
+  sendCoachMessage: async (clientId, body, templateKey, clientMsgId, bilan, extras) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: 'Not authenticated' };
     const trimmed = body.trim().slice(0, MARKETPLACE_MESSAGE_MAX_LENGTH);
-    if (!trimmed) return { error: 'empty' };
+    const attachments = extras?.attachments ?? [];
+    if (!trimmed && attachments.length === 0) return { error: 'empty' };
     // C02 : idempotence retry — même client_msg_id = un seul message.
     const msgId = clientMsgId ?? crypto.randomUUID();
     const { data, error } = await supabase
@@ -115,6 +117,9 @@ export function createMessagesSlice(set: CoachingSet, get: CoachingGet): Pick<Co
         template_key: templateKey,
         client_msg_id: msgId,
         ...bilanInsertFields(normalizeBilanRef(bilan)),
+        ...objectRefInsertFields(extras?.ref),
+        reply_to_id: extras?.replyToId ?? null,
+        attachments,
       })
       .select()
       .maybeSingle();
@@ -156,12 +161,13 @@ export function createMessagesSlice(set: CoachingSet, get: CoachingGet): Pick<Co
     return { error: null };
   },
 
-  sendClientReply: async (body, clientMsgId, coachId) => {
+  sendClientReply: async (body, clientMsgId, coachId, extras) => {
     const { data: { user } } = await supabase.auth.getUser();
     const pCoachId = coachId ?? get().myCoach?.id;
     if (!user || !pCoachId) return { error: 'Not authenticated' };
     const trimmed = body.trim().slice(0, MARKETPLACE_MESSAGE_MAX_LENGTH);
-    if (!trimmed) return { error: 'empty' };
+    const attachments = extras?.attachments ?? [];
+    if (!trimmed && attachments.length === 0) return { error: 'empty' };
     const msgId = clientMsgId ?? crypto.randomUUID();
     const { data, error } = await supabase
       .from('coach_messages')
@@ -172,6 +178,11 @@ export function createMessagesSlice(set: CoachingSet, get: CoachingGet): Pick<Co
         body: trimmed,
         template_key: 'reply',
         client_msg_id: msgId,
+        // The athlete can point at their own session, check-in, goal or exercise too.
+        ...bilanInsertFields(normalizeBilanRef(extras?.bilan)),
+        ...objectRefInsertFields(extras?.ref),
+        reply_to_id: extras?.replyToId ?? null,
+        attachments,
       })
       .select()
       .maybeSingle();

@@ -4,6 +4,7 @@ import GoalPanel from '../goals/GoalPanel';
 import ClientCheckinPlanCard from '../checkin/ClientCheckinPlanCard';
 import ConstraintsPanel from '../constraints/ConstraintsPanel';
 import MeasurementsPage from '../measurements/MeasurementsPage';
+import { objectRefHref } from '../../features/messages/domain/messageContent';
 import { useEffect, useMemo, useState } from 'react';
 import { useClientDossier } from '../../features/coaching/hooks/useClientDossier';
 import { useClientPhotoSharing } from '../../features/coaching/hooks/useClientPhotoSharing';
@@ -632,7 +633,7 @@ export default function ClientDetailPage() {
             {/* Vision §6: the goal and its history, decided by the athlete or the coach. */}
             {id ? (
               <Card>
-                <GoalPanel userId={id} unit={unit} />
+                <GoalPanel userId={id} unit={unit} talkHref={`/messages/${id}`} />
               </Card>
             ) : null}
 
@@ -899,6 +900,15 @@ export default function ClientDetailPage() {
                   >
                     {t('coaching.client360.openProgram')}
                   </Button>
+                  {id ? (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => navigate(objectRefHref(`/messages/${id}`, { kind: 'program', id: boundAssignment.program!.id }))}
+                    >
+                      {t('messages.refs.sendToClient')}
+                    </Button>
+                  ) : null}
                   {setupHref && (
                     <Button size="sm" variant="ghost" onClick={() => navigate(setupHref)}>
                       {t('coaching.client360.changeProgram')}
