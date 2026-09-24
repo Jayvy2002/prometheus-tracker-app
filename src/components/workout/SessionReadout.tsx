@@ -5,13 +5,16 @@ import { optionLabel } from '../../lib/optionLabels';
 import Card from '../ui/Card';
 import { formatLoad } from '../../lib/utils';
 import { useProfileStore } from '../../stores/profileStore';
+import { namedSetType } from '../../features/workout/domain/timedExercise';
 
 function setLabel(set: LiftSetSnapshot, typeLabel: (value: string) => string, unit: 'kg' | 'lbs'): string {
   const load = set.set_type === 'isometric'
     ? `${formatLoad(set.weight_kg, unit)} × ${set.duration_seconds ?? 0}s`
     : `${formatLoad(set.weight_kg, unit)} × ${set.reps}`;
   const rir = set.rir > 0 ? ` @ RIR ${set.rir}` : '';
-  const kind = set.set_type && set.set_type !== 'working' ? ` · ${typeLabel(set.set_type)}` : '';
+  // Working set → nothing; unknown legacy value (« normal »…) → nothing, never the raw key.
+  const named = namedSetType(set.set_type);
+  const kind = named ? ` · ${typeLabel(named)}` : '';
   return `${load}${rir}${kind}`;
 }
 
