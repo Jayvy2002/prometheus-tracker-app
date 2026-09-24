@@ -49,17 +49,23 @@ function joinedCounts(
   return parts.map(([key, count]) => t(key, { count })).join(' · ');
 }
 
-export default function CoachImportPage() {
+/**
+ * One import engine (Vision §24.1). `personal`: « pour moi », open to Solo,
+ * Coaché and Coach alike, the subject is always the signed-in person.
+ */
+export default function CoachImportPage({ personal = false }: { personal?: boolean } = {}) {
   const { t } = useTranslation();
   const { user } = useAuthStore();
-  const { canActAsCoach, canImportCoachSpreadsheet } = useResourcePermissions();
+  const { canActAsCoach, canImportCoachSpreadsheet, canImportPersonalHistory } = useResourcePermissions();
   const { clients, fetchClients } = useCoachingStore();
   const [params] = useSearchParams();
   const requested = params.get('subject');
   const requestedDossier = params.get('dossier');
 
   const [subjectId, setSubjectId] = useState<string>(
-    requestedDossier
+    personal
+      ? (user?.id ?? '')
+      : requestedDossier
       ? `dossier:${requestedDossier}`
       : requested === 'self'
         ? (user?.id ?? '')
@@ -87,7 +93,7 @@ export default function CoachImportPage() {
   subjectRef.current = subjectId;
 
   useEffect(() => {
-    fetchClients();
+    if (!personal) fetchClients();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -100,6 +106,7 @@ export default function CoachImportPage() {
   }, [step]);
 
   useEffect(() => {
+    if (personal) return undefined;
     let live = true;
     listProvisionalDossiers().then((result) => {
       if (!live) return;
@@ -113,14 +120,15 @@ export default function CoachImportPage() {
       if (live) setDossierLoadError(true);
     });
     return () => { live = false; };
-  }, [dossierRetry]);
+  }, [dossierRetry, personal]);
 
   useEffect(() => {
     if (!user) return;
-    if (requestedDossier) setSubjectId(`dossier:${requestedDossier}`);
+    if (personal) setSubjectId(user.id);
+    else if (requestedDossier) setSubjectId(`dossier:${requestedDossier}`);
     else if (requested === 'self') setSubjectId(user.id);
     else setSubjectId(requested ?? '');
-  }, [requested, requestedDossier, user]);
+  }, [personal, requested, requestedDossier, user]);
 
   const detections = useMemo(() => (parsed ? detectColumns(parsed.headers) : []), [parsed]);
   const duplicateHeaders = mapping ? unresolvedDuplicateHeaders(detections, mapping) : [];
@@ -130,14 +138,16 @@ export default function CoachImportPage() {
   ));
   const openDossiers = dossiers.filter((dossier) => dossier.status === 'preparing' || dossier.status === 'invited');
   const dossierId = subjectId.startsWith('dossier:') ? subjectId.slice('dossier:'.length) : null;
-  const subjectAllowed = canImportCoachSpreadsheet(dossierId
+  const subjectAllowed = personal
+    ? canImportPersonalHistory && Boolean(user?.id) && subjectId === user?.id
+    : canImportCoachSpreadsheet(dossierId
     ? { provisionalDossierId: dossierId, ownsProvisionalDossier: openDossiers.some((dossier) => dossier.id === dossierId) }
     : {
       subjectUserId: subjectId,
       hasActiveRelationship: ownedClients.some((client) => client.id === subjectId),
     });
 
-  if (!canActAsCoach) return <Navigate to="/dashboard" replace />;
+  if (personal ? !canImportPersonalHistory : !canActAsCoach) return <Navigate to="/dashboard" replace />;
 
   const resetFile = () => {
     setStep('file');
@@ -330,11 +340,11 @@ export default function CoachImportPage() {
   return (
     <PageTransition>
       <div className="px-4 pt-6 pb-28 max-w-lg mx-auto">
-        <Link to="/clients" className="flex items-center gap-2 text-neutral-400 hover:text-white mb-4">
-          <ArrowLeft size={18} /> {t('nav.clients')}
+        <Link to={personal ? '/profile' : '/clients'} className="flex items-center gap-2 text-neutral-400 hover:text-white mb-4">
+          <ArrowLeft size={18} /> {t(personal ? 'nav.profile' : 'nav.clients')}
         </Link>
-        <h1 className="text-xl font-bold text-white mb-1">{t('coaching.importCsv.title')}</h1>
-        <p className="text-sm text-neutral-500 mb-2">{t('coaching.importCsv.subtitle')}</p>
+        <h1 className="text-xl font-bold text-white mb-1">{t(personal ? 'coaching.importCsv.personalTitle' : 'coaching.importCsv.title')}</h1>
+        <p className="text-sm text-neutral-500 mb-2">{t(personal ? 'coaching.importCsv.personalSubtitle' : 'coaching.importCsv.subtitle')}</p>
         <p className="text-sm text-neutral-400 mb-6">{t('coaching.importCsv.oneKind')}</p>
         {openPreviews.length > 0 ? (
           <Card className="mb-4 space-y-2">
@@ -357,6 +367,7 @@ export default function CoachImportPage() {
           </Card>
         ) : null}
 
+        {personal ? null : (
         <label className="block mb-4">
           <span className="text-xs font-medium text-neutral-400">{t('coaching.importCsv.subject')}</span>
           <select
@@ -382,7 +393,8 @@ export default function CoachImportPage() {
             </optgroup>
           </select>
         </label>
-        {dossierLoadError ? (
+        )}
+        {!personal && dossierLoadError ? (
           <p className="text-sm text-amber-200 mb-4">
             {t('coaching.provisional.loadError')}
             {' '}
@@ -392,7 +404,7 @@ export default function CoachImportPage() {
           </p>
         ) : null}
 
-        {subjectId && !subjectAllowed ? (
+        {!personal && subjectId && !subjectAllowed ? (
           <p className="text-sm text-amber-200 mb-4">{t('coaching.importCsv.errors.not_your_client')}</p>
         ) : null}
 
@@ -726,7 +738,14 @@ export default function CoachImportPage() {
                 ['coaching.importCsv.counts.toFix', serverView.error_count],
               ])}
             </p>
-            <Button variant="secondary" onClick={resetFile}>{t('coaching.importCsv.another')}</Button>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="secondary" onClick={resetFile}>{t('coaching.importCsv.another')}</Button>
+              {personal ? (
+                <Link to="/calendar" className="min-h-11 inline-flex items-center px-3 text-sm text-blue-300 underline">
+                  {t('coaching.importCsv.seeInCalendar')}
+                </Link>
+              ) : null}
+            </div>
           </Card>
         ) : null}
       </div>

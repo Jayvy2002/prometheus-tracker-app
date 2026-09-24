@@ -30,6 +30,7 @@ import {
   canUpdateOwnPersonalData,
   canUsePersonalTools,
   canImportCoachSpreadsheet,
+  canImportPersonalHistory,
   canPrepareProvisionalDossier,
   type PermissionActor,
 } from './resourcePermissions';
@@ -206,6 +207,14 @@ test('calendar resource read and route are allowed for Solo and Coached personal
   assert.equal(canOpenPersonalCalendarRoute(coachCoached()), true);
   const blocked = actorFromAccount(null, resolveAccountContext('none', null, true, null));
   assert.equal(canOpenPersonalCalendarRoute(blocked), false);
+});
+
+test('importing one\'s own history is personal: Solo, Coached and Coach alike', () => {
+  for (const person of [solo(), coached(), coachSolo(), coachCoached('coaching')]) {
+    assert.equal(canImportPersonalHistory(person), true);
+  }
+  const blocked = actorFromAccount(null, resolveAccountContext('none', null, true, null));
+  assert.equal(canImportPersonalHistory(blocked), false);
 });
 
 test('P5.1 import is coach-only for self or an active client; workspace does not grant', () => {

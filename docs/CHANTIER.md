@@ -976,6 +976,16 @@ Vision §14.4 et §13. Migration pending `20260924170000_body_measurements` ; pr
 - Export personnel : `body_measurements` inclus.
 
 Reste : pas de lecture des mensurations par la revue hebdomadaire ; pas de mode hors ligne (saisie hors séance).
+
+## Import CSV « pour moi » (branche `agent/p5-15-import-solo`, en revue)
+
+Vision §24.1. Migration pending `20260924180000_personal_csv_import` ; preuve SQL `supabase/tests/personal_csv_import.sql` (et `p5_coach_csv_import.sql` ajusté).
+
+- Même moteur que l’import Coach (analyse → mapping → ambiguïtés → aperçu → corrections → confirmation → transaction), pas de second moteur. Importer **pour soi** ne demande plus la capacité Coach ; importer pour quelqu’un d’autre l’exige toujours, avec relation active.
+- Profil → « Importer mon historique » (`/import`), pour Solo, Coaché et Coach dans l’espace personnel. Séances ou pesées ; le même fichier n’est jamais importé deux fois ; un Coach voit les séances importées par son client, pas le travail d’import lui-même.
+- Traces d’échec (code seulement, 50/jour) ouvertes à tout importeur connecté.
+
+Reste : format de date ambigu (12/03) toujours à choisir à la main ; nom de séance importée = date.
 ---
 
 # P6 — Architecture économique de bêta

@@ -312,6 +312,8 @@ export default function AppRoutes() {
         <Route path="/questionnaire" element={<AthleteQuestionnairePage key={user.id} />} />
         <Route path="/coach/learned" element={<CoachOnly><CoachLearnedPage /></CoachOnly>} />
         <Route path="/coach/import" element={<CoachOnly><CoachImportPage /></CoachOnly>} />
+        {/* Vision §24.1: same engine, « pour moi », for Solo, Coaché and Coach alike. */}
+        <Route path="/import" element={<CoachImportPage personal />} />
         <Route path="/coach/dossiers" element={<CoachOnly><CoachDossiersPage /></CoachOnly>} />
         <Route path="/programs" element={<ProgramsHome />} />
         <Route path="/programs/new" element={<CoachOnly><ProgramEditorPage /></CoachOnly>} />

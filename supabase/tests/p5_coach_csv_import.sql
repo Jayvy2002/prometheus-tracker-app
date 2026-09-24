@@ -88,13 +88,20 @@ DO $$ BEGIN
   WHEN OTHERS THEN
     IF SQLERRM NOT LIKE '%permission denied%' AND SQLERRM NOT LIKE '%insufficient%' THEN RAISE; END IF;
   END;
+  -- Since Vision §24.1 an athlete may import their own history (personal
+  -- space); importing for anyone else still needs the Coach capability.
+  PERFORM public.cancel_coach_import((public.preview_coach_import(
+    auth.uid(), 'self.csv', E'Date,Weight\n2026-01-02,80\n',
+    '{"kind":"body_weight","delimiter":",","date_format":"iso","load_unit":"kg","body_weight_unit":"kg","rpe_mode":"notes","columns":{"date":0,"body_weight":1},"ignored":[]}'::jsonb,
+    'athlete-self'
+  )->>'import_id')::uuid);
   BEGIN
     PERFORM public.preview_coach_import(
-      auth.uid(), 'self.csv', E'Date,Weight\n2026-01-02,80\n',
+      'c5100000-0000-4000-8000-000000000001', 'other.csv', E'Date,Weight\n2026-01-02,80\n',
       '{"kind":"body_weight","delimiter":",","date_format":"iso","load_unit":"kg","body_weight_unit":"kg","rpe_mode":"notes","columns":{"date":0,"body_weight":1},"ignored":[]}'::jsonb,
-      'athlete-self'
+      'athlete-other'
     );
-    RAISE EXCEPTION 'athlete previewed';
+    RAISE EXCEPTION 'athlete previewed for someone else';
   EXCEPTION WHEN OTHERS THEN
     IF SQLERRM <> 'coach_capability_required' THEN RAISE; END IF;
   END;
