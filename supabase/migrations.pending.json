@@ -7,6 +7,10 @@
     {
       "version": "20260923120000",
       "name": "p5_audit_followup"
+    },
+    {
+      "version": "20260923170000",
+      "name": "progress_photo_sharing"
     }
   ]
 }

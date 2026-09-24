@@ -44,9 +44,13 @@ import {
 } from '../../../stores/programStore';
 import {
   buildClientOpsRows,
+  CHECKIN_WINDOW_DAYS,
   coachClockFacts,
   datePrefix,
+  NUTRITION_WINDOW_DAYS,
   weekAgoStr,
+  WEIGHT_WINDOW_DAYS,
+  windowStart,
 } from '../../../lib/coachAlerts';
 import {
   buildClientLifts,
@@ -216,9 +220,9 @@ export function createClientsSlice(set: CoachingSet, get: CoachingGet): Pick<Coa
     ] = await Promise.all([
       supabase.from('client_tracking_config').select('*').in('client_id', ids),
       supabase.from('program_assignments').select('client_id, program_id, start_date').in('client_id', ids).eq('status', 'active'),
-      supabase.from('daily_checkins').select('user_id').in('user_id', ids).eq('checked_at', today),
-      supabase.from('nutrition_logs').select('user_id').in('user_id', ids).eq('logged_at', today),
-      supabase.from('weight_measurements').select('user_id').in('user_id', ids).gte('measured_at', weekAgo),
+      supabase.from('daily_checkins').select('user_id').in('user_id', ids).gte('checked_at', windowStart(today, CHECKIN_WINDOW_DAYS)),
+      supabase.from('nutrition_logs').select('user_id').in('user_id', ids).gte('logged_at', windowStart(today, NUTRITION_WINDOW_DAYS)),
+      supabase.from('weight_measurements').select('user_id').in('user_id', ids).gte('measured_at', windowStart(today, WEIGHT_WINDOW_DAYS)),
       supabase.from('workouts').select('user_id, date, completed').in('user_id', ids).eq('completed', true).gte('date', `${weekAgo}T00:00:00`),
       fetchAllRows(() => supabase.from('daily_checkins').select('*').in('user_id', ids).gte('checked_at', threeWeeks).order('checked_at', { ascending: false })),
       fetchAllRows(() => supabase.from('weight_measurements').select('*').in('user_id', ids).gte('measured_at', threeWeeks).order('measured_at', { ascending: false })),

@@ -97,6 +97,11 @@ test('Progress: no empty before/after spam; logged-exercise picker stays on Trai
   assert.match(trainingBlock, /onOpenSeries/);
 });
 
+function dashAvatar(): string {
+  const dash = src('src/components/dashboard/Dashboard.tsx');
+  return dash.slice(dash.indexOf('{/* Header */}'), dash.indexOf('<LinkEndedBanner'));
+}
+
 test('Coached client shell: photos and program in hub, messages in tabs, no coach-mode dump', () => {
   const profile = src('src/components/profile/ProfilePage.tsx');
   assert.doesNotMatch(profile, /\/recipes/);
@@ -109,7 +114,8 @@ test('Coached client shell: photos and program in hub, messages in tabs, no coac
   assert.match(profile, /\/become-coach/);
 
   const app = src('src/App.tsx') + src('src/app/bootstrap/useAuthenticatedSession.ts') + src('src/app/guards/RouteGuards.tsx') + src('src/app/router/AppRoutes.tsx');
-  assert.match(app, /CoachedAthleteRedirect/);
+  // No persona page-deny left: permissions decide (CARTE_PRODUIT §19).
+  assert.doesNotMatch(app, /CoachedAthleteRedirect/);
   assert.match(app, /ProgramsHome/);
   assert.match(app, /path="\/programs"/);
   assert.doesNotMatch(app, /path="\/programs" element=\{<CoachedAthleteRedirect>/);
@@ -132,8 +138,10 @@ test('Coached client shell: photos and program in hub, messages in tabs, no coac
   );
   assert.match(coachedMobile, /\bmessages\b/);
   assert.match(coachedMobile, /\bbody\b/);
-  assert.match(coachedMobile, /\bprofile\b/);
+  // Calendar is a main page for the coached athlete too; profile opens from the avatar.
+  assert.match(coachedMobile, /\bsuivi\b/);
   assert.doesNotMatch(coachedMobile, /\bphotos\b/);
+  assert.match(dashAvatar(), /to="\/profile"/);
   const dash = src('src/components/dashboard/Dashboard.tsx') + src('src/features/dashboard/hooks/useDashboardBootstrap.ts');
   assert.doesNotMatch(dash, /navigate\('\/photos'\)/);
   assert.doesNotMatch(dash, /dashboard\.photosCard/);
@@ -167,7 +175,10 @@ test('UX28: missing logs are not framed as the athlete’s fault', () => {
   assert.doesNotMatch(fr, /Séance manquée/);
   assert.doesNotMatch(fr, /Check-ins manqués/);
   assert.doesNotMatch(fr, /Séances manquées/);
-  assert.match(fr, /pas de check-in aujourd’hui/);
+  // Silence is reported over a window, never « today » (Vision §11.2).
+  assert.match(fr, /pas de check-in depuis 7 jours/);
+  assert.doesNotMatch(fr, /pas de check-in aujourd’hui/i);
+  assert.doesNotMatch(fr, /missed_checkin: 'Check-in à relire'/);
   assert.match(fr, /Séance non loggée/);
   assert.match(fr, /Signaler une séance non loggée/);
   assert.match(fr, /Check-ins en attente/);

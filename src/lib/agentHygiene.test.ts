@@ -207,7 +207,7 @@ test('21a: App.tsx assembles router, guards and session bootstrap', () => {
   const guards = readFileSync(at('src/app/guards/RouteGuards.tsx'), 'utf8');
   assert.match(guards, /export function CoachOnly/);
   assert.match(guards, /export function CoachTrackerRedirect/);
-  assert.match(guards, /export function CoachedAthleteRedirect/);
+  assert.doesNotMatch(guards, /CoachedAthleteRedirect/);
   const boot = readFileSync(at('src/app/bootstrap/useAuthenticatedSession.ts'), 'utf8');
   assert.match(boot, /refreshPendingOps/);
   assert.match(boot, /shouldForceKinesiologyIntake/);

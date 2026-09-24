@@ -106,8 +106,10 @@ test('10g: OverflowMenu Escape + first item focus; nav aria-current', () => {
   assert.match(menu, /items\?\.\[0\]\?\.focus/);
   const bottom = src('src/app/layout/BottomNav.tsx');
   const side = src('src/app/layout/SideNav.tsx');
-  assert.match(bottom, /aria-current="page"/);
-  assert.match(side, /aria-current="page"/);
+  // Only the active tab is the current page (a hard-coded "page" on every tab lies to screen readers).
+  assert.match(bottom, /aria-current=\{active \? 'page' : undefined\}/);
+  assert.match(side, /aria-current=\{isActive \? 'page' : undefined\}/);
+  assert.doesNotMatch(bottom + side, /aria-current="page"/);
 });
 
 test('10h: PageTransition resets tab index when persona changes', () => {
@@ -117,14 +119,14 @@ test('10h: PageTransition resets tab index when persona changes', () => {
   assert.match(trans, /navPersona\(context\)/);
 });
 
-test('10i: séance / programme / modèle — no zombie “routine” copy', () => {
+test('10i: séance / programme / routine — the Vision §7.1 vocabulary, one word per concept', () => {
   const fr = src('src/i18n/locales/fr.ts');
-  assert.match(fr, /title: 'Modèles'/);
+  assert.match(fr, /title: 'Routines'/);
+  assert.doesNotMatch(fr, /Supprimer le modèle/);
   assert.match(fr, /startRoutineFailed: 'Impossible de démarrer la séance/);
-  assert.doesNotMatch(fr, /Mes routines/);
-  assert.doesNotMatch(fr, /Supprimer la routine/);
+  assert.doesNotMatch(fr, /Mes modèles/);
   const en = src('src/i18n/locales/en.ts');
-  assert.match(en, /title: 'Templates'/);
+  assert.match(en, /title: 'Routines'/);
   assert.doesNotMatch(en, /Failed to start routine/);
 });
 

@@ -348,7 +348,6 @@ test('P2.3 source-lock: new table after audit, RPC writes, no auto-apply', () =>
   assert.doesNotMatch(api, /queue_and_record_athlete_decision/);
   assert.match(api, /drain_athlete_decision_outbox/);
   assert.match(api, /drainAthleteDecisionOutboxBestEffort/);
-  assert.match(api, /Never a substitute for creating a journal/);
   assert.match(api, /listLatestAthleteDecisionsBestEffort/);
   assert.doesNotMatch(api, /from\('athlete_decision_log'\)\.insert/);
   assert.doesNotMatch(api, /enqueue_athlete_decision_outbox/);

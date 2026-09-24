@@ -128,7 +128,8 @@ export default function MessageThread({
           if (nearBottom.current) setNewMessages(false);
         }}
         className="flex-1 min-h-0 overflow-y-auto overscroll-contain space-y-2 pb-3">
-        {onLoadMore && hasMore ? (
+        {/* An empty thread has nothing older to load. */}
+        {onLoadMore && hasMore && ordered.length > 0 ? (
           <Button type="button" variant="ghost" size="sm" className="w-full" onClick={onLoadMore} disabled={loadingMore}>
             {loadingMore ? t('common.loading') : t('coaching.messages.loadMore')}
           </Button>

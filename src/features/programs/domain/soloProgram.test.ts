@@ -125,7 +125,9 @@ test('solo home and /programs show the proposal; refuse is not auto-apply', () =
   const hub = src('src/components/profile/SoloHub.tsx');
   assert.doesNotMatch(hub, /\/routines/);
   const routines = src('src/components/routines/RoutinesPage.tsx');
-  assert.match(routines, /Navigate to="\/programs"/);
+  assert.doesNotMatch(routines, /<Navigate/);
+  assert.doesNotMatch(routines, /isSoloAthlete|isCoachedAthlete/);
+  assert.match(routines, /startWorkoutFromTemplate/);
 });
 
 test('assigned program days convert to the session-editor draft', () => {

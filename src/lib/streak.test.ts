@@ -150,5 +150,7 @@ test('streak store decays on fetch and ignores old addLog dates', () => {
   const addWaterImpl = nutrition.slice(nutrition.indexOf('addWater: async'));
   assert.equal(addWaterImpl.includes('recordActivity'), false);
   const calendar = readFileSync(resolve(process.cwd(), 'src/components/calendar/CalendarPage.tsx'), 'utf8');
-  assert.match(calendar, /countUnbrokenStreak/);
+  // No « days in a row » counter on the calendar: a day without a log is not a
+  // fault and must not break anything (Vision §8.1, §21 — no engagement pressure).
+  assert.doesNotMatch(calendar, /countUnbrokenStreak|streakCount/);
 });

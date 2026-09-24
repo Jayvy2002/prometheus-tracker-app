@@ -40,7 +40,10 @@ test('D06: full-text goes through cgi/search.pl (v2 is structured search), never
   const hook = src('src/features/nutrition/hooks/useFoodCatalogSearch.ts');
   // OFF only on explicit searchNow — the debounced effect stays local.
   assert.match(hook, /searchOpenFoodFacts\(q, \{ lang, country/);
-  assert.match(hook, /Explicite \(bouton\/Entrée\)/);
+  // The only OFF call sits inside searchNow (explicit button / Enter), never in the debounced effect.
+  const searchNowBody = hook.slice(hook.indexOf('const searchNow = useCallback'), hook.indexOf('return {', hook.indexOf('const searchNow = useCallback')));
+  assert.match(searchNowBody, /searchOpenFoodFacts\(/);
+  assert.equal(hook.split('searchOpenFoodFacts(').length - 1, 1);
   assert.match(hook, /offStatus/);
 });
 

@@ -93,7 +93,6 @@ const marketplace = {
     whyThisCoach: 'Why this coach?',
     compatible: '{{n}}% match',
     priceOnRequest: 'Rate agreed with the coach',
-    listedPrice: '{{amount}} {{currency}} / {{period}}',
     listedPriceNoCurrency: '{{amount}} / {{period}}',
     listedRate: 'Indicative rate (optional, not a payment)',
     pricePeriod_session: 'session',

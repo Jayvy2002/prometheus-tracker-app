@@ -1,14 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Dumbbell, Scale, Flame, ClipboardCheck } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useClientTracking } from '@/features/coaching/hooks/useClientTracking';
-
-interface FABAction {
-  label: string;
-  icon: typeof Dumbbell;
-  onClick: () => void;
-}
+import { quickAddActions } from '@/app/navigation/navConfig';
 
 export default function FAB({ raised = false }: { raised?: boolean }) {
   const { t } = useTranslation();
@@ -16,21 +11,12 @@ export default function FAB({ raised = false }: { raised?: boolean }) {
   const tracking = useClientTracking();
   const [open, setOpen] = useState(false);
 
-  const actions: FABAction[] = [
-    ...(tracking.track_workouts ? [{
-      // Opens the training page, not an empty workout.
-      label: t('nav.quickSession'),
-      icon: Dumbbell,
-      onClick: () => { navigate('/workout'); setOpen(false); },
-    }] : []),
-    ...(tracking.track_checkins ? [{
-      label: t('nav.addCheckin'),
-      icon: ClipboardCheck,
-      onClick: () => { navigate('/checkin'); setOpen(false); },
-    }] : []),
-    ...(tracking.track_weight ? [{ label: t('nav.addWeight'), icon: Scale, onClick: () => { navigate('/weight?log=1'); setOpen(false); } }] : []),
-    ...(tracking.track_nutrition ? [{ label: t('nav.addMeal'), icon: Flame, onClick: () => { navigate('/nutrition?add=1'); setOpen(false); } }] : []),
-  ];
+  // One source for mobile and desktop quick add (navConfig), not a second list.
+  const actions = quickAddActions(tracking).map(action => ({
+    label: t(action.labelKey),
+    icon: action.icon,
+    onClick: () => { navigate(action.path, action.state ? { state: action.state } : undefined); setOpen(false); },
+  }));
 
   if (actions.length === 0) return null;
 

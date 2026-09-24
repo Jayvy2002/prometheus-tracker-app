@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { isOpenRequest, requestStep } from '../../../components/marketplace/marketplaceCopy';
+import { formatListedAmount, isOpenRequest, requestStep } from '../../../components/marketplace/marketplaceCopy';
 import { marketplaceUiSource } from '../../../lib/marketplaceUiSource';
 
 const src = (rel: string) => readFileSync(resolve(process.cwd(), rel), 'utf8');
@@ -43,4 +43,12 @@ test('marketplace UI: one « find a coach » place, short request, final athlete
   assert.match(src('src/components/marketplace/CoachMatchPage.tsx'), /step === 'results'/);
   // Reporting stays reachable as a quiet link.
   assert.match(src('src/components/marketplace/MarketplaceReportForm.tsx'), /aria-expanded=\{open\}/);
+});
+
+test('listed prices read in the reader’s language, never as a raw decimal', () => {
+  assert.equal(formatListedAmount('120.00', 'CAD', 'fr').replace(/\s/g, ' '), '120,00 $');
+  assert.equal(formatListedAmount('120.00', 'CAD', 'en'), '$120.00');
+  assert.equal(formatListedAmount('45.00', 'EUR', 'fr').replace(/\s/g, ' '), '45,00 €');
+  assert.equal(formatListedAmount('45.00', '', 'fr'), '45,00');
+  assert.equal(formatListedAmount('oops', 'CAD', 'fr'), 'oops');
 });

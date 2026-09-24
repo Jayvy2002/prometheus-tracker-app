@@ -156,6 +156,19 @@ BEGIN
     E'Date,Exercise,Set,Reps\n2026-09-24,Deadlift,2,20\n2026-09-24,Deadlift,1,10\n',
     v_map, 'p59-order'
   );
+  -- F38: a NULL (or blank) hash on a previewed import is refused, never skipped.
+  BEGIN
+    PERFORM public.commit_coach_import((v->>'import_id')::uuid, NULL, v_map);
+    RAISE EXCEPTION 'NULL hash committed a previewed import';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM <> 'file_changed' THEN RAISE; END IF;
+  END;
+  BEGIN
+    PERFORM public.commit_coach_import((v->>'import_id')::uuid, '   ', v_map);
+    RAISE EXCEPTION 'blank hash committed a previewed import';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM <> 'file_changed' THEN RAISE; END IF;
+  END;
   v := public.commit_coach_import((v->>'import_id')::uuid, v->>'file_sha256', v_map);
   IF v->>'status' <> 'committed' THEN RAISE EXCEPTION 'order commit %', v; END IF;
   IF (
@@ -168,7 +181,7 @@ BEGIN
   ) <> 10 THEN
     RAISE EXCEPTION 'explicit set_index order lost';
   END IF;
-  -- F38: a NULL hash is refused, not skipped.
+  -- Replay: an already committed import returns its view whatever hash is sent.
   BEGIN
     PERFORM public.commit_coach_import((v->>'import_id')::uuid, NULL, v_map);
   EXCEPTION WHEN OTHERS THEN

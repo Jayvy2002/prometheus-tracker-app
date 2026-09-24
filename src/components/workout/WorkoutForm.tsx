@@ -778,7 +778,8 @@ function WorkoutFormInner() {
           <Plus size={16} /> {t('workout.addExercise')}
         </Button>
         )}
-        {solo && user && !isProgramSession && (currentWorkout.exercises?.length ?? 0) > 0 && (
+        {/* Any athlete can keep a free session as a personal routine (Vision §7.1). */}
+        {user && !isProgramSession && (currentWorkout.exercises?.length ?? 0) > 0 && (
           <Button
             type="button"
             variant="ghost"

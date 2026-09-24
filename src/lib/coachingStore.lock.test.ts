@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
 import { coachingStoreSource } from './coachingStoreSource';
+import { resolveViewerTracking } from './clientTracking';
 
 function src(rel: string): string {
   if (rel === 'src/stores/coachingStore.ts') return coachingStoreSource();
@@ -50,8 +51,10 @@ test('coached tracking default is off until fetch; invite seeds the row', () => 
   assert.match(store, /ALL_OFF_TRACKING/);
   assert.match(store, /viewerTrackingAfterFetch/);
   assert.match(store, /role === 'client'/);
-  const tracking = src('src/lib/clientTracking.ts');
-  assert.match(tracking, /Coached \+ no row = all off/);
+  // Coached + no tracking row = every module off (behaviour, not a comment).
+  const coachedNoRow = resolveViewerTracking(null, true);
+  assert.equal(coachedNoRow.track_workouts || coachedNoRow.track_nutrition || coachedNoRow.track_weight || coachedNoRow.track_checkins, false);
+  assert.equal(resolveViewerTracking(null, false).track_workouts, true);
   const sql = src('supabase/migrations/20260831235414_audit_coach_owned_targets.sql');
   assert.match(sql, /INSERT INTO client_tracking_config/);
   assert.match(sql, /accept_coach_invite/);

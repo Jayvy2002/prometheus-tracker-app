@@ -32,7 +32,7 @@ Prometheus dispose déjà d’un socle important :
 
 Le travail restant n’est pas une reconstruction. Le principal enjeu est désormais de **faire converger les contrats métier et l’architecture vers la Vision de référence**.
 
-> **CURRENT IMPLEMENTATION GATE — P5 CLOSED, passage d’audit P5 en revue.** Production/lock **138**. Dernière migration appliquée `20260923021000_p5_minimal_admin` (79 statements, `created_by` null, timestamp Git conservé). PR `#221` (`cursor/p5-audit-fixes-1135`) porte deux migrations **pending** : `20260923082313_p5_audit_fixes` et `20260923120000_p5_audit_followup`. Elle attend revue et feu vert avant merge et application. P6 n’est pas commencé. Job `coach-import-preview-purge` actif (`15 * * * *`). Watch n’applique pas.
+> **CURRENT IMPLEMENTATION GATE — P5 CLOSED, passage d’audit P5 en revue.** Production/lock **138**. Dernière migration appliquée `20260923021000_p5_minimal_admin` (79 statements, `created_by` null, timestamp Git conservé). PR `#221` (`cursor/p5-audit-fixes-1135`) porte deux migrations **pending** : `20260923082313_p5_audit_fixes` et `20260923120000_p5_audit_followup`. La PR d’alignement Vision (`agent/p5-5-alignement-vision`, empilée sur `#221`) ajoute `20260923170000_progress_photo_sharing` (pending). Les deux attendent revue et feu vert avant merge et application, dans cet ordre. P6 n’est pas commencé. Job `coach-import-preview-purge` actif (`15 * * * *`). Watch n’applique pas.
 >
 > Watch reste une surface d’observation, d’explicabilité, de correction de contexte et de décision humaine. Accepter, modifier ou refuser depuis Watch n’applique pas automatiquement une cible ou un programme. `commit_solo_weekly_review_decision` et `apply_intervention` restent les chemins d’effet durable. Aucune auto-application. Aucune réécriture des mesures sources. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
 
@@ -64,7 +64,7 @@ Le template `.github/pull_request_template.md` fait partie de la Definition of D
 | **P2** | Cerveau Prometheus | **P2.1–P2.5 + Hotfix B actifs en production** (128 migrations) | Unifier revue hebdo + signaux + mémoire + décisions |
 | **P3** | Planification avancée | **P3.1–P3.3 + hardening clos (130)** | Clos |
 | **P4** | Marketplace complète | **P4.1–P4.4 clos (134)** | Qualifications, matching, prospect, signalement |
-| **P5** | Adoption Coach | **P5.1–P5.4 clos (138)** ; passage d’audit en revue (`#221`, 2 pending) | Imports, dossier provisoire, bibliothèque, admin |
+| **P5** | Adoption Coach | **P5.1–P5.4 clos (138)** ; passage d’audit en revue (`#221`, 2 pending) ; alignement Vision en revue (1 pending) | Imports, dossier provisoire, bibliothèque, admin |
 | **P6** | Bêta économique | À faire après entitlements P1 | Entitlements, essais, grâce, mesure coûts |
 | **P7** | Intégrations et polish | Dernier | Health/wearables, offline secondaire, E2E final |
 
@@ -857,6 +857,19 @@ Fermé par ce passage :
 - Marketplace : une place « Trouver un coach » (Coachs / Mes demandes), filtres en puces, cartes cliquables, recherche guidée en 3 étapes avec correspondances nommées, demande courte (prénom + message, précisions repliées, les deux consentements restent exigés), suivi de demande en étapes, formulations côté coach, signalement discret, « Mon profil coach » en sections avec interrupteurs de visibilité. Aucun changement de contrat serveur.
 
 Hors de ce passage : remplacement global des couleurs par les tokens (refactor visuel sans bénéfice fonctionnel), `start_workout_from_template` qui ne lit pas encore `catalog_exercise_id`.
+
+## P5 — Alignement Vision (branche `agent/p5-5-alignement-vision`, en revue)
+
+Suite de l’audit UX/tests du 23 septembre. Une migration pending, append-only : `20260923170000_progress_photo_sharing`. Preuve SQL : `supabase/tests/progress_photo_sharing.sql` (étape CI dédiée).
+
+- **Routines** (Vision §7.1) : la page redevient accessible au Solo et au Coaché ; un programme, même assigné, n’interdit jamais une autre routine. Plus de garde persona `CoachedAthleteRedirect`. Vocabulaire « routine » / « séance libre ».
+- **Photos** (Vision §14.4, §22.2) : privées par défaut. L’athlète partage ou retire le partage vers son Coach actif (`set_progress_photo_sharing`) ; la lecture Coach (ligne + fichier Storage) exige ce partage ; la fin de relation y met fin. Les relations actives existantes gardent l’accès déjà consenti (backfill), retirable.
+- **Alertes Coach** (Vision §8.1, §11.2) : check-in sur 7 jours, nutrition sur 3, poids sur 7, jamais avant que la relation ait l’âge de la fenêtre ; libellé « Check-in à relire » (faux) corrigé.
+- **Navigation** (Vision §13) : Coaché mobile Dashboard · Séance · Corps · Suivi · Messages (profil via l’avatar) ; Suivi s’ouvre sur le Calendrier ; Photos dans Corps ; prospects en attente dans la file du Dashboard Coach ; outils Coach (Copilote, Import, Dossiers) accessibles sur mobile.
+- **UX** : échelle de check-in unique 0–10, plus de série « jours de suite », tuile poids « moy. 7 j » sans couleur de jugement, séance du jour non dupliquée, badge Prospect, pluriels i18next, prix localisés, pas de suppression de client à un tap.
+- **Tests** : F38 réellement testé, `program_phases` / `program_versions` en `ROLLBACK`, plus aucun verrou satisfait par un commentaire, regex bornées, test de comportement de la resynchro hors ligne (`replayOfflineOp`).
+
+Écarts Vision restant hors de cette PR (chantiers à ouvrir, pas de code spéculatif) : cycle de vie des objectifs (§6), habitudes (§10), constructeur de check-in et fréquence (§11), « bloquer » distinct de « signaler » (§31), recherche globale (§33), vidéos de technique (§20). L’export JSON « Télécharger mes journaux » reste en place en attendant une décision portabilité légale ≠ fonctionnalité (§24.4).
 ---
 
 # P6 — Architecture économique de bêta

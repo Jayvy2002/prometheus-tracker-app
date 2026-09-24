@@ -1,14 +1,13 @@
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Camera, ChefHat, Inbox, Search } from 'lucide-react';
+import { ChefHat, Inbox, Search } from 'lucide-react';
 import Card from '../ui/Card';
 
-/** Rare personal tools that are not daily tabs. Marketplace stays discreet. */
+/** Rare personal tools that are not daily tabs. Photos live in Corps. Marketplace stays discreet. */
 export default function SoloHub() {
   const { t } = useTranslation();
   const links = [
     { path: '/recipes', icon: ChefHat, label: t('nav.recipes') },
-    { path: '/photos', icon: Camera, label: t('nav.photos') },
     { path: '/coaches', icon: Search, label: t('marketplace.directory') },
     { path: '/coaching-requests', icon: Inbox, label: t('marketplace.requests') },
   ];

@@ -9,18 +9,18 @@ import { useResourcePermissions } from '../../lib/useResourcePermissions';
 
 type View = 'exercises' | 'trends' | 'calendar';
 
-/** Suivi : comprendre, sans saisie. Exercices · Tendances · Calendrier. */
+/** Suivi : Calendrier (page principale, Vision §13) · Exercices · Tendances. */
 export default function SuiviHub() {
   const { t } = useTranslation();
   const { canReadOwnHistory, canOpenPersonalCalendarRoute } = useResourcePermissions();
   const [params, setParams] = useSearchParams();
   const views: View[] = [
+    ...(canOpenPersonalCalendarRoute ? ['calendar' as const] : []),
     'exercises',
     ...(canReadOwnHistory ? ['trends' as const] : []),
-    ...(canOpenPersonalCalendarRoute ? ['calendar' as const] : []),
   ];
   const requested = params.get('view') as View | null;
-  const view = requested && views.includes(requested) ? requested : 'exercises';
+  const view = requested && views.includes(requested) ? requested : views[0];
   const labels: Record<View, string> = {
     exercises: t('nav.progressTraining'),
     trends: t('nav.progressSummary'),

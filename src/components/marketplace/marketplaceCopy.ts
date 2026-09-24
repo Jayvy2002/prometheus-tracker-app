@@ -1,16 +1,28 @@
-import type { TFunction } from 'i18next';
+import i18next, { type TFunction } from 'i18next';
 import { blankMatchProfile, listedRateCopy, type CoachPublicProfile, type CoachingRequest } from '../../lib/marketplace';
 
 type T = TFunction<'translation', undefined>;
 
-/** « 120 CAD / mois », or « Tarif à convenir » when the coach listed none. Never a payment. */
-export function listedRateLabel(t: T, profile: CoachPublicProfile): string {
+/** Money in the reader's language: « 120,00 $ CA » in French, « CA$120.00 » in English. */
+export function formatListedAmount(amount: string, currency: string, lang: string): string {
+  const value = Number(amount);
+  if (!Number.isFinite(value)) return amount;
+  const locale = lang.startsWith('fr') ? 'fr-CA' : 'en-CA';
+  try {
+    return currency
+      ? new Intl.NumberFormat(locale, { style: 'currency', currency }).format(value)
+      : new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+  } catch {
+    return currency ? `${amount} ${currency}` : amount;
+  }
+}
+
+/** « 120,00 $ CA / mois », or « Tarif à convenir » when the coach listed none. Never a payment. */
+export function listedRateLabel(t: T, profile: CoachPublicProfile, lang: string = i18next.language || 'fr'): string {
   const rate = listedRateCopy(blankMatchProfile(profile));
   if (!rate) return t('marketplace.priceOnRequest');
   const period = t(`marketplace.pricePeriod_${rate.period}`);
-  return rate.currency
-    ? t('marketplace.listedPrice', { amount: rate.amount, currency: rate.currency, period })
-    : t('marketplace.listedPriceNoCurrency', { amount: rate.amount, period });
+  return t('marketplace.listedPriceNoCurrency', { amount: formatListedAmount(rate.amount, rate.currency, lang), period });
 }
 
 export function coachFormatLine(t: T, profile: CoachPublicProfile): string {

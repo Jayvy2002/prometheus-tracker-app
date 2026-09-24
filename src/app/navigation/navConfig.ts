@@ -59,15 +59,15 @@ export type QuickAddDef = {
 const today: NavItemDef = { id: 'today', path: '/dashboard', labelKey: 'nav.today', icon: LayoutDashboard, end: true };
 const workout: NavItemDef = { id: 'train', path: '/workout', labelKey: 'nav.workout', icon: Dumbbell };
 const progress: NavItemDef = { id: 'progress', path: '/exercise-progress', labelKey: 'nav.exerciseProgress', icon: TrendingUp };
-/** Corps : ce qu'on logge chaque jour (nutrition, poids, check-in). */
+/** Corps : ce qu'on logge sur soi (nutrition, poids, check-in, photos). */
 const body: NavItemDef = {
   id: 'body',
   path: '/body',
-  match: ['/body', '/nutrition', '/weight', '/checkin', '/recipes'],
+  match: ['/body', '/nutrition', '/weight', '/checkin', '/recipes', '/photos'],
   labelKey: 'nav.sectionBody',
   icon: Apple,
 };
-/** Suivi : comprendre (progression, tendances, calendrier). Pas de saisie. */
+/** Suivi : le Calendrier d'abord (Vision §13), puis progression et tendances. */
 const suivi: NavItemDef = {
   id: 'suivi',
   path: '/suivi',
@@ -107,9 +107,11 @@ export function tracksBody(tracking: NavTracking): boolean {
 
 /**
  * Pas de 6ᵉ onglet : cinq au plus, jamais un « Plus ».
- * Solo : Accueil · Séance · Corps · Suivi · Toi.
- * Coaché : Accueil · Séance · Corps · Coach · Toi.
- * Corps disparaît si le coach n'a activé aucun module qu'il contient.
+ * Solo : Dashboard · Séance · Corps · Suivi · Profil.
+ * Coaché : Dashboard · Séance · Corps · Suivi · Messages — le Calendrier est une
+ * page principale pour le Coaché aussi (Vision §13) ; le Profil s'ouvre depuis
+ * l'avatar du Dashboard.
+ * Corps existe toujours : les photos de progression y vivent, quel que soit le suivi.
  */
 export function mobileTabs(persona: NavPersona, tracking: NavTracking): NavItemDef[] {
   if (persona === 'coaching') {
@@ -119,15 +121,15 @@ export function mobileTabs(persona: NavPersona, tracking: NavTracking): NavItemD
     return [
       today,
       ...(tracking.track_workouts ? [workout] : []),
-      ...(tracksBody(tracking) ? [body] : []),
+      body,
+      suivi,
       messages,
-      profile,
     ];
   }
   return [
     today,
     ...(tracking.track_workouts ? [workout] : []),
-    ...(tracksBody(tracking) ? [body] : []),
+    body,
     suivi,
     profile,
   ];
