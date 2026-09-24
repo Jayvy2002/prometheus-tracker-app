@@ -4,7 +4,7 @@ import SideNav from './SideNav';
 import FAB from './FAB';
 import { ToastContainer } from '@/shared/ui/Toast';
 import { useCoachingStore } from '../../stores/coachingStore';
-import CoachCommandPalette from '../../components/coaching/CoachCommandPalette';
+import GlobalSearchPalette from '../../components/search/GlobalSearchPalette';
 import { trackScreen } from '../../lib/telemetryClient';
 import { useEffect } from 'react';
 import { useAccountContext } from '@/features/account/hooks/useAccountContext';
@@ -51,7 +51,7 @@ export default function AppLayout() {
   return (
     <div className="min-h-screen bg-black text-white flex">
       <ToastContainer />
-      <CoachCommandPalette />
+      <GlobalSearchPalette />
 
       <SideNav />
 

@@ -1,3 +1,4 @@
+import { openGlobalSearch } from '../../features/search/openSearch';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -92,7 +93,7 @@ export default function CoachDashboard() {
             ) : null}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <IconButton label={t('common.search')} onClick={() => navigate('/clients?search=1')}>
+            <IconButton label={t('common.search')} onClick={openGlobalSearch}>
               <Search size={18} />
             </IconButton>
             <IconButton label={t('coaching.ask.shortcut')} onClick={() => navigate('/prometheus')}>

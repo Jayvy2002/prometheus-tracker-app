@@ -1,7 +1,9 @@
+import IconButton from '../ui/IconButton';
+import { openGlobalSearch } from '../../features/search/openSearch';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Droplets, Dumbbell, ChevronRight, Play, Scale, AlertCircle, ClipboardCheck, MessageSquare, CalendarRange } from 'lucide-react';
+import { Droplets, Dumbbell, ChevronRight, Play, Scale, AlertCircle, ClipboardCheck, MessageSquare, CalendarRange, Search } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
@@ -278,6 +280,9 @@ export default function Dashboard() {
             </p>
             <p className="text-sm font-medium text-white leading-snug">{greeting}</p>
           </div>
+          <IconButton label={t('search.title')} onClick={openGlobalSearch} className="md:hidden">
+            <Search size={18} />
+          </IconButton>
         </div>
 
         <LinkEndedBanner />
