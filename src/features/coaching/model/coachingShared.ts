@@ -1,3 +1,4 @@
+import type { MessageAttachment, MessageObjectRef } from '../../messages/domain/messageContent';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import type {
   ClientOpsRow,
@@ -183,6 +184,13 @@ export function dropUnlinkedClient(s: {
 /** C01 : un canal par fiche 360 ouverte (observations du client affiché). */
 export const dossierChannels = new Map<string, RealtimeChannel>();
 
+/** Vision §19 — what a message carries besides text. */
+export interface MessageExtras {
+  attachments?: MessageAttachment[];
+  replyToId?: string | null;
+  ref?: MessageObjectRef | null;
+}
+
 export interface CoachingState {
   coachingRole: CoachingRole;
   roleReady: boolean;
@@ -253,8 +261,14 @@ export interface CoachingState {
     templateKey: CoachNudgeTemplateKey | 'prospect',
     clientMsgId?: string,
     bilan?: { workoutId?: string | null; checkinId?: string | null },
+    extras?: MessageExtras,
   ) => Promise<{ error: string | null }>;
-  sendClientReply: (body: string, clientMsgId?: string, coachId?: string) => Promise<{ error: string | null }>;
+  sendClientReply: (
+    body: string,
+    clientMsgId?: string,
+    coachId?: string,
+    extras?: MessageExtras & { bilan?: { workoutId?: string | null; checkinId?: string | null } },
+  ) => Promise<{ error: string | null }>;
   /**
    * C02 : pagination par conversation (curseur created_at DESC). Complète
    * sentMessages sans le tronquer ; hasMore[clientId]=false en fin de fil.

@@ -986,6 +986,20 @@ Vision §24.1. Migration pending `20260924180000_personal_csv_import` ; preuve S
 - Traces d’échec (code seulement, 50/jour) ouvertes à tout importeur connecté.
 
 Reste : format de date ambigu (12/03) toujours à choisir à la main ; nom de séance importée = date.
+
+## Messagerie enrichie : fichiers, vocal, réponses, objets partagés (branche `agent/p5-16-messagerie-enrichie`, en revue)
+
+Vision §19 (et §20 V1 : vidéo de technique envoyée dans le fil, analysée par le Coach). Migration pending `20260924190000_rich_messages` ; preuve SQL `supabase/tests/rich_messages.sql`.
+
+- Toujours une seule conversation par relation (`coach_messages`), pas de seconde inbox.
+- Pièces jointes : image, vidéo courte, audio/vocal, fichiers courants (PDF, tableur, texte, Office) ; 4 par message, 25 Mo max. Bucket **privé** `message-attachments`, un dossier par fil ; seules les deux parties lisent, via lien signé d'une heure. Un fichier envoyé fait partie du fil (non supprimable) ; un envoi abandonné est nettoyé.
+- Message vocal enregistré dans l'app (5 min max), message « fichier seul » autorisé.
+- Réponse à un message du même fil (citation d'une ligne).
+- Références vers l'objet canonique : séance et check-in (existants), + programme, objectif, exercice. Aucune copie : l'objet est relu avec ses propres droits ; s'il n'est plus lisible, la carte reste neutre. Avant activation (prospect) : texte et fichiers seulement.
+- Entrées « En parler » : objectif (athlète coaché et Coach), exercice (athlète coaché), programme assigné (« Envoyer au client »).
+- Le destinataire ne peut toujours modifier que `read_at` : contenu immuable.
+
+Reste : propositions IA non partageables (elles sont privées au Coach ; décision produit à prendre sur ce que l'athlète en voit) ; référence à une série précise ; vidéo attachée directement à une série hors messagerie (§20) ; fichiers de messagerie à inclure dans la suppression de compte (§30).
 ---
 
 # P6 — Architecture économique de bêta

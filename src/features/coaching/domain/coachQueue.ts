@@ -1,3 +1,4 @@
+import { parseAttachments } from '../../messages/domain/messageContent';
 import { appendBilanSearch, normalizeBilanRef } from './messageBilan';
 import { interventionHref } from './coachInterventions';
 import { datePrefix } from './coachText';
@@ -378,7 +379,9 @@ export function mapCoachMessage(raw: Record<string, unknown>): CoachMessage | nu
   const template = typeof raw.template_key === 'string' ? raw.template_key : '';
   if (!TEMPLATE_KEYS.includes(template as CoachMessageTemplateKey)) return null;
   const body = typeof raw.body === 'string' ? raw.body.trim() : '';
-  if (!body) return null;
+  const attachments = parseAttachments(raw.attachments);
+  // Text, files or both (Vision §19); never an empty bubble.
+  if (!body && attachments.length === 0) return null;
   const coachId = String(raw.coach_id ?? '');
   return {
     id: String(raw.id ?? ''),
@@ -391,6 +394,11 @@ export function mapCoachMessage(raw: Record<string, unknown>): CoachMessage | nu
     read_at: typeof raw.read_at === 'string' ? raw.read_at : null,
     workout_id: typeof raw.workout_id === 'string' ? raw.workout_id : null,
     checkin_id: typeof raw.checkin_id === 'string' ? raw.checkin_id : null,
+    reply_to_id: typeof raw.reply_to_id === 'string' ? raw.reply_to_id : null,
+    program_id: typeof raw.program_id === 'string' ? raw.program_id : null,
+    goal_id: typeof raw.goal_id === 'string' ? raw.goal_id : null,
+    exercise_name: typeof raw.exercise_name === 'string' ? raw.exercise_name : null,
+    attachments,
   };
 }
 

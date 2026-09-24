@@ -230,7 +230,7 @@ export default function ProfilePage() {
         <AccordionSection id="goals" icon={Target} label={t('profile.sections.goalsTargets')} isOpen={openSection === 'goals'} onToggle={() => toggle('goals')} animationDelay="120ms">
           {user && (
             <div className="mb-6">
-              <GoalPanel userId={user.id} unit={profile?.unit_weight === 'lbs' ? 'lbs' : 'kg'} recomputeSoloTargets={!coached} />
+              <GoalPanel userId={user.id} unit={profile?.unit_weight === 'lbs' ? 'lbs' : 'kg'} recomputeSoloTargets={!coached} talkHref={myCoach ? '/messages' : undefined} />
             </div>
           )}
           <GoalsForm onBack={() => setOpenSection(null)} inline />

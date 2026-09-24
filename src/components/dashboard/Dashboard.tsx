@@ -382,7 +382,7 @@ export default function Dashboard() {
             icon={<MessageSquare size={16} />}
             title={t('dashboard.coachMessageTitle')}
             badge={unreadMessageCount > 1 ? unreadMessageCount : undefined}
-            subtitle={latestCoachMessage?.body || t('coaching.messages.openInbox')}
+            subtitle={latestCoachMessage?.body || (latestCoachMessage?.attachments?.length ? t('messages.attachments.one') : t('coaching.messages.openInbox'))}
             to="/messages"
             onDismiss={() => {
               dismissHomeMessage(user?.id, latestCoachMessage?.id);

@@ -66,9 +66,10 @@ test('D03: profile writes return errors; intake drafts are sequenced and visible
 
 test('C02: message drafts survive failure; threads paginate; sends are idempotent', () => {
   const thread = src('src/components/coaching/MessageThread.tsx');
-  assert.match(thread, /onSend: \(body: string\) => Promise<\{ error: string \| null \}>/);
+  assert.match(thread, /onSend: \(body: string, extras: ThreadSendExtras\) => Promise<\{ error: string \| null \}>/);
   // C02: on a failed send the draft is kept — the error branch returns before any clear.
-  const sendBlock = thread.slice(thread.indexOf('const result = await onSend(trimmed);'));
+  const sendBlock = thread.slice(thread.indexOf('const result = await onSend(trimmed, extras);'));
+  assert.ok(sendBlock.length > 0 && thread.includes('const result = await onSend(trimmed, extras);'));
   assert.ok(sendBlock.indexOf('if (result.error)') < sendBlock.indexOf("setBody('')"));
   assert.match(sendBlock.slice(sendBlock.indexOf('if (result.error)'), sendBlock.indexOf("setBody('')")), /return;/);
   assert.match(thread, /onLoadMore/);

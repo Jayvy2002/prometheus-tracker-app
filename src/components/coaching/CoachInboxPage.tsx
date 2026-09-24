@@ -28,7 +28,9 @@ import ListRow from '../ui/ListRow';
 import PageHeader from '../ui/PageHeader';
 import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
-import MessageThread from './MessageThread';
+import MessageThread, { type ThreadSendExtras } from './MessageThread';
+import { messageIdentityText, parseObjectRefQuery } from '../../features/messages/domain/messageContent';
+import { useObjectRefHint } from '../../features/messages/hooks/useObjectRefHint';
 import InterventionInboxCard from './InterventionInboxCard';
 
 function prospectSummary(row: CoachingRequest): CoachClientSummary {
@@ -67,6 +69,8 @@ export default function CoachInboxPage() {
   const [requests, setRequests] = useState<CoachingRequest[]>([]);
   const nudgeKey = parseNudgeQuery(searchParams.get('nudge'));
   const bilan = useMemo(() => parseBilanQuery(searchParams), [searchParams]);
+  const objectRef = useMemo(() => parseObjectRefQuery(searchParams), [searchParams]);
+  const refHint = useObjectRefHint(objectRef);
 
   useEffect(() => {
     if (!user) return;
@@ -137,13 +141,17 @@ export default function CoachInboxPage() {
 
   const inboxDrafts = messageInboxDrafts(pendingInterventions);
 
-  const handleSend = async (body: string) => {
+  const handleSend = async (body: string, extras: ThreadSendExtras) => {
     if (!clientId || !user) return { error: t('coaching.messages.sendFailed') };
     setSending(true);
     try {
-      const msgId = loadOrCreateMessageKey(clientId, body, user.id);
+      const msgId = loadOrCreateMessageKey(clientId, messageIdentityText(body, extras.attachments), user.id);
       const template = activeClient ? (nudgeKey ?? 'general_followup') : 'prospect';
-      const result = await sendCoachMessage(clientId, body, template, msgId, activeClient ? bilan : undefined);
+      // References only inside an active relationship (Vision §18–19); files and replies everywhere.
+      const result = await sendCoachMessage(clientId, body, template, msgId, activeClient ? bilan : undefined, {
+        ...extras,
+        ref: activeClient ? objectRef : null,
+      });
       if (!result.error) clearMessageKey(clientId, user.id);
       return result;
     } finally {
@@ -201,7 +209,7 @@ export default function CoachInboxPage() {
                 </div>
               )}
               title={client ? displayName(client, t('coaching.unnamed')) : (prospects.find(row => row.client_id === thread.clientId)?.public_name || t('coaching.unnamed'))}
-              subtitle={thread.lastMessage?.body || t('coaching.messages.noMessagesYet')}
+              subtitle={thread.lastMessage?.body || (thread.lastMessage?.attachments.length ? t('messages.attachments.one') : t('coaching.messages.noMessagesYet'))}
               badge={thread.unreadCount > 0 ? thread.unreadCount : undefined}
               trailing={clients.some(client => client.id === thread.clientId) ? (
                 <Button
@@ -264,7 +272,8 @@ export default function CoachInboxPage() {
               currentUserId={user?.id ?? ''}
               sending={sending}
               draftBody={draftBody}
-              draftHint={bilanHint || (nudgeKey ? t('coaching.queue.relanceDraftHint') : undefined)}
+              draftHint={bilanHint || (activeClient ? refHint : null) || (nudgeKey ? t('coaching.queue.relanceDraftHint') : undefined)}
+              thread={user ? { coachId: user.id, clientId } : undefined}
               onSend={handleSend}
               hasMore={clientId ? !threadExhausted[clientId] : false}
               loadingMore={loadingMore}
