@@ -32,7 +32,7 @@ Prometheus dispose déjà d’un socle important :
 
 Le travail restant n’est pas une reconstruction. Le principal enjeu est désormais de **faire converger les contrats métier et l’architecture vers la Vision de référence**.
 
-> **CURRENT IMPLEMENTATION GATE — P5, passage d’audit, audit 2 et P6.1 mergés dans `new-JV` ; déploiement production à terminer, puis P6.2.** Production/lock **138** tant que les 17 migrations de `supabase/migrations.pending.json` (de `20260923082313_p5_audit_fixes` à `20260924210000_constraint_backfill_quiet`) ne sont pas appliquées. Prochaine étape : la section « Déploiement de l’audit 2 et de P6.1 » ci-dessous (migrations via `APPLY_PENDING`, redéploiement `send-daily-reminders` et `delete-account`, secret `ACCOUNT_PURGE_CRON_SECRET`, vérification et rafraîchissement des locks). Ensuite seulement : **P6.2 — bêta bypass**, sur une branche dédiée et avec le feu vert de Jean-Vincent. Jobs actifs : `coach-import-preview-purge` (`15 * * * *`) ; à l’application : `account-deletion-purge`. Watch n’applique pas.
+> **CURRENT IMPLEMENTATION GATE — P5, passage d’audit, audit 2 et P6.1 mergés et déployés en production ; prochaine sous-tâche : P6.2 — bêta bypass, sur une branche dédiée et uniquement avec le feu vert de Jean-Vincent.** Production/lock **154** (dernière version `20260924205000_p6_entitlements`). Une seule migration reste dans `supabase/migrations.pending.json` : `20260924210000_constraint_backfill_quiet`, appliquée par l’intégration GitHub Supabase au merge de la PR `#237`, à transférer dans le lock au prochain rafraîchissement vérifié. Action manuelle restante : le secret `ACCOUNT_PURGE_CRON_SECRET` (voir « Déploiement de l’audit 2 et de P6.1 »). Jobs actifs : `coach-import-preview-purge` (`15 * * * *`), `account-deletion-purge` (`40 * * * *`). Watch n’applique pas.
 >
 > Watch reste une surface d’observation, d’explicabilité, de correction de contexte et de décision humaine. Accepter, modifier ou refuser depuis Watch n’applique pas automatiquement une cible ou un programme. `commit_solo_weekly_review_decision` et `apply_intervention` restent les chemins d’effet durable. Aucune auto-application. Aucune réécriture des mesures sources. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
 
@@ -64,8 +64,8 @@ Le template `.github/pull_request_template.md` fait partie de la Definition of D
 | **P2** | Cerveau Prometheus | **P2.1–P2.5 + Hotfix B actifs en production** (128 migrations) | Unifier revue hebdo + signaux + mémoire + décisions |
 | **P3** | Planification avancée | **P3.1–P3.3 + hardening clos (130)** | Clos |
 | **P4** | Marketplace complète | **P4.1–P4.4 clos (134)** | Qualifications, matching, prospect, signalement |
-| **P5** | Adoption Coach | **P5.1–P5.4 clos (138)** ; passage d’audit (`#221`), alignement Vision (`#223`) et audit 2 (`#224`–`#236`) **mergés**, migrations à appliquer | Imports, dossier provisoire, bibliothèque, admin |
-| **P6** | Bêta économique | **P6.1 mergé (`#222`)**, migration à appliquer ; P6.2 prochain | Entitlements, essais, grâce, mesure coûts |
+| **P5** | Adoption Coach | **P5.1–P5.4 clos (138)** ; passage d’audit (`#221`), alignement Vision (`#223`) et audit 2 (`#224`–`#236`) **mergés et en production (154)** | Imports, dossier provisoire, bibliothèque, admin |
+| **P6** | Bêta économique | **P6.1 mergé (`#222`) et en production** ; P6.2 prochain (feu vert requis) | Entitlements, essais, grâce, mesure coûts |
 | **P7** | Intégrations et polish | Dernier | Health/wearables, offline secondaire, E2E final |
 
 Aucun agent ne doit sauter directement à P3–P7 si P0/P1 contient un blocage qui affecte le même domaine.
@@ -118,7 +118,7 @@ Cette configuration est un **contrôle administrateur GitHub**, pas une modifica
 
 ### Point de départ agent
 
-P1.5–P2.5, P3, P4 (`#210`), P5.1 (`#213`), P5.2 (`#215`, `#216`), P5.3 (`#217`) et P5.4 (`#219`) sont en production (138 migrations, pending vide). Watch n’applique pas. P6 n’est pas commencé.
+P1.5–P2.5, P3, P4 (`#210`), P5.1 (`#213`), P5.2 (`#215`, `#216`), P5.3 (`#217`), P5.4 (`#219`), le passage d’audit (`#221`), l’alignement Vision (`#223`), l’audit 2 (`#224`–`#236`) et P6.1 (`#222`) sont en production (lock 154). Un merge sur `new-JV` déploie migrations et Edge Functions (intégration GitHub Supabase). Watch n’applique pas. Prochaine sous-tâche : P6.2, avec feu vert.
 
 ## P0.3 — Baseline sécurité — ✅ ÉVALUÉ
 
@@ -890,14 +890,21 @@ Suite de l’audit 2 du 23 septembre (parcours non visités + sections Vision no
 | — | Correctif avant déploiement : la reprise des limitations saisies à l’accueil ne notifie pas le Coach (les notifications jamais envoyées sont retirées ; les vraies déclarations restent) | §7.6, §21 | `20260924210000_constraint_backfill_quiet` | `constraint_backfill_quiet.sql` |
 | `#236` | Suppression de compte avec fenêtre de récupération : accès coupé, rien d’effacé pendant la fenêtre, annulation exacte, purge à échéance par le cron (séquence C03 fail-closed + fichiers de messagerie) | §30 | `20260924200000_account_deletion_window` | `account_deletion_window.sql` |
 
-## Déploiement de l’audit 2 et de P6.1 — à faire, dans cet ordre
+## Déploiement de l’audit 2 et de P6.1
 
-1. **Migrations** : appliquer les 17 migrations pending (de `20260923082313_p5_audit_fixes` à `20260924210000_constraint_backfill_quiet`, P6.1 comprise) via `workflow_dispatch` du workflow CI, input `confirm_apply=APPLY_PENDING`. Tant que ce n’est pas fait, le front de `new-JV` appelle des colonnes et RPC absentes en production (messagerie, modules, objectifs, check-in…).
-2. **Edge Functions** : redéployer `send-daily-reminders` (file « action maintenant », check-in dû, modules du Solo) et `delete-account` (demande avec fenêtre + purge `purge_due`).
-3. **Secret** : créer `ACCOUNT_PURGE_CRON_SECRET` avec la même valeur dans le vault et dans les secrets Edge. Sans lui, les suppressions demandées restent en attente : rien n’est supprimé, le job `account-deletion-purge` échoue de façon visible.
-4. **Vérifier la production**, puis rafraîchir `supabase/schema_migrations.lock.json` et `supabase/functions.deployed.lock.json` avec l’état réellement observé et vider `supabase/migrations.pending.json`.
+**Constat du 24 septembre 2026 (vérifié directement en production).** L’intégration GitHub Supabase du projet applique les migrations et redéploie les Edge Functions **au merge sur `new-JV`**. Le `workflow_dispatch` `APPLY_PENDING` n’a donc pas été nécessaire : un merge sur `new-JV` est un déploiement production. Conséquences :
 
-Nouveaux jobs cron créés par les migrations : `account-deletion-purge` (`40 * * * *`). La file de notifications est vidée par `send-daily-reminders`.
+- une migration doit être horodatée **après** la dernière version appliquée en production au moment du merge. La preuve dry-run du job `verify` le refuse sinon. P6.1 a été renommée de `20260923140000` en `20260924205000` pour cette raison ;
+- une PR mergée ne doit contenir que ce qui peut partir en production immédiatement.
+
+État observé :
+
+1. **Migrations** : les 15 migrations de l’audit 2 (de `20260923082313_p5_audit_fixes` à `20260924200000_account_deletion_window`) ont été appliquées aux merges de `#221` à `#236`, puis `20260924205000_p6_entitlements` au merge de `#222`. Le lock est rafraîchi à **154**. `20260924210000_constraint_backfill_quiet` part au merge de `#237`.
+2. **Edge Functions** : les 13 fonctions ont été redéployées au merge (`delete-account` v20 avec la demande sous fenêtre et la purge `purge_due` ; `send-daily-reminders` v163). `supabase/functions.deployed.lock.json` est rafraîchi.
+3. **Jobs et stockage** : `account-deletion-purge` (`40 * * * *`) et `coach-import-preview-purge` actifs ; le bucket `message-attachments` est privé.
+4. **Notification parasite** : entre l’application de `athlete_constraints` et le correctif, la reprise des limitations d’accueil a produit une seule notification `constraint_declared`. Elle a été traitée avec le résultat `no_device` : rien n’a été livré. Le correctif `20260924210000` retire les notifications de ce type encore en attente.
+5. **À faire manuellement** : créer `ACCOUNT_PURGE_CRON_SECRET` avec la même valeur dans le vault (`vault.create_secret`) et dans les secrets Edge. Sans lui, les suppressions demandées restent en attente, rien n’est supprimé, et le job `account-deletion-purge` échoue de façon visible.
+6. **Prochain rafraîchissement du lock** : après vérification en production, transférer `20260924210000_constraint_backfill_quiet` du pending vers le lock.
 
 ## Décisions produit et juridiques en attente
 
@@ -932,7 +939,7 @@ Nouveaux jobs cron créés par les migrations : `account-deletion-purge` (`40 * 
 
 ## P6.1 — Entitlements indépendants
 
-**Mergé (PR `#222`).** Contrat : `docs/P6_1_ENTITLEMENTS.md`. Migration `20260924205000_p6_entitlements` (pending, appliquée avec le lot de l’audit 2). Table `account_entitlements` par produit (`solo`, `coach`), écriture `service_role` seulement, lecture de ses propres droits (`get_my_entitlements`), accès effectif `beta | paid | trial | grace | expired | none`, grâce Coach de 7 jours posée une fois, essai Solo P1.5 réutilisé. Carte « Accès » en lecture seule dans le profil. Aucun blocage, aucun prix, aucun quota décidé. Preuves : `supabase/tests/p6_entitlements.sql` (CI), tests unitaires du miroir TypeScript.
+**Mergé (PR `#222`).** Contrat : `docs/P6_1_ENTITLEMENTS.md`. Migration `20260924205000_p6_entitlements` (d’abord `20260923140000`, renommée avant son application ; appliquée en production au merge). Table `account_entitlements` par produit (`solo`, `coach`), écriture `service_role` seulement, lecture de ses propres droits (`get_my_entitlements`), accès effectif `beta | paid | trial | grace | expired | none`, grâce Coach de 7 jours posée une fois, essai Solo P1.5 réutilisé. Carte « Accès » en lecture seule dans le profil. Aucun blocage, aucun prix, aucun quota décidé. Preuves : `supabase/tests/p6_entitlements.sql` (CI), tests unitaires du miroir TypeScript.
 
 Remplacer progressivement le modèle trop simple `free/premium` par un contrat pouvant représenter :
 

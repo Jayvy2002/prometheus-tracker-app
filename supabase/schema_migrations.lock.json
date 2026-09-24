@@ -1,7 +1,7 @@
 {
   "project_ref": "phyuijjekxtjvipjtdfv",
-  "captured_at": "2026-09-23T07:07:53Z",
-  "strategy": "Git migrations on new-JV, this lock, and Supabase production must contain the same ordered versions. Verified directly against production after P5.4 on 2026-09-23 (138 versions, last 20260923021000_p5_minimal_admin, 79 statements, created_by null). The live grant and revoke recheck is_platform_operator() after lock_platform_operators(). Git timestamp 20260923021000 was kept; never repair or restamp applied history. Never apply 20260919181919.",
+  "captured_at": "2026-09-24T07:35:00Z",
+  "strategy": "Git migrations on new-JV, this lock, and Supabase production must contain the same ordered versions. Verified directly against production on 2026-09-24 after the merges of #221, #223-#236 and #222 (154 versions, last 20260924205000_p6_entitlements). The Supabase GitHub integration applies migrations on merge to new-JV with the Git timestamp; P6.1 was renamed from 20260923140000 to 20260924205000 before it was applied because production already had 20260924200000. Never repair or restamp applied history. Never apply 20260919181919.",
   "audit_range": {
     "from": "20260910044211",
     "to": "20260910064501",
@@ -559,6 +559,70 @@
     {
       "version": "20260923021000",
       "name": "p5_minimal_admin"
+    },
+    {
+      "version": "20260923082313",
+      "name": "p5_audit_fixes"
+    },
+    {
+      "version": "20260923120000",
+      "name": "p5_audit_followup"
+    },
+    {
+      "version": "20260923170000",
+      "name": "progress_photo_sharing"
+    },
+    {
+      "version": "20260924090000",
+      "name": "offline_session_start"
+    },
+    {
+      "version": "20260924100000",
+      "name": "exercise_catalog_accents"
+    },
+    {
+      "version": "20260924110000",
+      "name": "personal_modules_honest_defaults"
+    },
+    {
+      "version": "20260924120000",
+      "name": "action_now_notifications"
+    },
+    {
+      "version": "20260924130000",
+      "name": "goal_lifecycle"
+    },
+    {
+      "version": "20260924140000",
+      "name": "athlete_constraints"
+    },
+    {
+      "version": "20260924150000",
+      "name": "checkin_templates_plans"
+    },
+    {
+      "version": "20260924160000",
+      "name": "checkin_due"
+    },
+    {
+      "version": "20260924170000",
+      "name": "body_measurements"
+    },
+    {
+      "version": "20260924180000",
+      "name": "personal_csv_import"
+    },
+    {
+      "version": "20260924190000",
+      "name": "rich_messages"
+    },
+    {
+      "version": "20260924200000",
+      "name": "account_deletion_window"
+    },
+    {
+      "version": "20260924205000",
+      "name": "p6_entitlements"
     }
   ]
 }
