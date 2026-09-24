@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS public.notification_outbox (
   send_after timestamptz NOT NULL DEFAULT now(),
   claimed_at timestamptz,
   sent_at timestamptz,
-  outcome text CHECK (outcome IN ('delivered', 'muted', 'no_device', 'failed')),
+  outcome text CHECK (outcome IN ('delivered', 'muted', 'no_device', 'failed', 'expired')),
   CHECK ((sent_at IS NULL) = (outcome IS NULL))
 );
 
@@ -253,6 +253,13 @@ AS $$
 BEGIN
   -- History is not kept forever.
   DELETE FROM public.notification_outbox o WHERE o.sent_at < now() - interval '30 days';
+
+  -- « Action now » a day late is noise: close it as « expired », never send it late
+  -- (e.g. after a pause of the cron or before the function is deployed).
+  UPDATE public.notification_outbox o
+     SET sent_at = now(), outcome = 'expired'
+   WHERE o.sent_at IS NULL
+     AND o.send_after < now() - interval '24 hours';
 
   -- A category the user turned off is closed as « muted », never sent.
   UPDATE public.notification_outbox o

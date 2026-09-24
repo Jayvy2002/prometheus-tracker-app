@@ -560,7 +560,7 @@ jobs:
       - name: Confirm action-now notifications echo
         run: |
           set -euo pipefail
-          grep -F 'action-now notifications: grouped, no content, marketplace and program events, muted closed, claimed once, server only' /tmp/action-now-notifications.txt
+          grep -F 'action-now notifications: grouped, no content, marketplace and program events, muted closed, stale expired, claimed once, server only' /tmp/action-now-notifications.txt
       - name: Test qualification proof Storage API withdraw
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

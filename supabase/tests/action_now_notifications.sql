@@ -121,6 +121,20 @@ begin
   end if;
 end $$;
 
+-- A notification a day late is closed as expired, never sent late.
+do $$
+declare
+  v_old uuid;
+begin
+  insert into public.notification_outbox (user_id, category, kind, dedupe_key, url, send_after)
+  values ('b2800000-0000-4000-8000-000000000003', 'program', 'program_assigned', 'late-one', '/programs', now() - interval '2 days')
+  returning id into v_old;
+  perform public.claim_notification_batch(100);
+  if (select outcome from public.notification_outbox where id = v_old) is distinct from 'expired' then
+    raise exception 'stale notification not expired';
+  end if;
+end $$;
+
 -- Bad preference shapes are refused.
 do $$ begin
   begin
@@ -131,4 +145,4 @@ do $$ begin
 end $$;
 
 rollback;
-\echo 'action-now notifications: grouped, no content, marketplace and program events, muted closed, claimed once, server only'
+\echo 'action-now notifications: grouped, no content, marketplace and program events, muted closed, stale expired, claimed once, server only'
