@@ -624,6 +624,17 @@ const common = {
       conversation: 'Conversation',
     },
   },
+  accountDeletion: {
+    title: 'Suppression du compte demandée',
+    scheduled_one: 'Ton compte et tes données seront supprimés le {{date}} (dans {{count}} jour).',
+    scheduled_other: 'Ton compte et tes données seront supprimés le {{date}} (dans {{count}} jours).',
+    scheduledNoDate: 'Ton compte et tes données seront bientôt supprimés.',
+    meanwhile: 'D’ici là, rien n’est effacé : ton profil n’est plus visible et tu ne reçois plus de notifications. Si tu avais des clients, ils gardent une copie de leur programme au moment de la suppression.',
+    purging: 'La suppression est en cours. Elle ne peut plus être annulée.',
+    failed: 'La suppression automatique a rencontré un problème ; l’équipe Prometheus est prévenue. Tu peux encore annuler.',
+    cancel: 'Annuler la suppression',
+    cancelFailed: 'Impossible d’annuler pour le moment. Réessaie.',
+  },
   measurements: {
     title: 'Mensurations',
     measure: 'Mesurer',
@@ -727,6 +738,10 @@ const common = {
       deleting: 'Suppression…',
       confirmText: 'Ceci supprime ton compte et tes journaux (séances, nutrition, poids, check-ins, photos, recettes). Les notes privées d’un coach et les brouillons d’intervention ne sont pas exportés et ne te sont pas transmis.',
       storageCleanupFailed: 'Le nettoyage de tes fichiers n’a pas abouti. Ton compte est toujours actif — réessaie.',
+      window_one: 'Tu disposes de {{count}} jour pour changer d’avis : ton accès est coupé tout de suite, rien n’est effacé avant la fin de ce délai. Te reconnecter te permet d’annuler.',
+      window_other: 'Tu disposes de {{count}} jours pour changer d’avis : ton accès est coupé tout de suite, rien n’est effacé avant la fin de ce délai. Te reconnecter te permet d’annuler.',
+      lastOperator: 'Tu es le dernier opérateur de Prometheus : nomme un autre opérateur avant de supprimer ton compte.',
+      failed: 'La demande de suppression n’a pas abouti. Réessaie.',
     },
     dataControl: {
       title: 'Tes données',

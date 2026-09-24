@@ -80,29 +80,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ user: null, session: null });
   },
 
+  // Vision §30: a request opens the recovery window; the server purges when it is due.
+  // The session stays so the person lands on the recovery screen and can still undo.
   deleteAccount: async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return { error: 'Not authenticated' };
-
-    const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-account`;
-    const res = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${session.access_token}`,
-        'Content-Type': 'application/json',
-        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-      },
-    });
-
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      const code = typeof body.error === 'string' ? body.error : '';
-      return { error: code || 'Failed to delete account' };
-    }
-
-    currentGeneration += 1;
-    await supabase.auth.signOut();
-    set({ user: null, session: null });
+    const { error } = await supabase.rpc('request_account_deletion');
+    if (error) return { error: error.message.includes('last_operator') ? 'last_operator' : error.message };
     return { error: null };
   },
 

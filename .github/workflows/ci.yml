@@ -617,6 +617,14 @@ jobs:
         run: |
           set -euo pipefail
           grep -F 'rich messages: replies in thread, canonical references owned, attachments private per thread, prospect text only, content immutable' /tmp/rich-messages.txt
+      - name: Test account deletion window
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/account_deletion_window.sql | tee /tmp/account-deletion-window.txt
+      - name: Confirm account deletion window echo
+        run: |
+          set -euo pipefail
+          grep -F 'account deletion window: request withdraws access and keeps data, cancel restores exactly, purge only when due and by the service, retries bounded' /tmp/account-deletion-window.txt
       - name: Test qualification proof Storage API withdraw
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

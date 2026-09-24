@@ -127,6 +127,34 @@ export async function cleanupOwnedAccountStorage(
   return { removed };
 }
 
+/**
+ * Files of the person's message threads (both sides): the threads disappear
+ * with the account (FK cascade), so their files go too. Fail-closed like the
+ * owned prefixes: any remove error keeps the Auth user for a retry.
+ */
+export async function removeMessageAttachments(
+  adminClient: AccountStorageClient,
+  paths: readonly string[],
+  options: CleanupOptions = {},
+): Promise<{ removed: number }> {
+  const bucket = "message-attachments";
+  const removeBatch = options.removeBatch ?? REMOVE_BATCH;
+  let removed = 0;
+  for (let i = 0; i < paths.length; i += removeBatch) {
+    const batch = paths.slice(i, i + removeBatch);
+    const { error: removeError } = await adminClient.storage.from(bucket).remove(batch);
+    if (removeError) {
+      if (isMissingBucketError(removeError)) return { removed };
+      throw new StorageCleanupError(
+        "remove_failed",
+        `${bucket}: remove failed (${removeError.message})`,
+      );
+    }
+    removed += batch.length;
+  }
+  return { removed };
+}
+
 export async function deleteAuthUserAfterStorageCleanup(
   adminClient: AccountStorageClient,
   userId: string,

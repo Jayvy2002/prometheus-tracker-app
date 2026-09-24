@@ -64,7 +64,11 @@ test('P4.1 qualifications reuse marketplace publish and never require a verified
   assert.match(src('docs/P4_1_QUALIFICATIONS.md'), /upsert: false/);
   assert.match(src('src/i18n/locales/fr/common.ts'), /storageCleanupFailed/);
   assert.match(src('src/i18n/locales/en/common.ts'), /storageCleanupFailed/);
-  assert.match(src('src/components/profile/ProfilePage.tsx'), /storage_cleanup_failed/);
+  // Vision §30: the purge runs after the recovery window; a Storage failure puts the
+  // request back in the queue and the recovery screen says so (never a half-deleted account).
+  assert.match(src('supabase/functions/delete-account/index.ts'), /storage_cleanup_failed/);
+  assert.match(src('supabase/functions/delete-account/index.ts'), /release_account_deletion/);
+  assert.match(src('src/components/profile/AccountDeletionPendingPage.tsx'), /accountDeletion\.failed/);
   const pending = JSON.parse(src('supabase/migrations.pending.json')) as { pending: Array<{ version: string; name: string }> };
   assert.equal(pending.pending.some(row => row.version === '20260921021231'), false);
   assert.match(src('supabase/schema_migrations.lock.json'), /"version": "20260921021231"/);

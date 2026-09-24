@@ -1,6 +1,9 @@
+import { userFacingError } from '../../lib/userFacingError';
+import { ACCOUNT_DELETION_WINDOW_DAYS } from '../../features/account/domain/accountDeletion';
+import { notifyAccountDeletionChanged } from '../../features/account/hooks/useAccountDeletion';
 import { useEffect, useState } from 'react';
 import { User, Target, Ruler, Lock, LogOut, ChevronDown, MessageSquare, Bell, Trash2, Globe, Users, SlidersHorizontal, ClipboardList, Inbox, Shield, Sparkles, Upload, FolderOpen, LayoutList, Activity, ClipboardCheck } from 'lucide-react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
@@ -73,7 +76,6 @@ function AccordionSection({ icon: Icon, label, isOpen, onToggle, children, anima
 
 export default function ProfilePage() {
   const { t, i18n } = useTranslation();
-  const navigate = useNavigate();
   const { signOut, deleteAccount, user } = useAuthStore();
   const { profile, updateProfile } = useProfileStore();
   const {
@@ -124,10 +126,13 @@ export default function ProfilePage() {
     setDeleteError(null);
     const { error } = await deleteAccount();
     if (error) {
-      setDeleteError(error === 'storage_cleanup_failed' ? t('profile.deleteModal.storageCleanupFailed') : error);
+      setDeleteError(error === 'last_operator' ? t('profile.deleteModal.lastOperator') : userFacingError(error, t('profile.deleteModal.failed')));
       setDeleting(false);
     } else {
-      navigate('/auth');
+      setShowDeleteModal(false);
+      setDeleting(false);
+      // The router now shows the recovery screen instead of the app.
+      notifyAccountDeletionChanged();
     }
   };
 
@@ -326,7 +331,10 @@ export default function ProfilePage() {
       <Modal open={showDeleteModal} onClose={() => setShowDeleteModal(false)} title={t('profile.deleteModal.title')}>
         <div className="space-y-4">
           <p className="text-sm text-neutral-300">
-            {t('profile.deleteModal.confirmText')} <span className="text-rose-400 font-medium">{t('common.cannotBeUndone')}</span>
+            {t('profile.deleteModal.confirmText')}
+          </p>
+          <p className="text-sm text-neutral-400" data-testid="delete-window">
+            {t('profile.deleteModal.window', { count: ACCOUNT_DELETION_WINDOW_DAYS })}
           </p>
           <div>
             <label className="block text-xs text-neutral-500 mb-1.5">

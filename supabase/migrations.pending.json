@@ -55,6 +55,10 @@
     {
       "version": "20260924190000",
       "name": "rich_messages"
+    },
+    {
+      "version": "20260924200000",
+      "name": "account_deletion_window"
     }
   ]
 }
