@@ -22,6 +22,6 @@
     X-Frame-Options = "DENY"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
-    Permissions-Policy = "microphone=(), geolocation=()"
+    Permissions-Policy = "microphone=(self), geolocation=()"
 
 # Trigger Netlify deploy preview for PR stacked on #31 (clients roster)

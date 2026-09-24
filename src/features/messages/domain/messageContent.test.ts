@@ -107,3 +107,10 @@ test('files stay private: short signed links, never a public URL; unsent uploads
   const coach = readFileSync(resolve(process.cwd(), 'src/components/coaching/CoachInboxPage.tsx'), 'utf8');
   assert.match(coach, /ref: activeClient \? objectRef : null/);
 });
+
+test('voice notes are not blocked by the site headers: the app itself may use the microphone', () => {
+  const headers = readFileSync(resolve(process.cwd(), 'netlify.toml'), 'utf8');
+  assert.match(headers, /microphone=\(self\)/);
+  assert.doesNotMatch(headers, /microphone=\(\)/);
+  assert.match(headers, /geolocation=\(\)/);
+});
