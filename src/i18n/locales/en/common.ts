@@ -312,6 +312,28 @@ const common = {
     noneSelected: 'Choose at least one module.',
   },
 
+  entitlements: {
+    title: 'Access',
+    personal: 'Personal',
+    coach: 'Coach',
+    access: {
+      beta: 'Beta',
+      paid: 'Active',
+      trial: 'Trial',
+      grace: 'Grace period',
+      expired: 'Ended',
+      none: 'No subscription',
+    },
+    until: 'until {{date}}',
+    since: 'since {{date}}',
+    activeClients_one: '{{count}} active client',
+    activeClients_other: '{{count}} active clients',
+    clientLimit: 'of {{limit}} planned',
+    overLimit: 'Above the planned limit. Nothing is blocked.',
+    noEnforcement: 'Nothing is limited by these rights for now.',
+    loadError: 'Couldn’t read your rights. This does not mean you have no access.',
+  },
+
   entryIntention: {
     title: 'Why are you here?',
     changeLater: 'You can change this later: this choice opens a path, it doesn\'t lock you in.',

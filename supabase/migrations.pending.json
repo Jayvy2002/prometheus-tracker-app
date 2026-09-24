@@ -59,6 +59,10 @@
     {
       "version": "20260924200000",
       "name": "account_deletion_window"
+    },
+    {
+      "version": "20260924205000",
+      "name": "p6_entitlements"
     }
   ]
 }

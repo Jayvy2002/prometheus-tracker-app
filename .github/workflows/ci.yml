@@ -625,6 +625,14 @@ jobs:
         run: |
           set -euo pipefail
           grep -F 'account deletion window: request withdraws access and keeps data, cancel restores exactly, purge only when due and by the service, retries bounded' /tmp/account-deletion-window.txt
+      - name: Test P6.1 entitlements
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/p6_entitlements.sql | tee /tmp/p6-entitlements.txt
+      - name: Confirm P6.1 entitlements echo
+        run: |
+          set -euo pipefail
+          grep -F 'p6.1 entitlements: separate from identity and relations, service-only writes, beta/paid/trial/grace/expired, coach grace once, own-only reads' /tmp/p6-entitlements.txt
       - name: Test qualification proof Storage API withdraw
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
