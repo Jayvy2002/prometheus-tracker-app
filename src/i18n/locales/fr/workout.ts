@@ -43,6 +43,7 @@ const workout = {
     syncQuota: 'Stockage local plein : la modification n’a pas pu être mise en file. Libère de l’espace puis réessaie.',
     offlineOp: {
       create: 'Créer la séance',
+      constraintDeclare: 'Signaler une douleur',
       startTemplate: 'Démarrer la séance prévue',
       update: 'Mettre à jour la séance',
       delete: 'Supprimer la séance',

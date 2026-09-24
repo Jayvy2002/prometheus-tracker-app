@@ -930,6 +930,18 @@ Vision §6. Migration pending `20260924130000_goal_lifecycle` ; preuve SQL `supa
 - Profil › Objectifs & cibles et fiche client (vue d’ensemble) : objectif courant, actions possibles (« Maintenir » n’a ni « atteint » ni « maintien »), nouvel objectif (type, précision, poids visé, échéance, raison), historique. Un Solo voit ses cibles caloriques suivre un nouvel objectif corporel si ses mesures réelles le permettent.
 
 Reste : l’IA ne propose pas encore de réévaluer un objectif (à brancher dans la revue hebdomadaire) ; contraintes et douleurs (§7.6) dans la PR suivante.
+
+## Douleurs et contraintes (branche `agent/p5-11-contraintes-douleurs`, en revue)
+
+Vision §7.6. Migration pending `20260924140000_athlete_constraints` ; preuve SQL `supabase/tests/athlete_constraints.sql`.
+
+- `athlete_constraints` + `athlete_constraint_events` : douleur, blessure connue, limitation ou contrainte temporaire ; zone, intensité 1–5 ressentie, temporaire ou persistante, exercice et séance concernés. Ouverte → résolue → rouverte, jamais effacée ; chaque changement est historisé.
+- RPC `declare_constraint` (idempotente sur l’identifiant d’opération hors ligne), `update_constraint`, `set_constraint_status` : l’athlète ou son Coach actif ; un autre Coach ne voit rien ; une séance qui n’est pas celle de l’athlète est ignorée.
+- Pendant la séance : « Signaler une douleur » dans le menu de l’exercice, prérempli (exercice, temporaire), qui fonctionne sans réseau (file hors ligne, rejeu sans doublon, id de séance locale jamais envoyé). Ensuite : « adapte aujourd’hui » et « Remplacer pour aujourd’hui » ; conseil de consulter un professionnel si la douleur est forte, persistante, ou si c’est une blessure. Aucun diagnostic.
+- Le Coach actif est prévenu (notification « action maintenant », sans zone ni description dans le push) et voit la liste dans la fiche client ; une contrainte persistante lui signale que le programme peut être à revoir.
+- Profil › Douleurs et contraintes pour l’athlète. Reprise : le texte libre de l’accueil devient une limitation persistante ouverte.
+
+Reste : l’IA ne lit pas encore les contraintes ouvertes (Solo : propositions prudentes ; Coaché : brouillon pour le Coach) ; à brancher avec la revue hebdomadaire.
 ---
 
 # P6 — Architecture économique de bêta

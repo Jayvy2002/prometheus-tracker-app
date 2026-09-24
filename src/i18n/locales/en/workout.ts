@@ -43,6 +43,7 @@ const workout = {
     syncQuota: 'This device is out of local storage, so the change could not be queued. Free some space, then retry.',
     offlineOp: {
       create: 'Create the session',
+      constraintDeclare: 'Report a pain',
       startTemplate: 'Start the planned session',
       update: 'Update the session',
       delete: 'Delete the session',

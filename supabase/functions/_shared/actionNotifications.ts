@@ -11,7 +11,8 @@ export type ActionNotificationKind =
   | 'coach_accepted'
   | 'athlete_confirmed'
   | 'program_assigned'
-  | 'proposals_waiting';
+  | 'proposals_waiting'
+  | 'constraint_declared';
 
 export interface ActionNotificationRow {
   kind: ActionNotificationKind | string;
@@ -95,6 +96,16 @@ export function renderActionNotification(row: ActionNotificationRow): PushPayloa
           ? (n > 1 ? `${n} propositions de Prometheus à décider` : 'Une proposition de Prometheus à décider')
           : (n > 1 ? `${n} Prometheus proposals to decide` : 'A Prometheus proposal to decide'),
         tag: 'decisions',
+        url: row.url,
+      };
+    case 'constraint_declared':
+      // No body area or description in the push: it is health information.
+      return {
+        title,
+        body: fr
+          ? `${name ?? 'Un client'} a signalé une douleur ou une contrainte.`
+          : `${name ?? 'A client'} reported a pain or a constraint.`,
+        tag: `constraint:${row.url}`,
         url: row.url,
       };
     default:
