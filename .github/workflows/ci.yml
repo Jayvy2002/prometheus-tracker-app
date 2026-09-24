@@ -625,6 +625,14 @@ jobs:
         run: |
           set -euo pipefail
           grep -F 'account deletion window: request withdraws access and keeps data, cancel restores exactly, purge only when due and by the service, retries bounded' /tmp/account-deletion-window.txt
+      - name: Test constraint backfill quiet
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/constraint_backfill_quiet.sql | tee /tmp/constraint-backfill-quiet.txt
+      - name: Confirm constraint backfill quiet echo
+        run: |
+          set -euo pipefail
+          grep -F 'constraint backfill quiet: migrated onboarding text never notifies the coach, real declarations still do, idempotent' /tmp/constraint-backfill-quiet.txt
       - name: Test P6.1 entitlements
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
