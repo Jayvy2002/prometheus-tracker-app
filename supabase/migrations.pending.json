@@ -47,6 +47,10 @@
     {
       "version": "20260924170000",
       "name": "body_measurements"
+    },
+    {
+      "version": "20260924180000",
+      "name": "personal_csv_import"
     }
   ]
 }

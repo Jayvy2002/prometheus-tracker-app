@@ -601,6 +601,14 @@ jobs:
         run: |
           set -euo pipefail
           grep -F 'body measurements: athlete writes and corrects, one value per site and day, active coach reads only, others blind' /tmp/body-measurements.txt
+      - name: Test personal CSV import
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/personal_csv_import.sql | tee /tmp/personal-csv-import.txt
+      - name: Confirm personal CSV import echo
+        run: |
+          set -euo pipefail
+          grep -F 'personal csv import: solo previews and commits own history, never twice, never for others, coach sees sessions not the job' /tmp/personal-csv-import.txt
       - name: Test qualification proof Storage API withdraw
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

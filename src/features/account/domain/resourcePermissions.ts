@@ -209,6 +209,15 @@ export function canPrepareProvisionalDossier(actor: PermissionActor): boolean {
 }
 
 /**
+ * Vision §24.1: anyone signed in may import their own history (personal
+ * space). Mirrors `coach_import_assert_actor` for the self case: no Coach
+ * capability, no relationship, no workspace condition.
+ */
+export function canImportPersonalHistory(actor: PermissionActor): boolean {
+  return actor.ready && Boolean(actor.userId);
+}
+
+/**
  * P5.1 / P5.2: Coach may import for self, an active client, or a provisional
  * dossier they own. Workspace never grants this. Ownership of the dossier is
  * a fact supplied by the server list, not by the UI persona.

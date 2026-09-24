@@ -1064,6 +1064,9 @@ const coaching = {
     },
 
     importCsv: {
+      personalTitle: 'Importer mon historique',
+      personalSubtitle: 'Tes anciennes séances ou pesées, depuis un tableur. Prometheus te montre ce qu’il a compris avant d’écrire quoi que ce soit ; rien n’est importé sans ta confirmation.',
+      seeInCalendar: 'Voir dans le calendrier',
       title: 'Importer un fichier',
       short: 'Importer',
       subtitle: 'Prometheus te montre exactement ce qu’il a compris avant d’écrire quoi que ce soit.',
