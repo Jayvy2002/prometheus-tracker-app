@@ -932,7 +932,7 @@ Nouveaux jobs cron créés par les migrations : `account-deletion-purge` (`40 * 
 
 ## P6.1 — Entitlements indépendants
 
-**Mergé (PR `#222`).** Contrat : `docs/P6_1_ENTITLEMENTS.md`. Migration `20260923140000_p6_entitlements` (pending, appliquée avec le lot de l’audit 2). Table `account_entitlements` par produit (`solo`, `coach`), écriture `service_role` seulement, lecture de ses propres droits (`get_my_entitlements`), accès effectif `beta | paid | trial | grace | expired | none`, grâce Coach de 7 jours posée une fois, essai Solo P1.5 réutilisé. Carte « Accès » en lecture seule dans le profil. Aucun blocage, aucun prix, aucun quota décidé. Preuves : `supabase/tests/p6_entitlements.sql` (CI), tests unitaires du miroir TypeScript.
+**Mergé (PR `#222`).** Contrat : `docs/P6_1_ENTITLEMENTS.md`. Migration `20260924205000_p6_entitlements` (pending, appliquée avec le lot de l’audit 2). Table `account_entitlements` par produit (`solo`, `coach`), écriture `service_role` seulement, lecture de ses propres droits (`get_my_entitlements`), accès effectif `beta | paid | trial | grace | expired | none`, grâce Coach de 7 jours posée une fois, essai Solo P1.5 réutilisé. Carte « Accès » en lecture seule dans le profil. Aucun blocage, aucun prix, aucun quota décidé. Preuves : `supabase/tests/p6_entitlements.sql` (CI), tests unitaires du miroir TypeScript.
 
 Remplacer progressivement le modèle trop simple `free/premium` par un contrat pouvant représenter :
 
