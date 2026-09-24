@@ -57,6 +57,8 @@ export default function CheckInPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const focusId = parseAthleteCheckinQuery(searchParams);
+  const requestedDate = searchParams.get('date');
+  const logDate = requestedDate && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate) ? requestedDate : todayStr();
   const [focused, setFocused] = useState<DailyCheckin | null>(null);
   const [ficheGone, setFicheGone] = useState(false);
   const { user } = useAuthStore();
@@ -77,6 +79,7 @@ export default function CheckInPage() {
   );
   const [saving, setSaving] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [askOpen, setAskOpen] = useState(false);
   const [sleepHours, setSleepHours] = useState('');
   const [notes, setNotes] = useState('');
   const [scales, setScales] = useState<Record<CheckinScaleKey, number | null>>({
@@ -127,7 +130,7 @@ export default function CheckInPage() {
   }, [focusId, todayCheckin, checkins]);
 
   useEffect(() => {
-    if (!todayCheckin) return;
+    if (!todayCheckin || logDate !== todayStr()) return;
     setSleepHours(todayCheckin.sleep_hours != null ? String(todayCheckin.sleep_hours) : '');
     setNotes(todayCheckin.notes || '');
     setScales({
@@ -143,7 +146,7 @@ export default function CheckInPage() {
       adherence_training: adherenceScoreFromPercent(todayCheckin.adherence_training),
       adherence_nutrition: adherenceScoreFromPercent(todayCheckin.adherence_nutrition),
     });
-  }, [todayCheckin]);
+  }, [todayCheckin, logDate]);
 
   const setScale = (key: CheckinScaleKey, value: number | null) => {
     setScales(s => ({ ...s, [key]: value }));
@@ -154,7 +157,7 @@ export default function CheckInPage() {
     setSaving(true);
     const hours = sleepHours.trim() === '' ? null : Number(sleepHours);
     const payload: DailyCheckinInput = {
-      checked_at: todayStr(),
+      checked_at: logDate,
       notes: showCheckinField(tracking, 'notes') || notes.trim()
         ? notes
         : (todayCheckin?.notes || ''),
@@ -206,13 +209,36 @@ export default function CheckInPage() {
     );
   }
 
-  const extraCount = extraVars.length + (showCheckinField(tracking, 'notes') ? 1 : 0);
+  const extraCount = extraVars.length;
   const showExtras = moreOpen;
+
+  const tapKeys = new Set<CheckinVarKey>(['energy', 'sleep_quality', 'soreness', 'fatigue', 'joint_pain']);
 
   const renderSlider = (key: CheckinVarKey) => {
     const col = CHECKIN_SCALE_BY_VAR[key];
     if (!col) return null;
     const copy = SCALE_COPY[col];
+    if (tapKeys.has(key)) {
+      const current = scales[col];
+      return (
+        <div key={key}>
+          <p className="text-sm font-medium text-white mb-2">{t(`checkin.fields.${copy.field}`)}</p>
+          <div className="grid grid-cols-6 gap-1" role="group" aria-label={t(`checkin.fields.${copy.field}`)}>
+            {[0, 2, 4, 6, 8, 10].map((n) => (
+              <button
+                key={n}
+                type="button"
+                aria-pressed={current === n}
+                onClick={() => setScale(col, n)}
+                className={`min-h-11 rounded-xl text-sm font-semibold ${current === n ? 'bg-blue-600 text-white' : 'bg-neutral-900 text-neutral-300'}`}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+        </div>
+      );
+    }
     return (
       <ScoreSlider
         key={key}
@@ -251,6 +277,12 @@ export default function CheckInPage() {
           </div>
         ) : null}
 
+        {solo && (
+          <button type="button" className="mb-3 min-h-11 text-sm text-neutral-300" onClick={() => setAskOpen(v => !v)}>
+            {t('soloAsk.label')}
+          </button>
+        )}
+        {askOpen && solo && (
         <SoloAskBar
           context={soloAskFromProfile('checkin', profile)}
           onApplyOnce={() => undefined}
@@ -262,6 +294,7 @@ export default function CheckInPage() {
             toast(t('soloAsk.saveNote'));
           }}
         />
+        )}
 
         <div className="space-y-5">
           <div className="space-y-5" data-testid="checkin-core">
@@ -300,21 +333,22 @@ export default function CheckInPage() {
             <div className="space-y-5" data-testid="checkin-extra">
               <p className="text-xs text-neutral-500">{t('checkin.extraHint')}</p>
               {extraVars.map(renderSlider)}
-              {showCheckinField(tracking, 'notes') && (
-                <div>
-                  <label className="text-sm font-medium text-white block mb-1.5">
-                    {t('checkin.notes')}
-                    <span className="text-neutral-500 font-normal"> · {t('checkin.optional')}</span>
-                  </label>
-                  <textarea
-                    value={notes}
-                    onChange={e => setNotes(e.target.value)}
-                    rows={3}
-                    placeholder={t('checkin.notesPlaceholder')}
-                    className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-2.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40 resize-none"
-                  />
-                </div>
-              )}
+            </div>
+          )}
+
+          {(showCheckinField(tracking, 'notes') || !solo) && (
+            <div>
+              <label className="text-sm font-medium text-white block mb-1.5">
+                {t('checkin.notes')}
+                <span className="text-neutral-500 font-normal"> · {t('checkin.optional')}</span>
+              </label>
+              <textarea
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                rows={3}
+                placeholder={t('checkin.notesPlaceholder')}
+                className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-2.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40 resize-none"
+              />
             </div>
           )}
 

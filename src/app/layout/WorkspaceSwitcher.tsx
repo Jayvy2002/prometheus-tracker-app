@@ -1,5 +1,5 @@
 import { Briefcase, Dumbbell } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { type AccountWorkspace } from '../../lib/accountContext';
 import { useAccountContext } from '@/features/account/hooks/useAccountContext';
@@ -8,13 +8,16 @@ import { useCoachingStore } from '../../stores/coachingStore';
 export default function WorkspaceSwitcher({ className = '' }: { className?: string }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
   const select = useCoachingStore(s => s.selectAccountWorkspace);
   const context = useAccountContext();
   if (!context.ready || !context.capabilities.coach || !context.personalToolsAvailable) return null;
 
   const choose = (next: AccountWorkspace) => {
     select(next);
-    navigate('/dashboard');
+    const shared = ['/dashboard', '/messages', '/profile'];
+    const stay = shared.some((path) => location.pathname === path || location.pathname.startsWith(`${path}/`));
+    if (!stay) navigate('/dashboard');
   };
   const options = [
     { value: 'personal' as const, icon: Dumbbell, label: t('accountSpaces.personal') },

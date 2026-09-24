@@ -1,6 +1,7 @@
 import { datePrefix, foldText } from './coachText';
 import { isPerformedSet } from '../../../lib/performedSets';
 import type { ClientLiftProgress, LiftSessionSnapshot, LiftSetSnapshot } from '../../../lib/types';
+import { formatLoad } from '../../../lib/utils';
 
 export interface RawWorkoutRow {
   id: string;
@@ -25,6 +26,29 @@ export interface RawSetRow {
   set_type?: string;
 }
 
+function bestOf(pool: LiftSetSnapshot[]): LiftSetSnapshot {
+  const loaded = pool.filter(s => s.weight_kg > 0);
+  return (loaded.length > 0 ? loaded : pool).reduce((a, b) => (
+    b.weight_kg > a.weight_kg || (b.weight_kg === a.weight_kg && b.reps > a.reps) ? b : a
+  ));
+}
+
+function bestLabel(best: LiftSetSnapshot, unit: 'kg' | 'lbs'): string {
+  return best.weight_kg > 0 || best.reps > 0
+    ? `${formatLoad(best.weight_kg, unit)} × ${best.reps}`
+    : `${best.duration_seconds ?? 0}s`;
+}
+
+/**
+ * Best set of a session in the viewer's unit. `bestSet` stays in kg because
+ * it also feeds AI payloads; screens call this instead.
+ */
+export function displayBestSet(session: LiftSessionSnapshot, unit: 'kg' | 'lbs'): string {
+  if (unit === 'kg') return session.bestSet;
+  const pool = session.sets.filter(isPerformedSet);
+  return pool.length > 0 ? bestLabel(bestOf(pool), unit) : session.bestSet;
+}
+
 function sessionFromSets(
   workout: RawWorkoutRow,
   name: string,
@@ -34,18 +58,14 @@ function sessionFromSets(
   if (pool.length === 0) return null;
   const loaded = pool.filter(s => s.weight_kg > 0);
   const maxWeight = loaded.length > 0 ? Math.max(...loaded.map(s => s.weight_kg)) : 0;
-  const best = (loaded.length > 0 ? loaded : pool).reduce((a, b) => (
-    b.weight_kg > a.weight_kg || (b.weight_kg === a.weight_kg && b.reps > a.reps) ? b : a
-  ));
+  const best = bestOf(pool);
   const rirs = pool.map(s => s.rir).filter(r => r > 0);
   return {
     date: datePrefix(workout.date),
     workoutId: workout.id,
     workoutName: workout.name || name,
     maxWeight,
-    bestSet: best.weight_kg > 0 || best.reps > 0
-      ? `${best.weight_kg}kg × ${best.reps}`
-      : `${best.duration_seconds ?? 0}s`,
+    bestSet: bestLabel(best, 'kg'),
     avgRir: rirs.length ? Math.round((rirs.reduce((a, b) => a + b, 0) / rirs.length) * 10) / 10 : null,
     volume: pool.reduce((s, x) => s + x.weight_kg * x.reps, 0),
     sets,

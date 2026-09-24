@@ -637,7 +637,8 @@ test('FR/EN copy covers structured observations, quiet status, load error, and b
     assert.match(locale, /nutritionRelance/);
     assert.match(locale, /draftCalories/);
   }
-  assert.match(src('src/components/dashboard/Dashboard.tsx'), /PrometheusWatchPanel/);
+  assert.doesNotMatch(src('src/components/dashboard/Dashboard.tsx'), /PrometheusWatchPanel/);
+  assert.match(src('src/components/navigation/WatchPage.tsx'), /PrometheusWatchPanel/);
   assert.match(src('src/components/coaching/ClientDetailPage.tsx'), /PrometheusWatchPanel/);
   const panel = src('src/components/dashboard/PrometheusWatchPanel.tsx');
   assert.match(panel, /canReadAthleteWatch/);

@@ -25,9 +25,11 @@ test('UX67 is inline copy next to controls — not a help product', () => {
   const nav = src('src/app/navigation/navConfig.ts');
   assert.doesNotMatch(nav, /\/help|labelKey: 'nav.help'/);
   assert.match(nav, /Pas de 6ᵉ onglet/);
+  assert.equal(mobileTabs('solo', trackingOn).length, 5);
+  assert.equal(mobileTabs('coached', trackingOn).length, 5);
+  assert.equal(mobileTabs('coaching', trackingOn).length, 5);
   for (const persona of ['solo', 'coached', 'coaching'] as const) {
     const tabs = mobileTabs(persona, trackingOn);
-    assert.equal(tabs.length, 5);
     assert.equal(tabs.some(item => item.path === '/prometheus'), false);
     assert.equal(tabs.some(item => item.path === '/help'), false);
   }

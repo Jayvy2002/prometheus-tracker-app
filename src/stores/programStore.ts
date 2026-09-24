@@ -23,6 +23,7 @@ type ProgramDayDraft = {
   phase_id?: string | null;
   exercises: Array<{
     name: string;
+    catalog_exercise_id?: string | null;
     default_sets: number;
     default_reps: number;
     default_reps_min?: number | null;
@@ -72,6 +73,7 @@ function programDaysToSavePayload(days: ProgramDay[] | undefined): ProgramDayDra
     phase_id: day.phase_id ?? null,
     exercises: (day.exercises ?? []).map(ex => ({
       name: ex.name,
+      catalog_exercise_id: ex.catalog_exercise_id ?? null,
       default_sets: ex.default_sets,
       default_reps: ex.default_reps,
       default_reps_min: ex.default_reps_min,

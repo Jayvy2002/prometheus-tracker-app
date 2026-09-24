@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
-import { applySetPlaceholders, isBlankWorkoutSet, nextBlankSetId } from './workoutSetComplete';
+import { applySetPlaceholders, draftLoadToKg, isBlankWorkoutSet, nextBlankSetId, parseDecimalInput } from './workoutSetComplete';
 
 function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
@@ -87,4 +87,18 @@ test('messages fill the viewport minus the tab bar; check-in extras are collapse
   assert.match(inbox, /100dvh-6rem/);
   const summary = src('src/components/workout/WorkoutSummaryScreen.tsx');
   assert.match(summary, /workout\.summary\.coachWillSee/);
+});
+
+test('a French decimal comma is the same load as a dot', () => {
+  assert.equal(parseDecimalInput('82,5'), 82.5);
+  assert.equal(parseDecimalInput(' 82.5 '), 82.5);
+  assert.equal(parseDecimalInput('100'), 100);
+  assert.ok(Number.isNaN(parseDecimalInput('')));
+  assert.ok(Number.isNaN(parseDecimalInput('abc')));
+});
+
+test('set drafts are typed in the profile unit and stored in kg', () => {
+  assert.equal(draftLoadToKg('82,5', 'kg'), 82.5);
+  assert.equal(draftLoadToKg('225', 'lbs'), 102.1);
+  assert.equal(draftLoadToKg('', 'lbs'), 0);
 });

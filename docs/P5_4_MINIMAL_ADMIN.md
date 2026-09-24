@@ -43,3 +43,9 @@ Rattacher une proposition à un exercice existant pose `matched` et `applied: fa
 ## Surface
 
 Route `/admin`, hors onglets mobiles et hors `/moderation`. Le lien profil n’apparaît que si `is_platform_operator()` renvoie vrai. Une erreur de vérification le cache. Un non-opérateur voit un refus et aucune file n’est chargée.
+
+## Passage d’audit (PR #221, pending)
+
+- Supprimer un compte passe par un contrôle préalable en lecture seule (`prepare_account_deletion`, `service_role`), puis par le trigger `account_deletion_guard`. Le dernier opérateur actif ne peut pas supprimer son compte (`last_operator`, 409 dans `delete-account`). Un opérateur révoqué peut le supprimer : ses lignes `platform_operators` sont retirées sous le mutex `20014508`.
+- Un import déjà vu revient dans la file si son problème change (nouvelle empreinte).
+- `admin_list_import_incidents(p_before, p_before_id, p_limit)` liste les échecs sans import, par page (au plus 100). La console `/admin` les montre sous les imports, en lecture seule : code, type, libellé Coach, date.

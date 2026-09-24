@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, ChevronDown, ChevronUp, Award, Weight, History, TrendingUp } from 'lucide-react';
+import { Plus, ChevronDown, ChevronUp, Award, Weight, TrendingUp } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { usePreferencesStore } from '../../stores/preferencesStore';
@@ -21,6 +21,7 @@ import { useExerciseStore } from '../../stores/exerciseStore';
 import { findCatalogExercise } from '../../lib/exerciseCatalog';
 import ExerciseMedia from './ExerciseMedia';
 import PlateCalc from './PlateCalc';
+import ExercisePicker from './ExercisePicker';
 import SoloAskBar from '../solo/SoloAskBar';
 import { soloAskFromProfile } from '../../lib/soloAskDefaults';
 import OverflowMenu, { type OverflowAction } from '../ui/OverflowMenu';
@@ -69,6 +70,7 @@ export default function ExerciseCard({
   const [showMedia, setShowMedia] = useState(false);
   const [plateOpen, setPlateOpen] = useState(false);
   const [showAsk, setShowAsk] = useState(false);
+  const [replaceOpen, setReplaceOpen] = useState(false);
   const catalogExercises = useExerciseStore(s => s.exercises);
   const fetchExercises = useExerciseStore(s => s.fetchExercises);
   const catalog = findCatalogExercise(catalogExercises, exercise.name);
@@ -171,6 +173,24 @@ export default function ExerciseCard({
       label: t('workout.exerciseCard.ask'),
       onSelect: () => setShowAsk(v => !v),
     }] : []),
+    {
+      id: 'replace-today',
+      label: t('workout.exerciseCard.replaceToday'),
+      onSelect: () => setReplaceOpen(true),
+    },
+    {
+      id: 'skip-today',
+      label: t('workout.exerciseCard.skipToday'),
+      onSelect: () => {
+        // Passing today removes the sets not performed; the prescription stays
+        // on the exercise, the plan is untouched and the note says why.
+        const unperformed = (exercise.sets ?? []).filter(row => !isPerformedSet(row));
+        for (const row of unperformed) void deleteSet(row.id);
+        const note = [exercise.notes?.trim(), t('workout.exerciseCard.skippedNote')].filter(Boolean).join('\n');
+        setLocalNotes(note);
+        void updateExercise(exercise.id, { notes: note });
+      },
+    },
     ...(!planLocked ? [{
       id: 'delete',
       label: t('common.delete'),
@@ -233,7 +253,7 @@ export default function ExerciseCard({
               onClose={() => setShowLinkPicker(false)}
             />
           )}
-          {showLoad && (
+          {showLoad && catalog?.equipment === 'barbell' && (
             <button
               type="button"
               data-plates-open="true"
@@ -284,63 +304,24 @@ export default function ExerciseCard({
         </div>
       )}
 
-      {/* Previous session info + overload suggestion */}
-      {prevPerformed.length > 0 && (
+      {/* Previous values live in the « Préc. » column; one line for the suggestion. */}
+      {suggestion && (
         <div className="px-3 sm:px-4 pb-1 animate-fade-in">
-          <div className="flex items-start gap-1.5 flex-wrap">
-            <div className="flex items-center gap-1 text-neutral-600 mt-0.5">
-              <History size={11} />
-              <span className="text-[10px] font-medium uppercase tracking-wider">{t('workout.exerciseCard.last')}</span>
-            </div>
-            {prevPerformed.map((s, i) => (
-              <span key={i} className="text-[11px] text-neutral-500 bg-neutral-900/60 rounded px-1.5 py-0.5">
-                {s.weight_kg > 0 ? formatWeight(s.weight_kg, weightUnit) : '\u2014'} \u00d7 {s.reps > 0 ? s.reps : '\u2014'}
-                {showRir && s.rir > 0 ? <span className="text-neutral-600"> @{s.rir}</span> : null}
-              </span>
-            ))}
-          </div>
-
-          {history.length >= 2 && (
-            <div className="flex items-center gap-1 mt-1">
-              <span className="text-[9px] text-neutral-700 uppercase tracking-wider mr-0.5">{t('workout.exerciseCard.trend')}</span>
-              {history.slice(0, 5).reverse().map((h, i) => {
-                const maxW = Math.max(...h.sets.filter(s => isPerformedSet(s) && s.weight_kg > 0).map(s => s.weight_kg), 0);
-                const prevH = history.slice(0, 5).reverse()[i - 1];
-                const prevMaxW = prevH ? Math.max(...prevH.sets.filter(s => isPerformedSet(s) && s.weight_kg > 0).map(s => s.weight_kg), 0) : 0;
-                const isUp = i > 0 && maxW > prevMaxW;
-                const isDown = i > 0 && maxW < prevMaxW;
-                return (
-                  <div key={i} className="flex flex-col items-center gap-0.5">
-                    <div className={`w-1.5 h-1.5 rounded-full ${
-                      i === history.slice(0, 5).length - 1 ? 'bg-blue-400' :
-                      isUp ? 'bg-emerald-500' : isDown ? 'bg-rose-500' : 'bg-neutral-600'
-                    }`} />
-                    {maxW > 0 && (
-                      <span className="text-[8px] text-neutral-700">{weightUnit === 'lbs' ? kgToLbs(maxW) : maxW}</span>
-                    )}
-                  </div>
-                );
+          <div className={`flex items-center gap-1.5 px-2 py-1 rounded-lg w-fit
+            ${suggestion.confidence === 'high'
+              ? 'bg-blue-600/15 border border-blue-500/30'
+              : suggestion.confidence === 'medium'
+              ? 'bg-blue-600/10 border border-blue-500/20'
+              : 'bg-neutral-800/60 border border-neutral-700/40'
+            }`}>
+            <TrendingUp size={12} className={suggestion.confidence === 'high' ? 'text-blue-400' : suggestion.confidence === 'medium' ? 'text-blue-400/70' : 'text-neutral-500'} />
+            <span className={`text-xs font-medium ${suggestion.confidence === 'high' ? 'text-blue-300' : suggestion.confidence === 'medium' ? 'text-blue-400/80' : 'text-neutral-400'}`}>
+              {t(SUGGESTION_KEY[suggestion.kind], {
+                weight: suggestion.suggestedWeight != null ? formatWeight(suggestion.suggestedWeight, weightUnit) : '—',
+                reps: suggestion.reps ?? '—',
               })}
-            </div>
-          )}
-
-          {suggestion && (
-            <div className={`mt-1.5 flex items-center gap-1.5 px-2 py-1 rounded-lg w-fit
-              ${suggestion.confidence === 'high'
-                ? 'bg-blue-600/15 border border-blue-500/30'
-                : suggestion.confidence === 'medium'
-                ? 'bg-blue-600/10 border border-blue-500/20'
-                : 'bg-neutral-800/60 border border-neutral-700/40'
-              }`}>
-              <TrendingUp size={10} className={suggestion.confidence === 'high' ? 'text-blue-400' : suggestion.confidence === 'medium' ? 'text-blue-400/70' : 'text-neutral-500'} />
-              <span className={`text-[11px] font-medium ${suggestion.confidence === 'high' ? 'text-blue-300' : suggestion.confidence === 'medium' ? 'text-blue-400/80' : 'text-neutral-400'}`}>
-                {t(SUGGESTION_KEY[suggestion.kind], {
-                  weight: suggestion.suggestedWeight != null ? formatWeight(suggestion.suggestedWeight, weightUnit) : '—',
-                  reps: suggestion.reps ?? '—',
-                })}
-              </span>
-            </div>
-          )}
+            </span>
+          </div>
         </div>
       )}
 
@@ -364,8 +345,8 @@ export default function ExerciseCard({
         <div className="px-3 sm:px-4 pb-4 animate-fade-in">
           {(exercise.sets?.length ?? 0) > 0 && (
             <div className="flex items-center gap-1.5 text-[10px] text-neutral-600 font-medium uppercase tracking-wider mb-2 px-1">
-              {showSets && <div className="w-6 text-center">#</div>}
-              <div className="w-11 text-center shrink-0">{t('workout.exerciseCard.type')}</div>
+              <div className="w-11 text-center shrink-0">{t('workout.exerciseCard.setColumn')}</div>
+              <div className="w-14 text-center shrink-0">{t('workout.exerciseCard.previousColumn')}</div>
               <div className={`flex-1 min-w-0 grid gap-1.5 ${
                 [showLoad, showReps, showRir].filter(Boolean).length >= 3
                   ? 'grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_3.5rem]'
@@ -381,7 +362,6 @@ export default function ExerciseCard({
                 )}
                 {showRir && <div className="text-center">{t('workout.exerciseCard.rir')}</div>}
               </div>
-              <div className="w-11 shrink-0" />
               <div className="w-11 shrink-0" />
             </div>
           )}
@@ -420,7 +400,7 @@ export default function ExerciseCard({
           {myoSets.length > 1 && myoTotalReps > 0 && (
             <div className="mt-1.5 px-1">
               <span className="text-[10px] text-rose-400/70 font-medium">
-                Myo total: {myoTotalReps} reps ({myoSets.length} sets)
+                {t('workout.exerciseCard.myoTotal', { reps: myoTotalReps, sets: myoSets.length })}
               </span>
             </div>
           )}
@@ -435,6 +415,20 @@ export default function ExerciseCard({
           )}
         </div>
       )}
+      <ExercisePicker
+        open={replaceOpen}
+        onClose={() => setReplaceOpen(false)}
+        onSelect={(name, catalogId) => {
+          // Today only: the program is untouched; the note keeps the trace.
+          const note = [
+            exercise.notes?.trim(),
+            t('workout.exerciseCard.replacedNote', { from: exercise.name }),
+          ].filter(Boolean).join('\n');
+          setLocalNotes(note);
+          void updateExercise(exercise.id, { name, catalog_exercise_id: catalogId ?? null, notes: note });
+          setLocalName(name);
+        }}
+      />
       <PlateCalc
         open={plateOpen}
         onClose={() => setPlateOpen(false)}

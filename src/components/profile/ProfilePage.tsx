@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { User, Target, Ruler, Lock, LogOut, ChevronDown, MessageSquare, Bell, Trash2, Globe, Users, SlidersHorizontal, Camera, CalendarRange, CalendarDays, Apple, Scale, ClipboardList, Inbox, Search, BarChart2, Shield } from 'lucide-react';
+import { User, Target, Ruler, Lock, LogOut, ChevronDown, MessageSquare, Bell, Trash2, Globe, Users, SlidersHorizontal, ClipboardList, Inbox, Search, Shield } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
@@ -10,8 +10,6 @@ import { useAccountContext } from '../../lib/useAccountContext';
 import { deleteConfirmToken } from '../../lib/dataControl';
 import { toast } from '../ui/Toast';
 import { setAppLanguage } from '../../i18n';
-import { userFacingError } from '../../lib/userFacingError';
-import { COACH_HAS_ACTIVE_CLIENTS } from '../../lib/coachModeGuard';
 import { supabase } from '../../lib/supabase';
 
 import Card from '../ui/Card';
@@ -76,7 +74,7 @@ export default function ProfilePage() {
   const { signOut, deleteAccount, user } = useAuthStore();
   const { profile, updateProfile } = useProfileStore();
   const {
-    myCoach, enableCoachMode, disableCoachMode, countActiveCoachLinks, selectAccountWorkspace, myTrackingConfig: tracking,
+    myCoach, myTrackingConfig: tracking,
   } = useCoachingStore();
   const context = useAccountContext();
   const inCoaching = context.activeWorkspace === 'coaching';
@@ -88,8 +86,6 @@ export default function ProfilePage() {
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [coachModeDialog, setCoachModeDialog] = useState<{ count: number } | null>(null);
-  const [coachModeBusy, setCoachModeBusy] = useState(false);
   const [operator, setOperator] = useState(false);
   const confirmWord = deleteConfirmToken(i18n.language);
 
@@ -131,55 +127,14 @@ export default function ProfilePage() {
     setOpenSection(prev => prev === section ? null : section);
   };
 
-  const handleCoachModeToggle = async () => {
-    if (coachModeBusy) return;
-    if (!canCoach) {
-      setCoachModeBusy(true);
-      const result = await enableCoachMode();
-      setCoachModeBusy(false);
-      if (result.error) toast(userFacingError(result.error, t('errors.generic')), 'error');
-      else toast(t('coaching.coachModeOn'), 'success');
-      return;
-    }
-    setCoachModeBusy(true);
-    const counted = await countActiveCoachLinks();
-    setCoachModeBusy(false);
-    if (counted.error || counted.count == null) {
-      toast(t('coaching.disableMode.errorCount'), 'error');
-      return;
-    }
-    setCoachModeDialog({ count: counted.count });
-  };
-
-  const confirmDisableCoachMode = async () => {
-    if (coachModeBusy || (coachModeDialog?.count ?? 0) > 0) return;
-    setCoachModeBusy(true);
-    const result = await disableCoachMode();
-    setCoachModeBusy(false);
-    if (result.error === COACH_HAS_ACTIVE_CLIENTS) {
-      toast(t('coaching.disableMode.errorBlocked'), 'error');
-      return;
-    }
-    if (result.error) {
-      toast(userFacingError(result.error, t('errors.generic')), 'error');
-      return;
-    }
-    setCoachModeDialog(null);
-  };
-
-  const openCoachRoster = () => {
-    selectAccountWorkspace('coaching');
-    setCoachModeDialog(null);
-    navigate('/clients');
-  };
-
   return (
     <PageTransition>
     <div className="px-4 pt-6 pb-4">
       <h1 className="text-2xl font-bold text-white mb-6">{t('profile.title')}</h1>
 
+      {/* Desktop already has the switcher in the side nav. */}
       {canCoach && context.personalToolsAvailable && (
-        <div className="mb-6">
+        <div className="mb-6 md:hidden">
           <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-2">{t('accountSpaces.label')}</p>
           <WorkspaceSwitcher />
         </div>
@@ -200,42 +155,12 @@ export default function ProfilePage() {
         </div>
       </Card>
 
-      {operator && (
-        <Card className="mb-6">
-          <Link to="/admin" className="w-full flex items-center gap-3 px-1 py-2.5 min-h-11 text-left text-sm text-white">
-            <Shield size={16} className="text-blue-400" /> {t('admin.profileLink')}
-          </Link>
-        </Card>
-      )}
-
       {(coached || inCoaching) && (
         <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-2">{t('profile.groups.coaching')}</p>
       )}
       {coached && (
         <Card className="mb-6 space-y-1">
-          <Link to="/photos" className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
-            <Camera size={16} className="text-blue-400" /> {t('nav.photos')}
-          </Link>
-          <Link to="/programs" className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
-            <CalendarRange size={16} className="text-blue-400" /> {t('nav.myProgram')}
-          </Link>
-          <Link to="/stats" className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
-            <BarChart2 size={16} className="text-blue-400" /> {t('nav.stats')}
-          </Link>
-          <Link to="/calendar" className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
-            <CalendarDays size={16} className="text-blue-400" /> {t('nav.calendar')}
-          </Link>
-          {tracking.track_nutrition && (
-            <Link to="/nutrition" className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
-              <Apple size={16} className="text-blue-400" /> {t('nav.nutrition')}
-            </Link>
-          )}
-          {tracking.track_weight && (
-            <Link to="/weight" className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
-              <Scale size={16} className="text-blue-400" /> {t('nav.weight')}
-            </Link>
-          )}
-          <Link to="/questionnaire" className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
+          <Link to="/questionnaire" className="w-full flex items-center gap-3 px-1 py-2.5 min-h-11 text-left text-sm text-white">
             <ClipboardList size={16} className="text-blue-400" /> {t('coachQuestionnaire.myTitle')}
           </Link>
           {!isIntakeAlreadyFilled(profile) && (
@@ -322,25 +247,10 @@ export default function ProfilePage() {
         </AccordionSection>
 
         {!inCoaching && (
-        <Card className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-neutral-800 flex items-center justify-center text-neutral-300">
-            <Users size={16} />
-          </div>
-          <div className="flex-1">
-            <p className="text-sm font-medium text-white">{t('coaching.coachMode')}</p>
-            <p className="text-[11px] text-neutral-500">{t('coaching.coachModeHint')}</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => { void handleCoachModeToggle(); }}
-            disabled={coachModeBusy}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium ${
-              canCoach ? 'bg-blue-600 text-white' : 'bg-neutral-800 text-neutral-300'
-            }`}
-          >
-            {canCoach ? t('common.on') : t('common.off')}
-          </button>
-        </Card>
+        <Link to="/become-coach" className="flex min-h-11 items-center gap-3 rounded-2xl bg-neutral-900 px-4 text-sm text-white">
+          <Users size={16} className="text-neutral-300" />
+          {canCoach ? t('coaching.coachMode') : t('coaching.becomeCoach')}
+        </Link>
         )}
 
       </div>
@@ -352,7 +262,18 @@ export default function ProfilePage() {
         <LogOut size={16} /> {t('profile.signOut')}
       </Button>
 
+      {!coached && (
+        <Link to="/coaches" className="mt-6 flex min-h-11 items-center gap-3 text-sm text-neutral-400">
+          <Search size={16} /> {t('marketplace.directory')}
+        </Link>
+      )}
+
       <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mt-6 mb-2">{t('profile.groups.advanced')}</p>
+      {operator && (
+        <Link to="/admin" className="mb-3 flex min-h-11 items-center gap-3 text-sm text-neutral-400">
+          <Shield size={16} /> {t('admin.profileLink')}
+        </Link>
+      )}
       <DataControlPanel
         hasCoach={!!myCoach}
         coachName={myCoach?.full_name ?? null}
@@ -365,38 +286,6 @@ export default function ProfilePage() {
       >
         {t('profile.deleteAccount')}
       </button>
-
-      <Modal
-        open={coachModeDialog != null}
-        onClose={() => setCoachModeDialog(null)}
-        title={coachModeDialog && coachModeDialog.count > 0
-          ? t('coaching.disableMode.blockedTitle')
-          : t('coaching.disableMode.title')}
-      >
-        {coachModeDialog && (
-          <div className="space-y-4">
-            <p className="text-sm text-neutral-300">
-              {coachModeDialog.count > 0
-                ? t('coaching.disableMode.blockedBody', { count: coachModeDialog.count })
-                : t('coaching.disableMode.bodyZero')}
-            </p>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Button variant="secondary" onClick={() => setCoachModeDialog(null)} className="flex-1" disabled={coachModeBusy}>
-                {coachModeDialog.count > 0 ? t('coaching.disableMode.understood') : t('common.cancel')}
-              </Button>
-              {coachModeDialog.count > 0 ? (
-                <Button onClick={openCoachRoster} className="flex-1">
-                  {t('coaching.disableMode.seeClients')}
-                </Button>
-              ) : (
-                <Button onClick={() => { void confirmDisableCoachMode(); }} className="flex-1" disabled={coachModeBusy} loading={coachModeBusy}>
-                  {t('coaching.disableMode.confirmZero')}
-                </Button>
-              )}
-            </div>
-          </div>
-        )}
-      </Modal>
 
       <Modal open={showDeleteModal} onClose={() => setShowDeleteModal(false)} title={t('profile.deleteModal.title')}>
         <div className="space-y-4">

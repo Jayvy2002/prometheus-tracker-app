@@ -1,3 +1,5 @@
+import { frontierOf, newComparableRecord, type LoadReps } from './loadRepFrontier';
+
 export function epley1RM(weight: number, reps: number): number {
   if (reps <= 0 || weight <= 0) return 0;
   if (reps === 1) return Math.round(weight);
@@ -103,6 +105,8 @@ export interface ExerciseProgressEntry {
   totalVolume: number;
   estimated1RM: number;
   sets: number;
+  /** Best load × reps pairs of the session, for like-for-like records. */
+  frontier?: LoadReps[];
 }
 
 const WORKOUT_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -147,6 +151,7 @@ export function aggregateExerciseProgress(
     totalVolume: number;
     best1RM: number;
     sets: number;
+    pairs: LoadReps[];
   }>> = {};
 
   for (const ex of rows) {
@@ -156,7 +161,7 @@ export function aggregateExerciseProgress(
     const workoutId = workoutOriginId(ex.workouts.id);
     const key = workoutId ?? `date:${date}`;
     if (!byExercise[name][key]) {
-      byExercise[name][key] = { date, workoutId, maxWeight: 0, totalVolume: 0, best1RM: 0, sets: 0 };
+      byExercise[name][key] = { date, workoutId, maxWeight: 0, totalVolume: 0, best1RM: 0, sets: 0, pairs: [] };
     }
     const bucket = byExercise[name][key];
     for (const s of ex.workout_sets ?? []) {
@@ -167,6 +172,7 @@ export function aggregateExerciseProgress(
       bucket.totalVolume += w * r;
       if (w > 0) bucket.maxWeight = Math.max(bucket.maxWeight, w);
       bucket.best1RM = Math.max(bucket.best1RM, epley1RM(w, r));
+      if (r > 0) bucket.pairs.push({ weight_kg: Math.max(0, w), reps: r });
     }
   }
 
@@ -182,6 +188,7 @@ export function aggregateExerciseProgress(
           totalVolume: Math.round(d.totalVolume),
           estimated1RM: d.best1RM,
           sets: d.sets,
+          frontier: frontierOf(d.pairs),
         }));
       if (entries.length === 0) {
         return null;
@@ -203,8 +210,21 @@ export function aggregateExerciseProgress(
     .sort((a, b) => b.best1RM - a.best1RM);
 }
 
-export function isRecordAtIndex(entries: Array<{ estimated1RM: number }>, index: number): boolean {
+/**
+ * A session is a record when one of its sets beats every earlier set like for
+ * like (more load at the same reps or more, more reps at the same load or
+ * more). Entries without sets detail fall back to the estimated 1RM.
+ */
+export function isRecordAtIndex(
+  entries: Array<{ estimated1RM: number; frontier?: LoadReps[] }>,
+  index: number,
+): boolean {
   if (index <= 0) return false;
+  const current = entries[index]?.frontier;
+  if (current && entries.slice(0, index).every(e => e.frontier)) {
+    const previous = entries.slice(0, index).flatMap(e => e.frontier ?? []);
+    return newComparableRecord(current, previous) != null;
+  }
   const previousMax = Math.max(...entries.slice(0, index).map(e => e.estimated1RM));
   return isBeatenRecord(entries[index].estimated1RM, previousMax);
 }

@@ -46,12 +46,11 @@ test('UX110 setup copies tracking from another client into the form', () => {
   assert.match(page, /setup_completed_at: prev\.setup_completed_at/);
 });
 
-test('UX111 coached mobile stays at 5 tabs; nutrition is profile + FAB', () => {
+test('coached mobile stays at 5 tabs and nutrition lives in the body hub', () => {
   const nav = src('src/app/navigation/navConfig.ts');
-  assert.match(nav, /UX111/);
-  assert.match(nav, /Pas de 6ᵉ onglet/);
+  assert.match(nav, /path: '\/body'/);
   const profile = src('src/components/profile/ProfilePage.tsx');
-  assert.match(profile, /to="\/nutrition"/);
+  assert.doesNotMatch(profile, /to="\/nutrition"/);
   const fab = src('src/app/layout/FAB.tsx');
   assert.match(fab, /nav\.addMeal/);
   const tabs = src('src/app/navigation/navConfig.test.ts');

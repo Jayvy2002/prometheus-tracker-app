@@ -13,7 +13,7 @@ export default function UnitsForm({ onBack, inline }: { onBack: () => void; inli
   const { t } = useTranslation();
   const { user } = useAuthStore();
   const { profile, updateProfile } = useProfileStore();
-  const { showRir, setShowRir, autoStartRest, setAutoStartRest } = usePreferencesStore();
+  const { showRir, setShowRir, autoStartRest, setAutoStartRest, keepScreenAwake: keepAwake, setKeepScreenAwake: setKeepAwake } = usePreferencesStore();
   const [unitWeight, setUnitWeight] = useState(profile?.unit_weight ?? 'kg');
   const [unitDistance, setUnitDistance] = useState(profile?.unit_distance ?? 'km');
   const [unitHeight, setUnitHeight] = useState(profile?.unit_height ?? 'cm');
@@ -89,6 +89,24 @@ export default function UnitsForm({ onBack, inline }: { onBack: () => void; inli
             >
               <span
                 className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${autoStartRest ? 'translate-x-5' : 'translate-x-0'}`}
+              />
+            </button>
+          </div>
+          <div className="flex items-center justify-between py-1 mt-3">
+            <div>
+              <span className="text-sm text-neutral-300">{t('profile.units.keepScreenAwake')}</span>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              data-testid="keep-screen-awake"
+              aria-checked={keepAwake}
+              aria-label={t('profile.units.keepScreenAwake')}
+              onClick={() => setKeepAwake(!keepAwake)}
+              className={`relative w-11 h-6 rounded-full transition-colors ${keepAwake ? 'bg-blue-600' : 'bg-neutral-700'}`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${keepAwake ? 'translate-x-5' : 'translate-x-0'}`}
               />
             </button>
           </div>

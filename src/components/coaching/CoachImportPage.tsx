@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Upload } from 'lucide-react';
@@ -10,7 +10,7 @@ import Button from '../ui/Button';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
-import { cancelCoachImport, commitCoachImport, getCoachImport, previewCoachImport, type CoachImportView } from '../../features/imports/api/coachImportApi';
+import { cancelCoachImport, commitCoachImport, getCoachImport, listCoachImports, previewCoachImport, recordCoachImportIncident, type CoachImportView } from '../../features/imports/api/coachImportApi';
 import { listProvisionalDossiers, previewProvisionalImport, type ProvisionalDossier } from '../../features/provisional/api/provisionalApi';
 import {
   COLUMN_ROLES,
@@ -28,7 +28,7 @@ import {
   type RpeMode,
 } from '../../features/imports/domain/columns';
 import { CsvParseError, parseCsvText, type ParsedCsv } from '../../features/imports/domain/csvParse';
-import { importErrorI18nKey } from '../../features/imports/domain/errors';
+import { importErrorCode, importErrorI18nKey, isImportIncident } from '../../features/imports/domain/errors';
 import { IMPORT_MAX_BYTES } from '../../features/imports/domain/limits';
 import { planImportRows } from '../../features/imports/domain/preview';
 
@@ -76,11 +76,25 @@ export default function CoachImportPage() {
   const [busy, setBusy] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
   const [serverView, setServerView] = useState<CoachImportView | null>(null);
+  const [boundSubject, setBoundSubject] = useState<string | null>(null);
+  const [openPreviews, setOpenPreviews] = useState<CoachImportView[]>([]);
   const [staleDuplicates, setStaleDuplicates] = useState(false);
+  const previewGen = useRef(0);
+  const subjectRef = useRef(subjectId);
+  subjectRef.current = subjectId;
 
   useEffect(() => {
     fetchClients();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    let live = true;
+    listCoachImports({ limit: 50 }).then((result) => {
+      if (!live || result.error) return;
+      setOpenPreviews(result.data.filter((row) => row.status === 'previewed'));
+    }).catch(() => undefined);
+    return () => { live = false; };
+  }, [step]);
 
   useEffect(() => {
     let live = true;
@@ -129,6 +143,7 @@ export default function CoachImportPage() {
     setParsed(null);
     setMapping(null);
     setServerView(null);
+    setBoundSubject(null);
     setStaleDuplicates(false);
     setLocalError(null);
     setIdempotencyKey(newKey());
@@ -179,9 +194,20 @@ export default function CoachImportPage() {
     }
   };
 
+  const noteIncident = (message: string | null) => {
+    // Operators see failures (parsing, unexpected server errors), not the
+    // coach's normal decisions (duplicate, already imported, quota).
+    const code = importErrorCode(message);
+    if (!isImportIncident(code)) return;
+    void recordCoachImportIncident(kind, code === 'generic' ? 'unexpected_error' : code);
+  };
+
   const runPreview = async (nextMapping?: ImportMapping) => {
     const activeMapping = nextMapping ?? mapping;
     if (!parsed || !activeMapping || !subjectId) return;
+    const generation = previewGen.current + 1;
+    previewGen.current = generation;
+    const requestedSubject = subjectId;
     const activeIssues = mappingIssues(activeMapping, parsed.headers.length, detections);
     const activeAmbiguities = unresolvedAmbiguities(detections, activeMapping);
     if (activeAmbiguities.length || activeIssues.length) {
@@ -208,11 +234,18 @@ export default function CoachImportPage() {
         idempotencyKey,
       });
     setBusy(false);
+    if (previewGen.current !== generation || subjectRef.current !== requestedSubject) return;
     if (result.error || !result.data) {
+      noteIncident(result.error);
       setLocalError(t(importErrorI18nKey(result.error ?? 'generic')));
       toast(t(importErrorI18nKey(result.error ?? 'generic')), 'error');
       return;
     }
+    const shownSubject = result.data.provisional_dossier_id
+      ? `dossier:${result.data.provisional_dossier_id}`
+      : result.data.subject_user_id;
+    if (shownSubject && shownSubject !== requestedSubject) return;
+    setBoundSubject(requestedSubject);
     setServerView(result.data);
     setStep('preview');
   };
@@ -266,7 +299,7 @@ export default function CoachImportPage() {
   };
 
   const runCommit = async () => {
-    if (!serverView || !mapping) return;
+    if (!serverView || !mapping || boundSubject !== subjectId) return;
     if (serverView.ready_count < 1) {
       setLocalError(t('coaching.importCsv.errors.nothing_to_import'));
       return;
@@ -280,6 +313,7 @@ export default function CoachImportPage() {
     });
     setBusy(false);
     if (result.error || !result.data) {
+      noteIncident(result.error);
       if (result.error === 'duplicates_changed') setStaleDuplicates(true);
       setLocalError(t(importErrorI18nKey(result.error ?? 'generic')));
       toast(t(importErrorI18nKey(result.error ?? 'generic')), 'error');
@@ -297,7 +331,28 @@ export default function CoachImportPage() {
           <ArrowLeft size={18} /> {t('nav.clients')}
         </Link>
         <h1 className="text-xl font-bold text-white mb-1">{t('coaching.importCsv.title')}</h1>
-        <p className="text-sm text-neutral-500 mb-6">{t('coaching.importCsv.subtitle')}</p>
+        <p className="text-sm text-neutral-500 mb-2">{t('coaching.importCsv.subtitle')}</p>
+        <p className="text-sm text-neutral-400 mb-6">{t('coaching.importCsv.oneKind')}</p>
+        {openPreviews.length > 0 ? (
+          <Card className="mb-4 space-y-2">
+            <p className="text-sm text-white">{t('coaching.importCsv.abandonedTitle')}</p>
+            {openPreviews.map((row) => (
+              <div key={row.import_id} className="flex items-center justify-between gap-2">
+                <p className="text-sm text-neutral-300">{row.filename} · {t(`coaching.importCsv.kinds.${row.kind}`)}</p>
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    void cancelCoachImport(row.import_id).then(() => {
+                      setOpenPreviews((current) => current.filter((item) => item.import_id !== row.import_id));
+                    });
+                  }}
+                >
+                  {t('coaching.importCsv.cancelAbandoned')}
+                </Button>
+              </div>
+            ))}
+          </Card>
+        ) : null}
 
         <label className="block mb-4">
           <span className="text-xs font-medium text-neutral-400">{t('coaching.importCsv.subject')}</span>
@@ -305,6 +360,7 @@ export default function CoachImportPage() {
             className="mt-1 w-full min-h-11 bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white"
             value={subjectId}
             onChange={(event) => {
+              previewGen.current += 1;
               setSubjectId(event.target.value);
               resetFile();
             }}
@@ -587,13 +643,22 @@ export default function CoachImportPage() {
                   {row.error_code ? (
                     <p className="text-sm text-amber-200">{t(importErrorI18nKey(row.error_code))}</p>
                   ) : (
-                    <p className="text-sm text-neutral-200">
-                      {String(row.planned?.date ?? '')}
-                      {row.planned?.exercise ? ` · ${String(row.planned.exercise)}` : ''}
-                      {row.planned?.reps != null ? ` · ${String(row.planned.reps)}` : ''}
-                      {row.planned?.load_kg != null ? ` · ${String(row.planned.load_kg)} kg` : ''}
-                      {row.planned?.body_weight_kg != null ? ` · ${String(row.planned.body_weight_kg)} kg` : ''}
-                    </p>
+                    <>
+                      <p className="text-sm text-neutral-200">
+                        {String(row.planned?.date ?? '')}
+                        {row.planned?.session_name ? ` · ${t('coaching.importCsv.sessionName', { name: String(row.planned.session_name) })}` : ''}
+                        {row.planned?.exercise ? ` · ${String(row.planned.exercise)}` : ''}
+                        {row.planned?.applied_order != null ? ` · ${t('coaching.importCsv.setOrder', { order: String(row.planned.applied_order) })}` : ''}
+                        {row.planned?.reps != null ? ` · ${String(row.planned.reps)}` : ''}
+                        {row.planned?.load_kg != null ? ` · ${String(row.planned.load_kg)} kg` : ''}
+                        {row.planned?.rir != null ? ` · ${t('coaching.importCsv.rir', { value: String(row.planned.rir) })}` : ''}
+                        {row.planned?.body_weight_kg != null ? ` · ${String(row.planned.body_weight_kg)} kg` : ''}
+                        {row.planned?.notes ? ` · ${t('coaching.importCsv.notes', { notes: String(row.planned.notes) })}` : ''}
+                      </p>
+                      {row.planned?.order_rule ? (
+                        <p className="text-xs text-neutral-500">{t(`coaching.importCsv.orderRule.${String(row.planned.order_rule)}`)}</p>
+                      ) : null}
+                    </>
                   )}
                 </Card>
               ))}

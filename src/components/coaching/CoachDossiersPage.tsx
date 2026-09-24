@@ -24,6 +24,7 @@ export default function CoachDossiersPage() {
   const { t, i18n } = useTranslation();
   const { canPrepareProvisionalDossier } = useResourcePermissions();
   const [rows, setRows] = useState<ProvisionalDossier[]>([]);
+  const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [retry, setRetry] = useState(0);
@@ -49,6 +50,7 @@ export default function CoachDossiersPage() {
         return;
       }
       setRows(result.data);
+      setHasMore(result.data.length >= 50);
     }).catch(() => {
       if (live) {
         firstLoad.current = false;
@@ -62,6 +64,20 @@ export default function CoachDossiersPage() {
   if (!canPrepareProvisionalDossier) return <Navigate to="/dashboard" replace />;
 
   const refresh = () => setRetry((value) => value + 1);
+
+  const loadMore = async () => {
+    const last = rows[rows.length - 1];
+    if (!last || busy) return;
+    setBusy(true);
+    const result = await listProvisionalDossiers({ before: last.created_at, beforeId: last.id });
+    setBusy(false);
+    if (result.error) {
+      setError(provisionalErrorI18nKey(result.error));
+      return;
+    }
+    setRows((current) => [...current, ...result.data.filter((row) => !current.some((item) => item.id === row.id))]);
+    setHasMore(result.data.length >= 50);
+  };
 
   const create = async () => {
     if (busy) return;
@@ -83,7 +99,9 @@ export default function CoachDossiersPage() {
     setBusy(true);
     setError(null);
     setCopied(false);
-    const result = await inviteProvisionalDossier(dossierId, emails[dossierId] ?? '');
+    const dossier = rows.find((row) => row.id === dossierId);
+    const email = emails[dossierId] ?? dossier?.invite_email ?? '';
+    const result = await inviteProvisionalDossier(dossierId, email);
     setBusy(false);
     if (result.error || !result.token) {
       setError(provisionalErrorI18nKey(result.error));
@@ -95,7 +113,7 @@ export default function CoachDossiersPage() {
 
   const runAction = async (dossier: ProvisionalDossier, kind: 'delete' | 'revoke' | 'revoke-invite') => {
     if (busy) return;
-    if ((kind === 'delete' || kind === 'revoke') && pending?.id !== dossier.id) {
+    if ((kind === 'delete' || kind === 'revoke') && (pending?.id !== dossier.id || pending.kind !== kind)) {
       setPending({ id: dossier.id, kind });
       return;
     }
@@ -293,6 +311,9 @@ export default function CoachDossiersPage() {
             })}
           </div>
         )}
+        {hasMore ? (
+          <Button variant="secondary" onClick={() => void loadMore()} loading={busy}>{t('coaching.importCsv.more')}</Button>
+        ) : null}
       </div>
     </PageTransition>
   );

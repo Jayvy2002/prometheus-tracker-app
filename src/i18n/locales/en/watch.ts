@@ -1,5 +1,8 @@
 const watch = {
   prometheusWatch: {
+    summary_one: 'Prometheus is watching {{count}} point',
+    summary_other: 'Prometheus is watching {{count}} points',
+    summaryHint: 'Observations, not scores. Nothing is applied on its own.',
     title: 'What Prometheus is watching',
     subtitle: 'Plain observations, not scores. Nothing is applied on its own.',
     empty: 'Nothing particular to watch yet. Keep logging what you do.',
@@ -9,6 +12,7 @@ const watch = {
     loadError: 'Observations could not be loaded. That is not “nothing to watch”.',
     loadErrorCoach: 'This file’s observations could not be loaded.',
     more: 'See why',
+    evidence: 'See the evidence',
     certainty: 'Reading',
     observed: 'What was seen',
     observedCopy: {

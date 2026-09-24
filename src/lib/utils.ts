@@ -246,6 +246,22 @@ export function formatWeight(kg: number, unit: 'kg' | 'lbs'): string {
   return `${Math.round(kg * 10) / 10} kg`;
 }
 
+/** Compact load for set lines (« 80kg × 5 »), converted to the viewer's unit. */
+export function formatLoad(kg: number, unit: 'kg' | 'lbs'): string {
+  return unit === 'lbs' ? `${kgToLbs(kg)}lbs` : `${Math.round(kg * 10) / 10}kg`;
+}
+
+/** Signed weight change (« +1.2 kg »), converted to the viewer's unit. */
+export function formatWeightDelta(kg: number, unit: 'kg' | 'lbs'): string {
+  const value = unit === 'lbs' ? kgToLbs(kg) : Math.round(kg * 10) / 10;
+  return `${value > 0 ? '+' : ''}${value} ${unit}`;
+}
+
+/** Weight in the viewer's unit, as a bare number for charts. */
+export function weightInUnit(kg: number, unit: 'kg' | 'lbs'): number {
+  return unit === 'lbs' ? kgToLbs(kg) : Math.round(kg * 10) / 10;
+}
+
 export function parseDateStr(dateStr: string): Date {
   const [year, month, day] = dateStr.split('-').map(Number);
   return new Date(year, month - 1, day);

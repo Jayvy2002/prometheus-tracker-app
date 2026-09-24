@@ -72,7 +72,7 @@ export const useCheckinStore = create<CheckinState>((set) => ({
     const row = data as DailyCheckin;
     track('checkin_saved', { with_notes: !!(input.notes ?? '').trim() });
     set(s => ({
-      todayCheckin: row,
+      todayCheckin: row.checked_at === todayStr() ? row : s.todayCheckin,
       checkins: [row, ...s.checkins.filter(c => c.checked_at !== row.checked_at)],
     }));
     return { error: null };

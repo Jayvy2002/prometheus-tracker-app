@@ -34,7 +34,8 @@ DO $$ BEGIN
   IF NOT has_function_privilege('authenticated', 'public.create_provisional_dossier(text)', 'execute')
      OR NOT has_function_privilege('authenticated', 'public.preview_provisional_import(uuid,text,text,jsonb,text)', 'execute')
      OR NOT has_function_privilege('authenticated', 'public.preview_coach_import(uuid,text,text,jsonb,text)', 'execute')
-     OR NOT has_function_privilege('authenticated', 'public.confirm_provisional_claim(text,boolean,boolean)', 'execute')
+     OR NOT has_function_privilege('authenticated', 'public.confirm_provisional_claim(text,boolean,boolean,text,boolean)', 'execute')
+     OR to_regprocedure('public.confirm_provisional_claim(text,boolean,boolean)') IS NOT NULL
      OR has_function_privilege('authenticated', 'public.lock_coach_import_provisional(uuid)', 'execute')
      OR has_function_privilege('authenticated', 'public.coach_import_assert_dossier(uuid)', 'execute')
      OR has_function_privilege('authenticated', 'public.preview_coach_import(uuid,text,text,jsonb,text,uuid)', 'execute')
@@ -129,7 +130,7 @@ DECLARE
   n int;
 BEGIN
   BEGIN
-    PERFORM public.confirm_provisional_claim(current_setting('p52.token'), false, false);
+    PERFORM public.confirm_provisional_claim(current_setting('p52.token'), false, false, NULL, false);
     RAISE EXCEPTION 'unconfirmed claim wrote data';
   EXCEPTION WHEN OTHERS THEN
     IF SQLERRM <> 'confirmation_required' THEN RAISE; END IF;
@@ -138,7 +139,7 @@ BEGIN
   IF (v->>'workout_count')::int <> 1 THEN RAISE EXCEPTION 'preview count %', v->>'workout_count'; END IF;
   IF v->'sessions'->0->'exercises'->>0 <> 'Deadlift' THEN RAISE EXCEPTION 'preview name %', v->'sessions'; END IF;
   IF v->'sessions'->0->>'date' <> '2026-09-24' THEN RAISE EXCEPTION 'preview date %', v->'sessions'; END IF;
-  v := public.confirm_provisional_claim(current_setting('p52.token'), true, false);
+  v := public.confirm_provisional_claim(current_setting('p52.token'), true, false, v->>'revision', false);
   IF (v->>'workout_count')::int <> 1 THEN RAISE EXCEPTION 'claim count %', v->>'workout_count'; END IF;
   IF v->>'coaching_status' <> 'not_requested' THEN RAISE EXCEPTION 'coaching %', v->>'coaching_status'; END IF;
   SELECT count(*) INTO n FROM public.workouts WHERE user_id = 'c5300000-0000-4000-8000-000000000002';
@@ -146,7 +147,7 @@ BEGIN
   IF (SELECT count(*) FROM public.coach_client_links WHERE client_id = 'c5300000-0000-4000-8000-000000000002') <> 0 THEN
     RAISE EXCEPTION 'claim created a link without consent';
   END IF;
-  v := public.confirm_provisional_claim(current_setting('p52.token'), true, true);
+  v := public.confirm_provisional_claim(current_setting('p52.token'), true, true, NULL, false);
   IF (v->>'already_attached')::boolean IS NOT TRUE THEN RAISE EXCEPTION 'retry not idempotent'; END IF;
   SELECT count(*) INTO n FROM public.workouts WHERE user_id = 'c5300000-0000-4000-8000-000000000002';
   IF n <> 1 THEN RAISE EXCEPTION 'retry duplicated workouts %', n; END IF;
@@ -194,7 +195,8 @@ DO $$
 DECLARE
   v jsonb;
 BEGIN
-  v := public.confirm_provisional_claim(current_setting('p52.token_b'), true, true);
+  v := public.preview_provisional_claim(current_setting('p52.token_b'));
+  v := public.confirm_provisional_claim(current_setting('p52.token_b'), true, true, v->>'revision', false);
   IF v->>'coaching_status' <> 'active' THEN RAISE EXCEPTION 'coaching status %', v->>'coaching_status'; END IF;
   IF (SELECT count(*) FROM public.coach_client_links WHERE coach_id = 'c5300000-0000-4000-8000-000000000004' AND client_id = 'c5300000-0000-4000-8000-000000000002' AND status = 'active') <> 1 THEN
     RAISE EXCEPTION 'consent did not activate the link';
@@ -266,7 +268,8 @@ DECLARE
   v jsonb;
   n int;
 BEGIN
-  v := public.confirm_provisional_claim(current_setting('p52.token_c'), true, true);
+  v := public.preview_provisional_claim(current_setting('p52.token_c'));
+  v := public.confirm_provisional_claim(current_setting('p52.token_c'), true, true, v->>'revision', false);
   IF v->>'coaching_status' <> 'already_coached' THEN RAISE EXCEPTION 'rival coaching %', v->>'coaching_status'; END IF;
   SELECT count(*) INTO n
   FROM public.workout_exercises e
@@ -338,7 +341,8 @@ DECLARE
   v jsonb;
   kg numeric;
 BEGIN
-  v := public.confirm_provisional_claim(current_setting('p52.weight_token'), true, false);
+  v := public.preview_provisional_claim(current_setting('p52.weight_token'));
+  v := public.confirm_provisional_claim(current_setting('p52.weight_token'), true, false, v->>'revision', true);
   IF (v->>'skipped_weight_count')::int <> 1 OR (v->>'weight_count')::int <> 0 THEN
     RAISE EXCEPTION 'weight collision %', v;
   END IF;

@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Flag } from 'lucide-react';
 import Button from '../ui/Button';
 import { marketRpc } from '../../lib/marketplaceApi';
 import {
@@ -60,13 +61,19 @@ export default function MarketplaceReportForm({ owner, targetUserId, relatedRequ
   }
 
   return (
-    <section className="space-y-3 rounded-xl border border-neutral-800 p-4">
-      <Button type="button" variant="secondary" onClick={() => setOpen(value => !value)}>
-        {t('marketplace.report')}
-      </Button>
-      {notice && <p role="status" className="text-emerald-300">{notice}</p>}
+    <section className="space-y-3">
+      {/* A quiet link: reporting stays reachable without sitting on every card. */}
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen(value => !value)}
+        className="inline-flex min-h-11 items-center gap-1.5 text-xs text-neutral-500 hover:text-neutral-300"
+      >
+        <Flag size={13} aria-hidden="true" />{t('marketplace.report')}
+      </button>
+      {notice && <p role="status" className="text-sm text-emerald-300">{notice}</p>}
       {open && (
-        <form className="space-y-3" onSubmit={submit}>
+        <form className="space-y-3 rounded-xl border border-neutral-800 p-4" onSubmit={submit}>
           <p className="text-sm text-neutral-400">{t('marketplace.reportHelp')}</p>
           <div className="space-y-2">
             <label htmlFor={`report-subject-${targetUserId}`}>{t('marketplace.reportSubject')}</label>

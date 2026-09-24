@@ -133,8 +133,9 @@ test('client treats 200 + id as done and does not wait 90s on Second', () => {
 
   const picker = source('src/components/workout/ExercisePicker.tsx');
   assert.match(picker, /propose_exercise/);
+  assert.match(picker, /verify-exercise/);
   assert.doesNotMatch(picker, /90_000/);
-  assert.doesNotMatch(picker, /verify-exercise/);
+  assert.doesNotMatch(picker, /status:\s*'approved'/);
 });
 
 test('daily limit and rejected exercise stay on the fast 200/429 contract', () => {

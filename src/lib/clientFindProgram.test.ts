@@ -20,10 +20,12 @@ test('coached athlete can open Mon programme, exercise-progress, stats and calen
   assert.doesNotMatch(app, /path="\/calendar" element=\{<CoachTrackerRedirect><CoachedAthleteRedirect>/);
 
   const workout = src('src/components/workout/WorkoutPage.tsx');
-  assert.match(workout, /data-testid="workout-program"/);
-  assert.match(workout, /to="\/programs"/);
-  assert.match(workout, /to="\/exercise-progress"/);
-  assert.doesNotMatch(workout, /coached \|\| !assignment\?\.program/);
+  assert.doesNotMatch(workout, /data-testid="workout-program"/);
+  assert.doesNotMatch(workout, /to="\/programs"/);
+  assert.doesNotMatch(workout, /to="\/exercise-progress"/);
+  const nav = src('src/app/navigation/navConfig.ts');
+  assert.match(nav, /labelKey: 'nav\.myProgram'/);
+  assert.match(nav, /path: '\/exercise-progress'/);
 
   const progress = src('src/components/workout/ExerciseProgressPage.tsx');
   assert.match(progress, /canReadOwnHistory/);
@@ -38,14 +40,11 @@ test('waiting for a program goes to Messages; a due plan day is labelled hors pr
   assert.match(dash, /to="\/messages"/);
   assert.match(dash, /dashboard\.nothingToday/);
 
+  // Quick add « Séance » opens the training page, which offers the off-plan session.
   const fab = src('src/app/layout/FAB.tsx');
-  assert.match(fab, /isProgramDayDue/);
-  assert.match(fab, /nav\.addWorkoutOffPlan/);
-  assert.match(fab, /offPlan: true/);
-
-  const side = src('src/app/layout/SideNav.tsx');
-  assert.match(side, /useProgramDayDue/);
-  assert.match(side, /programDayDue/);
+  assert.match(fab, /nav\.quickSession/);
+  const workoutPage = src('src/components/workout/WorkoutPage.tsx');
+  assert.match(workoutPage, /nav\.addWorkoutOffPlan/);
 
   const fr = src('src/i18n/locales/fr.ts');
   assert.match(fr, /addWorkoutOffPlan: 'Séance hors programme'/);

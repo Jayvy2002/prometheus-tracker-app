@@ -38,7 +38,7 @@ test('client sidebar has Photos + Mon programme', () => {
   assert.match(nav, /path: '\/photos'/);
   assert.match(nav, /labelKey: 'nav\.photos'/);
   assert.match(nav, /labelKey: 'nav\.myProgram'/);
-  assert.doesNotMatch(nav, /path: '\/routines'/);
+  assert.match(nav, /path: '\/routines'/);
 });
 
 test('rest timer interval is wall-clock and does not re-arm on remaining', () => {

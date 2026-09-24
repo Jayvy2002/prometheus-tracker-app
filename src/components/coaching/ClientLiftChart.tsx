@@ -11,6 +11,8 @@ import {
   recentLoggedLifts,
 } from '../../lib/coachTraining';
 import { formatDate, todayStr } from '../../lib/utils';
+import { displayBestSet } from '../../lib/coachLifts';
+import { useProfileStore } from '../../stores/profileStore';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import { LiftLineChart } from './ProgressCharts';
@@ -37,6 +39,7 @@ export default function ClientLiftChart({
   onOpenSeries?: (lift: ClientLiftProgress) => void;
 }) {
   const { t } = useTranslation();
+  const unit = useProfileStore(s => s.profile?.unit_weight === 'lbs' ? 'lbs' : 'kg');
   const navigate = useNavigate();
   const today = todayStr();
   const [localHint, setLocalHint] = useState(selectedName ?? '');
@@ -113,7 +116,7 @@ export default function ClientLiftChart({
 
       <p className="text-xs text-neutral-400">
         {t('coaching.trainingLift.last', {
-          set: last?.bestSet ?? '—',
+          set: last ? displayBestSet(last, unit) : '—',
           date: last?.date ? formatDate(last.date) : '—',
         })}
         {' · '}
@@ -125,7 +128,7 @@ export default function ClientLiftChart({
         <LiftLineChart points={points} />
       ) : (
         <p className="text-sm text-neutral-400">
-          {t('coaching.trainingLift.singlePoint', { set: last?.bestSet ?? '—' })}
+          {t('coaching.trainingLift.singlePoint', { set: last ? displayBestSet(last, unit) : '—' })}
         </p>
       )}
 

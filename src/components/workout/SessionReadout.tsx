@@ -3,11 +3,13 @@ import type { LastSessionView, LiftSetSnapshot } from '../../lib/types';
 import { readableSets } from '../../lib/coachLastSession';
 import { optionLabel } from '../../lib/optionLabels';
 import Card from '../ui/Card';
+import { formatLoad } from '../../lib/utils';
+import { useProfileStore } from '../../stores/profileStore';
 
-function setLabel(set: LiftSetSnapshot, typeLabel: (value: string) => string): string {
+function setLabel(set: LiftSetSnapshot, typeLabel: (value: string) => string, unit: 'kg' | 'lbs'): string {
   const load = set.set_type === 'isometric'
-    ? `${set.weight_kg}kg × ${set.duration_seconds ?? 0}s`
-    : `${set.weight_kg}kg × ${set.reps}`;
+    ? `${formatLoad(set.weight_kg, unit)} × ${set.duration_seconds ?? 0}s`
+    : `${formatLoad(set.weight_kg, unit)} × ${set.reps}`;
   const rir = set.rir > 0 ? ` @ RIR ${set.rir}` : '';
   const kind = set.set_type && set.set_type !== 'working' ? ` · ${typeLabel(set.set_type)}` : '';
   return `${load}${rir}${kind}`;
@@ -22,6 +24,7 @@ export default function SessionReadout({
 }) {
   const { t } = useTranslation();
   const typeLabel = (value: string) => optionLabel(t, 'setTypes', value);
+  const unit = useProfileStore(s => s.profile?.unit_weight === 'lbs' ? 'lbs' : 'kg');
   return (
     <div className="space-y-2">
       {session.exercises.map((ex, idx) => {
@@ -41,7 +44,7 @@ export default function SessionReadout({
               <p className="text-xs text-neutral-600">—</p>
             ) : sets.map((s, i) => (
               <p key={`${ex.name}-${i}`} className="text-xs text-neutral-400 tabular-nums">
-                {i + 1}. {setLabel(s, typeLabel)}
+                {i + 1}. {setLabel(s, typeLabel, unit)}
               </p>
             ))}
           </Card>

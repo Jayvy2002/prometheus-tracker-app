@@ -44,6 +44,8 @@ export function emptyDropSegments(count: number): DropSegment[] {
 export function programExerciseRpcFields(ex: ProgramExerciseDraft) {
   return {
     name: ex.name,
+    // Identity picked in the catalog survives the save (sync_program_days).
+    catalog_exercise_id: ex.catalog_exercise_id ?? null,
     default_sets: ex.default_sets,
     default_reps: ex.default_reps,
     default_reps_min: ex.default_reps_min ?? null,

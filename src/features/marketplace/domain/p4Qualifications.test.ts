@@ -10,6 +10,7 @@ import {
   qualificationEffectiveStatus,
   type CoachQualification,
 } from './marketplace';
+import { marketplaceUiSource } from '../../../lib/marketplaceUiSource';
 
 function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
@@ -55,7 +56,7 @@ test('P4.1 qualifications reuse marketplace publish and never require a verified
   assert.doesNotMatch(found, /CREATE TABLE.*rating/i);
   assert.doesNotMatch(found, /star_rating/i);
   assert.doesNotMatch(found, /subscription/);
-  assert.match(src('src/components/marketplace/MarketplacePage.tsx'), /CoachQualificationsPanel/);
+  assert.match(marketplaceUiSource(), /CoachQualificationsPanel/);
   assert.match(src('src/components/marketplace/CoachDirectoryCard.tsx'), /verifiedBadge/);
   assert.match(src('docs/CHANTIER.md'), /P4\.1/);
   assert.match(src('docs/CHANTIER.md'), /proof-<uuid>/);
@@ -111,6 +112,6 @@ test('P4.1 qualifications reuse marketplace publish and never require a verified
   assert.match(found, /coach_id = \(SELECT auth.uid\(\)\)/);
   assert.doesNotMatch(found, /verification_status <> 'rejected'\s+AND EXISTS/);
   assert.match(src('src/features/marketplace/domain/marketplaceApi.ts'), /list_public_coach_qualifications/);
-  assert.doesNotMatch(src('src/components/marketplace/MarketplacePage.tsx'), /from\('coach_qualifications'\)/);
+  assert.doesNotMatch(marketplaceUiSource(), /from\('coach_qualifications'\)/);
   assert.match(src('supabase/tests/rls_matrix.sql'), /declare_coach_qualification/);
 });

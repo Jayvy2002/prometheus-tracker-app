@@ -1,6 +1,8 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Dumbbell, Apple, Scale, Flame, CalendarDays, CalendarRange } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useClientTracking } from '../../lib/useClientTracking';
+import { checkinHasAnyField, showModule } from '../../lib/clientTracking';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useWorkoutStore } from '../../stores/workoutStore';
@@ -34,6 +36,7 @@ interface DaySummary {
   nutrition: { totalCals: number; protein: number; carbs: number; fat: number } | null;
   nutritionCount: number;
   weights: number[];
+  checkinNote: string | null;
 }
 
 type ViewMode = 'week' | 'month';
@@ -80,7 +83,8 @@ export default function CalendarPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { profile } = useProfileStore();
-  const { workouts, workoutsExhausted, fetchWorkouts, fetchOlderWorkouts } = useWorkoutStore();
+  const tracking = useClientTracking();
+  const { workouts, workoutsExhausted, fetchWorkouts, fetchOlderWorkouts, createWorkout } = useWorkoutStore();
   const { measurements, fetchMeasurements } = useWeightStore();
   const { setSelectedDate: setNutritionDate } = useNutritionStore();
   const assignment = useProgramStore(s => s.assignment);
@@ -165,9 +169,15 @@ export default function CalendarPage() {
         .select('weight_kg')
         .eq('user_id', user.id)
         .eq('measured_at', selectedDate),
-    ]).then(([workoutRes, nutritionRes, weightRes]) => {
+      supabase
+        .from('daily_checkins')
+        .select('notes')
+        .eq('user_id', user.id)
+        .eq('checked_at', selectedDate)
+        .limit(1),
+    ]).then(([workoutRes, nutritionRes, weightRes, checkinRes]) => {
       if (seq !== summarySeq.current) return;
-      if (responsesHaveError([workoutRes, nutritionRes, weightRes])) {
+      if (responsesHaveError([workoutRes, nutritionRes, weightRes, checkinRes])) {
         setSummaryError(true);
         setDaySummary(null);
         setSummaryLoading(false);
@@ -187,6 +197,7 @@ export default function CalendarPage() {
         nutrition: totalNutrition,
         nutritionCount: nutritionLogs.length,
         weights: calendarDayWeights(weightRes.data ?? []),
+        checkinNote: ((checkinRes.data ?? [])[0]?.notes as string | undefined)?.trim() || null,
       });
       setSummaryLoading(false);
     }).catch(() => {
@@ -486,7 +497,31 @@ export default function CalendarPage() {
       </div>
 
       <div className="mb-3 animate-fade-in-up stagger-2">
-        <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider mb-1">{selectedDateLabel}</h2>
+        <h2 className="text-sm font-semibold text-neutral-300 mb-2">{selectedDateLabel}</h2>
+        {selectedDate <= today && (
+          <div className="flex flex-wrap gap-2">
+            {showModule(tracking, 'workouts') && <button type="button" className="min-h-11 px-3 rounded-xl bg-neutral-900 text-sm text-white" onClick={() => {
+              if (!user) return;
+              void createWorkout({ user_id: user.id, name: '', date: `${selectedDate}T12:00:00` }).then((id) => {
+                if (id) navigate(`/workout/${id}`);
+              });
+            }}>
+              {t('calendar.day.addWorkout')}
+            </button>}
+            {showModule(tracking, 'nutrition') && <button type="button" className="min-h-11 px-3 rounded-xl bg-neutral-900 text-sm text-white" onClick={() => {
+              setNutritionDate(selectedDate);
+              navigate('/nutrition?add=1');
+            }}>
+              {t('calendar.day.addMeal')}
+            </button>}
+            {showModule(tracking, 'weight') && <button type="button" className="min-h-11 px-3 rounded-xl bg-neutral-900 text-sm text-white" onClick={() => navigate(`/weight?log=1&date=${selectedDate}`)}>
+              {t('calendar.day.addWeight')}
+            </button>}
+            {showModule(tracking, 'checkins') && checkinHasAnyField(tracking) && <button type="button" className="min-h-11 px-3 rounded-xl bg-neutral-900 text-sm text-white" onClick={() => navigate(`/checkin?date=${selectedDate}`)}>
+              {t('calendar.day.addCheckin')}
+            </button>}
+          </div>
+        )}
       </div>
 
       {summaryError ? (
@@ -641,6 +676,12 @@ export default function CalendarPage() {
               <p className="text-sm text-neutral-500">{t('calendar.day.noWeight')}</p>
             </Card>
           )}
+          {daySummary?.checkinNote ? (
+            <Card>
+              <p className="text-sm font-semibold text-white mb-1">{t('calendar.day.checkin')}</p>
+              <p className="text-sm text-neutral-300">{daySummary.checkinNote}</p>
+            </Card>
+          ) : null}
         </div>
       )}
     </div>

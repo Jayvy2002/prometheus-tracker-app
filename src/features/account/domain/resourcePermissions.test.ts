@@ -265,9 +265,13 @@ test('stats and calendar are personal history surfaces; routines stay persona-ga
   assert.match(nav, /persona === 'coached'/);
   assert.match(nav, /stats/);
   assert.match(nav, /calendar/);
-  const profile = src('src/components/profile/ProfilePage.tsx');
-  assert.match(profile, /to="\/stats"/);
-  assert.match(profile, /to="\/calendar"/);
+  assert.match(progress, /to="\/stats"/);
+  assert.match(progress, /to="\/calendar"/);
+  const suivi = src('src/components/navigation/SuiviHub.tsx');
+  assert.match(suivi, /CalendarPage/);
+  assert.match(suivi, /StatsPage/);
+  assert.doesNotMatch(suivi, /NutritionPage/);
+  assert.doesNotMatch(src('src/components/profile/ProfilePage.tsx'), /to="\/stats"/);
   const program = src('src/components/programs/ClientProgramPage.tsx');
   assert.match(program, /canUpdateOwnAssignedProgram/);
   assert.match(program, /canProposeAssignedProgramChange/);

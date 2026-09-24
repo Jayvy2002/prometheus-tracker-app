@@ -1,6 +1,6 @@
 import { useAccountContext } from '@/features/account/hooks/useAccountContext';
 import { useResourcePermissions } from '../../lib/useResourcePermissions';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams, Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Copy, Link2, Users, ChevronRight, Plus, Trash2, Upload } from 'lucide-react';
@@ -46,6 +46,8 @@ export default function ClientsPage() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<CoachClientSummary | null>(null);
   const [removing, setRemoving] = useState(false);
+  const [clientQuery, setClientQuery] = useState('');
+  const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -55,7 +57,8 @@ export default function ClientsPage() {
       fetchCoachOps();
       fetchCoachMessages();
     });
-  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (searchParams.get('search') === '1') searchRef.current?.focus();
+  }, [user, searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCreate = async () => {
     setCreating(true);
@@ -120,7 +123,12 @@ export default function ClientsPage() {
   const ownedClients = clients.filter(c =>
     canReadClientDossier({ clientId: c.id, hasActiveRelationship: true }),
   );
-  const visibleClients = filteredIds ? ownedClients.filter(c => filteredIds.has(c.id)) : ownedClients;
+  const visibleClients = (filteredIds ? ownedClients.filter(c => filteredIds.has(c.id)) : ownedClients)
+    .filter(c => {
+      const q = clientQuery.trim().toLowerCase();
+      if (!q) return true;
+      return (c.full_name || '').toLowerCase().includes(q) || (c.email || '').includes(q);
+    });
   const roster = sortRosterClients(visibleClients, {
     opsRows,
     signals: rosterSignals,
@@ -156,6 +164,18 @@ export default function ClientsPage() {
             </Button>
           </div>
         </div>
+
+        {clients.length > 0 && (
+          <input
+            type="search"
+            ref={searchRef}
+            value={clientQuery}
+            onChange={e => setClientQuery(e.target.value)}
+            placeholder={t('common.search')}
+            aria-label={t('common.search')}
+            className="mb-3 min-h-11 w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3 text-sm text-white"
+          />
+        )}
 
         {clients.length > 0 && (
           <div

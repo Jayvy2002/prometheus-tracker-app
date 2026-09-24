@@ -1103,3 +1103,14 @@ test('I03/I04: evidence carries target, span and window; fleet copy has guarded 
     assert.match(edge, new RegExp(`function ${fn}\\(`), `edge must mirror ${fn}`);
   }
 });
+
+test('Messages shows prepared messages and client-less drafts; program and kcal drafts stay in Today', async () => {
+  const { messageInboxDrafts } = await import('./coachFleet');
+  const rows = [
+    { id: 'r', kind: 'adherence_training' as const, client_id: 'c1' },
+    { id: 'k', kind: 'calorie_adjustment' as const, client_id: 'c1' },
+    { id: 'p', kind: 'program_nl_edit' as const, client_id: 'c1' },
+    { id: 'a', kind: 'program_nl_edit' as const, client_id: null },
+  ];
+  assert.deepEqual(messageInboxDrafts(rows).map(row => row.id), ['r', 'a']);
+});

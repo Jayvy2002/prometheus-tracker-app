@@ -311,7 +311,7 @@ describe('kinesiologyIntake original form', () => {
     assert.equal(soloTargetsFromIntake(completeOriginal({ age: '5' })), null);
   });
 
-  it('solo: the intake is the onboarding — walled even when the usage probe failed', () => {
+  it('solo health intake stays optional — the tracker onboarding is the wall', () => {
     const freshSolo = {
       full_name: '',
       onboarding_completed: false,
@@ -320,13 +320,13 @@ describe('kinesiologyIntake original form', () => {
       kinesiology_intake_completed_at: null,
       kinesiology_intake: emptyIntake(),
     };
-    assert.equal(intakeGateNeedsUsageProbe({ isCoachedClient: false, isCoach: false, profile: freshSolo }), true);
+    assert.equal(intakeGateNeedsUsageProbe({ isCoachedClient: false, isCoach: false, profile: freshSolo }), false);
     assert.equal(shouldForceKinesiologyIntake({
       isCoachedClient: false, isCoach: false, profile: freshSolo, usage: EMPTY_INTAKE_USAGE, probeStatus: 'ok',
-    }), true);
+    }), false);
     assert.equal(shouldForceKinesiologyIntake({
       isCoachedClient: false, isCoach: false, profile: freshSolo, usage: null, probeStatus: 'failed',
-    }), true);
+    }), false);
     assert.equal(shouldForceKinesiologyIntake({
       isCoachedClient: false, isCoach: false, profile: freshSolo, usage: null, probeStatus: 'pending',
     }), false);

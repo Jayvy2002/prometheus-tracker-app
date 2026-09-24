@@ -84,11 +84,12 @@ export default function RoutineForm({ routine, onClose }: Props) {
     onClose();
   };
 
-  const addLocal = (name: string) => {
+  const addLocal = (name: string, catalogId?: string | null) => {
     setExercises(prev => [...prev, {
       id: crypto.randomUUID(),
       routine_id: routine?.id ?? '',
       name,
+      catalog_exercise_id: catalogId ?? null,
       default_sets: 3,
       default_reps: 10,
       default_rest_seconds: 90,
@@ -96,7 +97,6 @@ export default function RoutineForm({ routine, onClose }: Props) {
       notes: '',
       created_at: new Date().toISOString(),
     }]);
-    setShowPicker(false);
   };
 
   const removeEx = async (ex: RoutineExercise) => {
@@ -230,7 +230,7 @@ export default function RoutineForm({ routine, onClose }: Props) {
         </div>
       </div>
 
-      <ExercisePicker open={showPicker} onClose={() => setShowPicker(false)} onSelect={addLocal} />
+      <ExercisePicker open={showPicker} onClose={() => setShowPicker(false)} onSelect={addLocal} multiple />
     </div>,
     document.body
   );

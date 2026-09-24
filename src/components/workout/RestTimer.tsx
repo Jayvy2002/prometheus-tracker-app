@@ -69,8 +69,22 @@ export default function RestTimer({
   const [inputSec, setInputSec] = useState(String(seed % 60));
   const remainingRef = useRef(seed);
   const firedRef = useRef(false);
+  const endAtRef = useRef<number | null>(null);
 
   remainingRef.current = remaining;
+
+  useEffect(() => {
+    if (!autoStart || open) return;
+    firedRef.current = false;
+    endAtRef.current = null;
+    const next = initialSeconds && initialSeconds > 0 ? initialSeconds : seed;
+    setDuration(next);
+    setRemaining(next);
+    remainingRef.current = next;
+    setInputMin(String(Math.floor(next / 60)));
+    setInputSec(String(next % 60));
+    setActive(true);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!open) return;
@@ -89,9 +103,9 @@ export default function RestTimer({
 
   useEffect(() => {
     if (!active) return;
-    const endAt = countdownEndAt(remainingRef.current, Date.now());
+    if (endAtRef.current == null) endAtRef.current = countdownEndAt(remainingRef.current, Date.now());
     const tick = () => {
-      const left = countdownRemaining(endAt, Date.now());
+      const left = countdownRemaining(endAtRef.current ?? countdownEndAt(0, Date.now()), Date.now());
       remainingRef.current = left;
       setRemaining(left);
       if (left <= 0) setActive(false);
@@ -112,6 +126,7 @@ export default function RestTimer({
   const reset = (dur?: number) => {
     setActive(false);
     firedRef.current = false;
+    endAtRef.current = null;
     const d = dur ?? duration;
     setDuration(d);
     setRemaining(d);
@@ -129,6 +144,25 @@ export default function RestTimer({
     }
   };
 
+  const nudge = (delta: number) => {
+    const base = endAtRef.current != null ? countdownRemaining(endAtRef.current, Date.now()) : remainingRef.current;
+    const next = Math.max(0, Math.min(600, base + delta));
+    endAtRef.current = countdownEndAt(next, Date.now());
+    remainingRef.current = next;
+    setRemaining(next);
+    setDuration(d => Math.max(d, next));
+    if (next === 0) setActive(false);
+    else setActive(true);
+  };
+
+  const skip = () => {
+    setActive(false);
+    firedRef.current = true;
+    endAtRef.current = null;
+    remainingRef.current = duration;
+    setRemaining(duration);
+  };
+
   const pct = duration > 0 ? (remaining / duration) * 100 : 0;
   const mins = Math.floor(remaining / 60);
   const secs = remaining % 60;
@@ -138,14 +172,17 @@ export default function RestTimer({
   return (
     <>
       {showBar && (
-        <button
-          type="button"
+        <div
           data-rest-bar="true"
-          onClick={() => onReopen?.()}
-          className="fixed z-40 left-1/2 -translate-x-1/2 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] md:bottom-6 rounded-full px-4 py-2 bg-neutral-900 border border-blue-500/40 text-sm font-mono text-white shadow-xl"
+          className="fixed z-40 left-1/2 -translate-x-1/2 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] md:bottom-6 flex items-center gap-1 rounded-full bg-neutral-900 border border-blue-500/40 px-2 py-1 text-sm text-white shadow-xl"
         >
-          {t('workout.restTimer.title')} · {isFinished ? t('workout.restTimer.go') : `${mins}:${secs.toString().padStart(2, '0')}`}
-        </button>
+          <button type="button" className="min-h-11 min-w-11 rounded-full text-sm font-medium" onClick={() => nudge(-15)} aria-label={t('workout.restTimer.minus15')}>−15</button>
+          <button type="button" className="min-h-11 px-3 font-mono" onClick={() => onReopen?.()}>
+            {isFinished ? t('workout.restTimer.go') : `${mins}:${secs.toString().padStart(2, '0')}`}
+          </button>
+          <button type="button" className="min-h-11 min-w-11 rounded-full text-sm font-medium" onClick={() => nudge(15)} aria-label={t('workout.restTimer.plus15')}>+15</button>
+          <button type="button" className="min-h-11 px-3 text-sm" onClick={skip}>{t('workout.restTimer.skip')}</button>
+        </div>
       )}
     <Modal open={open} onClose={onClose} title={t('workout.restTimer.title')}>
       <div className="text-center">

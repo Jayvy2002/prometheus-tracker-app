@@ -53,6 +53,10 @@ test('Today keeps File du jour; drafts live in Messages, not a third inbox', () 
   const inbox = src('src/components/coaching/CoachInboxPage.tsx');
   assert.match(inbox, /InterventionInboxCard/);
   assert.match(inbox, /coaching\.inbox\.toHandle/);
+  // Messages keeps prepared messages; program and kcal decisions live in Today.
+  assert.match(inbox, /messageInboxDrafts\(pendingInterventions\)/);
+  const fleet = src('src/features/coaching/domain/coachFleet.ts');
+  assert.match(fleet, /!row\.client_id \|\| isRelanceKind\(row\.kind\)/);
 });
 
 test('Ask opens the editable draft for this question; roster chips stay local', () => {
@@ -97,11 +101,12 @@ test('Coached client shell: photos and program in hub, messages in tabs, no coac
   const profile = src('src/components/profile/ProfilePage.tsx');
   assert.doesNotMatch(profile, /\/recipes/);
   assert.doesNotMatch(profile, /\/routines/);
-  assert.match(profile, /\/photos/);
-  assert.match(profile, /nav\.myProgram/);
+  assert.doesNotMatch(profile, /\/photos/);
+  assert.doesNotMatch(profile, /nav\.myProgram/);
   assert.doesNotMatch(profile, /nav\.clients/);
   assert.match(profile, /!coached && !inCoaching && \(/);
-  assert.match(profile, /coaching\.coachMode/);
+  assert.match(profile, /coaching\.becomeCoach/);
+  assert.match(profile, /\/become-coach/);
 
   const app = src('src/App.tsx') + src('src/app/bootstrap/useAuthenticatedSession.ts') + src('src/app/guards/RouteGuards.tsx') + src('src/app/router/AppRoutes.tsx');
   assert.match(app, /CoachedAthleteRedirect/);
@@ -126,10 +131,9 @@ test('Coached client shell: photos and program in hub, messages in tabs, no coac
     mobileFn.lastIndexOf('return ['),
   );
   assert.match(coachedMobile, /\bmessages\b/);
-  assert.match(coachedMobile, /\bcheckin\b/);
+  assert.match(coachedMobile, /\bbody\b/);
   assert.match(coachedMobile, /\bprofile\b/);
   assert.doesNotMatch(coachedMobile, /\bphotos\b/);
-  assert.match(profile, /\/photos/);
   const dash = src('src/components/dashboard/Dashboard.tsx') + src('src/features/dashboard/hooks/useDashboardBootstrap.ts');
   assert.doesNotMatch(dash, /navigate\('\/photos'\)/);
   assert.doesNotMatch(dash, /dashboard\.photosCard/);

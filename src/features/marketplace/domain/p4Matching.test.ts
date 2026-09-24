@@ -14,6 +14,7 @@ import {
   type MarketplaceSearchIntent,
 } from './marketplaceMatch';
 import { MARKET_DISCIPLINES, type CoachPublicProfile } from './marketplace';
+import { marketplaceUiSource } from '../../../lib/marketplaceUiSource';
 
 function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
@@ -168,7 +169,7 @@ test('P4.2 matching is an explained shortlist, not a score, and stays off the si
   const mobileFn = nav.slice(nav.indexOf('export function mobileTabs'), nav.indexOf('function nonempty'));
   assert.doesNotMatch(mobileFn, /coachMatch/);
   assert.doesNotMatch(mobileFn, /\/coaches\/match/);
-  assert.match(src('src/components/marketplace/MarketplacePage.tsx'), /\/coaches\/match/);
+  assert.match(marketplaceUiSource(), /\/coaches\/match/);
   assert.match(src('src/components/marketplace/CoachMatchPage.tsx'), /explainMarketplaceMatches/);
   assert.doesNotMatch(src('src/components/marketplace/CoachMatchPage.tsx'), /marketplace\.compatible/);
   assert.match(src('src/i18n/locales/fr/marketplace.ts'), /Aucun coach ne correspond aux exigences/);

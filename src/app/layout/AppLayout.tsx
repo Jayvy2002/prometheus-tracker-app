@@ -9,6 +9,8 @@ import { trackScreen } from '../../lib/telemetryClient';
 import { useEffect } from 'react';
 import { useAccountContext } from '@/features/account/hooks/useAccountContext';
 import AssignedQuestionnaireBanner from '../../components/onboarding/AssignedQuestionnaireBanner';
+import SessionResumeBar from '../../components/workout/SessionResumeBar';
+import { useResumableWorkout } from '@/features/workout/hooks/useResumableWorkout';
 
 export default function AppLayout() {
   const coachingRole = useCoachingStore(s => s.coachingRole);
@@ -19,7 +21,12 @@ export default function AppLayout() {
   const context = useAccountContext();
   const isCoach = context.activeWorkspace === 'coaching';
   const location = useLocation();
+  const resumable = useResumableWorkout();
+  // Quick add stays on Today and on the training page; the session logger
+  // (/workout/:id, /workout/new) has its own actions. With a resume bar the
+  // FAB sits above it instead of disappearing.
   const hideFab = isCoach
+    || location.pathname.startsWith('/workout/')
     || location.pathname.startsWith('/coaches')
     || location.pathname === '/coach/profile'
     || location.pathname === '/coaching-requests'
@@ -55,7 +62,8 @@ export default function AppLayout() {
         </div>
       </main>
 
-      {!hideFab && <FAB />}
+      {!hideFab && <FAB raised={!!resumable} />}
+      {!isCoach && <SessionResumeBar />}
       <BottomNav />
     </div>
   );

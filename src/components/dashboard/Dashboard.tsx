@@ -1,13 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Flame, Droplets, Dumbbell, ChevronRight, Play, Scale, AlertCircle, Battery, ClipboardCheck, MessageSquare, CalendarRange } from 'lucide-react';
+import { Droplets, Dumbbell, ChevronRight, Play, Scale, AlertCircle, ClipboardCheck, MessageSquare, CalendarRange } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
 import { useWeightStore } from '../../stores/weightStore';
 import { useWorkoutStore } from '../../stores/workoutStore';
-import { useStreakStore } from '../../stores/streakStore';
 import { useRoutineStore } from '../../stores/routineStore';
 import { useCheckinStore } from '../../stores/checkinStore';
 import { useCoachingStore } from '../../stores/coachingStore';
@@ -16,6 +15,7 @@ import { useDashboardBootstrap } from '../../features/dashboard/hooks/useDashboa
 import { startWorkoutFromTemplate } from '../../lib/startWorkout';
 import { toWorkoutTemplateExercise } from '../../lib/programSetPrescription';
 import { toLocalDateStr, kgToLbs, programWeekNumber, formatWeekdayDate } from '../../lib/utils';
+import { rollingWeightTrend, weeklyAverageKg } from '../../lib/weeklyWeight';
 import { useClientTracking } from '../../lib/useClientTracking';
 import { anyMacroField, showModule, showNutritionField } from '../../lib/clientTracking';
 import { isCoachedAthlete } from '../../lib/coachRole';
@@ -39,16 +39,15 @@ import { dismissHomeMessage, isHomeMessageDismissed } from '../../lib/messageDra
 import type { ProgramDay } from '../../lib/types';
 import PageTransition from '../ui/PageTransition';
 import Button from '../ui/Button';
-import Card from '../ui/Card';
 import CardLink from '../ui/CardLink';
 import ListRow from '../ui/ListRow';
 import NutritionRings from '../nutrition/NutritionRings';
 import ClientGymCard from './ClientGymCard';
 import DashboardWeightCard from './DashboardWeightCard';
-import SoloWeeklyReview from './SoloWeeklyReview';
-import PrometheusWatchPanel from './PrometheusWatchPanel';
 import SoloProgramProposal from './SoloProgramProposal';
+import SoloWeeklyReview from './SoloWeeklyReview';
 import LinkEndedBanner from './LinkEndedBanner';
+import WatchSummaryRow from './WatchSummaryRow';
 
 function getWeekDates(todayCivil: string): string[] {
   const [y, m, d] = todayCivil.split('-').map(Number);
@@ -71,7 +70,6 @@ export default function Dashboard() {
   const { logs, waterLogs } = useNutritionStore();
   const { measurements } = useWeightStore();
   const { workouts, loading: workoutsLoading } = useWorkoutStore();
-  const { streak } = useStreakStore();
   const { routines, fetchRoutineWithExercises } = useRoutineStore();
   const { todayCheckin, checkins, loading: checkinLoading } = useCheckinStore();
   const { myCoach, coachingRole, latestCoachMessage, unreadMessageCount } = useCoachingStore();
@@ -115,23 +113,12 @@ export default function Dashboard() {
   const weekWorkoutsDone = doneDays.filter(Boolean).length;
   const weekGoalMet = weekWorkoutsDone >= trainingTarget;
 
-  // Streak
-  const currentStreak = streak?.current_streak ?? 0;
-  const longestStreak = streak?.longest_streak ?? 0;
-
-  // Weight trend (last 14)
-  const recentWeights = [...measurements]
-    .sort((a, b) => a.measured_at.localeCompare(b.measured_at))
-    .slice(-14);
   const weightUnit = profile?.unit_weight ?? 'kg';
-  const latestWeight = recentWeights.length > 0
-    ? weightUnit === 'lbs'
-      ? kgToLbs(recentWeights[recentWeights.length - 1].weight_kg)
-      : +recentWeights[recentWeights.length - 1].weight_kg
-    : null;
-  const weightDelta = recentWeights.length >= 2
-    ? +(recentWeights[recentWeights.length - 1].weight_kg - recentWeights[0].weight_kg).toFixed(1)
-    : null;
+  const weekWeight = weeklyAverageKg(measurements, programClock.today);
+  const latestWeight = weekWeight.current == null
+    ? null
+    : +(weightUnit === 'lbs' ? kgToLbs(weekWeight.current) : weekWeight.current).toFixed(1);
+  const weightDelta = weekWeight.deltaKg;
 
   const todayDow = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][programClock.weekday];
   const alreadyTrainedToday = doneDays[todayIndex];
@@ -197,7 +184,7 @@ export default function Dashboard() {
 
   const hourNow = new Date().getHours();
   const hasLoggedLunch = logs.some(l => l.category === 'lunch');
-  // Meal / water nudges and the deload tip are self-coaching: a coached athlete's coach decides.
+  // Meal / water nudges are self-coaching: a coached athlete's coach decides.
   const showMealReminder = !hasCoach && !calmHome && (
     (hourNow >= 13 && hourNow <= 16 && !hasLoggedLunch && consumed === 0) ||
     (hourNow >= 13 && !hasLoggedLunch && consumed < calorieTarget * 0.3)
@@ -205,16 +192,6 @@ export default function Dashboard() {
 
   const showWaterReminder = !hasCoach && !calmHome && hourNow >= 15 && waterConsumed > 0 && waterTarget != null && waterPct < 50;
 
-  // Deload suggestion — if trained 4+ consecutive weeks without a break
-  const fourWeeksAgo = new Date();
-  fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
-  const recentCompletedWorkouts = workouts.filter(w => w.completed && new Date(w.date) >= fourWeeksAgo);
-  const weeksWithWorkouts = new Set(recentCompletedWorkouts.map(w => {
-    const d = new Date(w.date);
-    const startOfYear = new Date(d.getFullYear(), 0, 1);
-    return Math.floor((d.getTime() - startOfYear.getTime()) / (7 * 86400000));
-  }));
-  const showDeloadSuggestion = !hasCoach && weeksWithWorkouts.size >= 4 && recentCompletedWorkouts.length >= 12;
   const showGymHero = hasGymCard && !!assignment?.program;
   const dueGymHero = showGymHero && isProgramDayDue(gymCard);
   const restGymCard = showGymHero && !dueGymHero;
@@ -226,7 +203,8 @@ export default function Dashboard() {
     && homeDismissTick >= 0
     && !isHomeMessageDismissed(user?.id, latestCoachMessage?.id);
   const todayReminder = pickTodayReminder({
-    deload: showDeloadSuggestion,
+    // Deload is a plan decision (phases, signals), not a home nudge.
+    deload: false,
     meal: showNutritionField(tracking, 'calories') && showMealReminder,
     water: showNutritionField(tracking, 'water') && showWaterReminder,
     weight: showModule(tracking, 'weight') && showWeightReminder,
@@ -240,9 +218,10 @@ export default function Dashboard() {
 
   const showRestGym = restGymCard;
   const showEmptyToday = !activityPending && !hasPrimaryHero && !showRestGym && !hasAttention;
-  const weightPoints = recentWeights.map(m => ({
-    date: m.measured_at.slice(5, 10),
-    weight: +(weightUnit === 'lbs' ? kgToLbs(m.weight_kg) : Number(m.weight_kg)).toFixed(1),
+  // The sparkline draws the 7-day trend, not the daily noise.
+  const weightPoints = rollingWeightTrend(measurements).slice(-14).map(m => ({
+    date: m.day.slice(5, 10),
+    weight: +(weightUnit === 'lbs' ? kgToLbs(m.trend_kg) : m.trend_kg).toFixed(1),
   }));
   const weightDeltaDisplay = weightDelta === null
     ? null
@@ -285,11 +264,6 @@ export default function Dashboard() {
               {t('nav.today')} · {formatWeekdayDate(new Date(), i18n.language)}
             </p>
             <p className="text-sm font-medium text-white leading-snug">{greeting}</p>
-            {myCoach && (
-              <p className="text-[11px] text-blue-400/80 mt-0.5">
-                {t('coaching.coachedBy', { name: myCoach.full_name || t('coaching.invite.aCoach') })}
-              </p>
-            )}
           </div>
         </div>
 
@@ -308,6 +282,7 @@ export default function Dashboard() {
             onEditPlan={canEditOwnPlan ? () => navigate('/programs') : undefined}
             phaseName={gymPhaseName}
             plannedChange={gymPlannedChange}
+            onOpenProgram={() => navigate('/programs')}
           />
         )}
 
@@ -363,11 +338,11 @@ export default function Dashboard() {
         )}
 
         {showNextActionHero && nextAction === 'first_session' && showModule(tracking, 'workouts') ? (
-          <ListRow
-            className="mb-4"
-            title={t('dashboard.firstRun.firstSession')}
-            to="/workout"
-          />
+          <div className="mb-4">
+            <Button className="w-full" onClick={() => navigate('/workout/new')}>
+              {t('dashboard.firstRun.startSession')}
+            </Button>
+          </div>
         ) : showNextActionHero && nextAction === 'waiting_program' ? (
           <ListRow
             className="mb-4"
@@ -412,17 +387,6 @@ export default function Dashboard() {
           />
         )}
 
-        {attention.reminder === 'deload' && (
-          <ListRow
-            className="mb-4"
-            tone="warning"
-            icon={<Battery size={16} />}
-            title={t('dashboard.reminders.deload')}
-            onClick={() => navigate('/workout')}
-            onDismiss={() => dismissReminder('deload')}
-            dismissLabel={t('common.dismiss')}
-          />
-        )}
         {attention.reminder === 'meal' && (
           <ListRow
             className="mb-4"
@@ -457,6 +421,11 @@ export default function Dashboard() {
           />
         )}
 
+        {!activityPending && !firstRun && <WatchSummaryRow athleteId={user?.id} />}
+
+        {/* One AI card, only when a decision waits. The weekly review also
+            persists the solo's weekly cycle (signals, review) on mount. */}
+        {!hasCoach && !activityPending && !firstRun && <SoloWeeklyReview />}
         <SoloProgramProposal variant="notice" />
 
         {!activityPending && (
@@ -477,108 +446,69 @@ export default function Dashboard() {
             onEditPlan={canEditOwnPlan ? () => navigate('/programs') : undefined}
             phaseName={gymPhaseName}
             plannedChange={gymPlannedChange}
+            onOpenProgram={() => navigate('/programs')}
           />
         )}
 
-        {!hasCoach && !activityPending && !firstRun && <SoloWeeklyReview />}
-        {!activityPending && !firstRun && user?.id && (
-          <PrometheusWatchPanel athleteId={user.id} viewer="self" />
+        {showModule(tracking, 'workouts') && !activityPending && !hasGymCard && (
+          <ListRow
+            className="mb-4"
+            data-testid="dashboard-program"
+            icon={<CalendarRange size={16} />}
+            title={t('nav.myProgram')}
+            subtitle={assignment?.program?.name
+              ?? (hasCoach ? t('dashboard.firstRun.waitingProgram') : t('dashboard.programHint'))}
+            to="/programs"
+          />
         )}
-        {showModule(tracking, 'workouts') && !activityPending && (
-          <CardLink to="/programs" className="mb-4" data-testid="dashboard-program">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 min-w-0">
-                <CalendarRange size={16} className="text-blue-400 shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-white">{t('nav.myProgram')}</p>
-                  <p className="text-[11px] text-neutral-500 truncate">
-                    {assignment?.program?.name
-                      ?? (hasCoach ? t('dashboard.firstRun.waitingProgram') : t('dashboard.programHint'))}
-                  </p>
-                </div>
-              </div>
-              <ChevronRight size={16} className="text-neutral-600 shrink-0" />
-            </div>
-          </CardLink>
-        )}
+        {/* Adding a meal or a weigh-in goes through the quick-add button. */}
         {showNutritionRings && (
           <CardLink to="/nutrition" className="mb-4">
             <NutritionRings />
           </CardLink>
         )}
 
-        {showModule(tracking, 'weight') && !activityPending && (
-          <DashboardWeightCard
-            points={weightPoints}
-            unit={weightUnit}
-            latest={latestWeight}
-            delta={weightDeltaDisplay}
-          />
-        )}
-
-        {showModule(tracking, 'workouts') && !activityPending && (
-        <Card className="mb-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${weekGoalMet ? 'bg-emerald-500/20' : 'bg-blue-500/20'}`}>
-                <Dumbbell size={15} className={weekGoalMet ? 'text-emerald-400' : 'text-blue-400'} />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-white">{t('dashboard.weeklyWorkouts')}</p>
-                <p className="text-[11px] text-neutral-500">
-                  {weekWorkoutsDone}/{trainingTarget} {t('dashboard.sessionsThisWeek')}
+        {!activityPending && (showModule(tracking, 'weight') || showModule(tracking, 'workouts')) && (
+          <div className={`grid gap-3 mb-4 ${showModule(tracking, 'weight') && showModule(tracking, 'workouts') ? 'grid-cols-2' : 'grid-cols-1'}`}>
+            {showModule(tracking, 'weight') && (
+              <DashboardWeightCard
+                points={weightPoints}
+                unit={weightUnit}
+                latest={latestWeight}
+                delta={weightDeltaDisplay}
+              />
+            )}
+            {showModule(tracking, 'workouts') && (
+              <CardLink to="/calendar" className="h-full" data-testid="dashboard-week">
+                <div className="flex items-center gap-2 mb-2">
+                  <Dumbbell size={14} className={weekGoalMet ? 'text-emerald-400' : 'text-blue-400'} aria-hidden="true" />
+                  <p className="text-xs text-neutral-400">{t('dashboard.weeklyWorkouts')}</p>
+                </div>
+                <p className="text-lg font-semibold text-white leading-tight">
+                  {weekWorkoutsDone}/{trainingTarget}
+                  <span className="text-xs font-normal text-neutral-500"> {t('dashboard.sessionsThisWeek')}</span>
                 </p>
-              </div>
-            </div>
-            {weekGoalMet && (
-              <span className="text-xs font-medium text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-lg">
-                {t('dashboard.goalReached')}
-              </span>
+                {weekGoalMet && <p className="text-[11px] text-emerald-400">{t('dashboard.goalReached')}</p>}
+                {/* Day dots: done, today, rest of the week. */}
+                <div className="mt-3 flex justify-between gap-1" aria-hidden="true">
+                  {DAY_KEYS.map((key, i) => {
+                    const isDone = doneDays[i];
+                    const isToday = i === todayIndex;
+                    return (
+                      <div key={key} className="flex flex-col items-center gap-1 flex-1">
+                        <span className={`h-2 w-2 rounded-full ${isDone
+                          ? weekGoalMet ? 'bg-emerald-400' : 'bg-blue-400'
+                          : isToday ? 'bg-neutral-300' : 'bg-neutral-700'}`} />
+                        <span className={`text-[9px] ${isToday ? 'text-white' : 'text-neutral-600'}`}>
+                          {t(`routines.form.days.${key}`)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardLink>
             )}
           </div>
-
-          {/* Day dots */}
-          <div className="flex justify-between gap-1">
-            {DAY_KEYS.map((key, i) => {
-              const label = t(`routines.form.days.${key}`);
-              const isDone = doneDays[i];
-              const isToday = i === todayIndex;
-              const isFuture = i > todayIndex;
-              return (
-                <div key={i} className="flex flex-col items-center gap-1 flex-1">
-                  <div className={`
-                    w-full aspect-square max-w-[36px] rounded-lg flex items-center justify-center text-[11px] font-semibold transition-all
-                    ${isDone
-                      ? weekGoalMet
-                        ? 'bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/30'
-                        : 'bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/30'
-                      : isToday
-                      ? 'bg-neutral-800 text-white ring-1 ring-neutral-600'
-                      : isFuture
-                      ? 'bg-neutral-900/40 text-neutral-700'
-                      : 'bg-neutral-800/60 text-neutral-600'
-                    }
-                  `}>
-                    {isDone ? '✓' : label}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Progress bar */}
-          <div className="mt-3 h-1.5 bg-neutral-800 rounded-full overflow-hidden">
-            <div
-              className="h-full rounded-full transition-all duration-700"
-              style={{
-                width: `${Math.min(100, (weekWorkoutsDone / trainingTarget) * 100)}%`,
-                background: weekGoalMet
-                  ? 'linear-gradient(90deg, #10b981, #34d399)'
-                  : 'linear-gradient(90deg, #2563eb, #3b82f6)',
-              }}
-            />
-          </div>
-        </Card>
         )}
 
         {!activityPending && (hasCoach || (showModule(tracking, 'checkins') && todayCheckin) || (showModule(tracking, 'workouts') && !firstRun)) && (
@@ -592,47 +522,7 @@ export default function Dashboard() {
               <p className="text-sm font-semibold text-white">{t('dashboard.checkinDone')}</p>
             </CardLink>
           )}
-          {hasCoach && (
-            <CardLink to="/messages">
-              <div className="flex items-center gap-2 mb-1">
-                <MessageSquare size={16} className="text-blue-400" />
-                <span className="text-xs text-neutral-500">{t('nav.messages')}</span>
-              </div>
-              <p className="text-sm font-semibold text-white truncate">
-                {t('dashboard.coachingFollow', { name: myCoach?.full_name || t('coaching.invite.aCoach') })}
-              </p>
-            </CardLink>
-          )}
-          {showModule(tracking, 'workouts') && !firstRun && (
-            <CardLink to="/exercise-progress">
-              <div className="flex items-center gap-2 mb-1">
-                <Dumbbell size={16} className="text-blue-400" />
-                <span className="text-xs text-neutral-500">{t('dashboard.viewProgress')}</span>
-              </div>
-              <p className="text-sm text-neutral-400">{t('dashboard.progressDesc')}</p>
-            </CardLink>
-          )}
         </div>
-        )}
-
-        {!hasCoach && !activityPending && (
-        <Card className="mb-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Flame size={16} className={currentStreak > 0 ? 'text-orange-400' : 'text-neutral-600'} />
-            <span className="text-xs text-neutral-500">{t('dashboard.streak')}</span>
-          </div>
-          <div className="flex items-baseline gap-1">
-            <span className={`text-2xl font-bold ${currentStreak >= 7 ? 'text-orange-300' : currentStreak > 0 ? 'text-orange-400' : 'text-neutral-500'}`}>
-              {currentStreak}
-            </span>
-            <span className="text-xs text-neutral-500">{currentStreak !== 1 ? t('dashboard.days') : t('dashboard.day')}</span>
-          </div>
-          {longestStreak > 0 && (
-            <p className="text-xs text-neutral-600 mt-1">
-              {t('dashboard.bestStreak')}: {longestStreak}
-            </p>
-          )}
-        </Card>
         )}
         </div>
       </div>

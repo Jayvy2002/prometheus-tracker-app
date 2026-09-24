@@ -1,10 +1,12 @@
-import { CheckCircle, Zap, Dumbbell, Clock, BarChart2 } from 'lucide-react';
+import { CheckCircle, Zap, Dumbbell, Clock, BarChart2, Trophy } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { formatDuration } from '../../lib/utils';
+import { formatDuration, formatWeight } from '../../lib/utils';
+import { useProfileStore } from '../../stores/profileStore';
 import type { Workout } from '../../lib/types';
 import { computeWorkoutSummaryStats } from '../../lib/performedSets';
 import { isCoachedAthlete } from '../../lib/coachRole';
 import { useCoachingStore } from '../../stores/coachingStore';
+import { useSessionRecords } from '../../features/workout/hooks/useSessionRecords';
 import Button from '../ui/Button';
 
 function StatCard({
@@ -43,11 +45,9 @@ export default function WorkoutSummaryScreen({
   const myCoach = useCoachingStore(s => s.myCoach);
   const showCoachSaw = isCoachedAthlete(coachingRole, myCoach);
   const stats = computeWorkoutSummaryStats(workout, duration);
-
-  const volumeLabel =
-    stats.totalVolume >= 1000
-      ? `${(stats.totalVolume / 1000).toFixed(1)}t`
-      : `${Math.round(stats.totalVolume)} kg`;
+  const unit = useProfileStore(s => s.profile?.unit_weight) === 'lbs' ? 'lbs' : 'kg';
+  const volumeLabel = formatWeight(stats.totalVolume, unit);
+  const records = useSessionRecords(workout);
 
   const fact = stats.setCount === 0
     ? t('workout.summary.facts.nonePerformed')
@@ -106,6 +106,30 @@ export default function WorkoutSummaryScreen({
           />
         </div>
 
+        {records.length > 0 && (
+          <section
+            aria-labelledby="summary-records"
+            className="mb-6 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 animate-fade-in-up"
+          >
+            <h2 id="summary-records" className="text-sm font-semibold text-amber-200 flex items-center gap-1.5">
+              <Trophy size={14} aria-hidden="true" /> {t('workout.summary.records')}
+            </h2>
+            <ul className="mt-2 space-y-1">
+              {records.map(r => (
+                <li key={r.name} className="flex items-baseline justify-between gap-3 text-sm">
+                  <span className="text-white truncate">{r.name}</span>
+                  <span className="text-amber-100 tabular-nums shrink-0">
+                    {r.set.weight_kg > 0
+                      ? `${formatWeight(r.set.weight_kg, unit)} × ${r.set.reps}`
+                      : t('workout.summary.recordReps', { count: r.set.reps })}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="text-[11px] text-neutral-500 mt-2">{t('workout.summary.recordsHint')}</p>
+          </section>
+        )}
+
         {fact ? (
           <p
             role="status"
@@ -136,15 +160,13 @@ export default function WorkoutSummaryScreen({
                   <div className="text-right shrink-0">
                     {ex.volume > 0 && (
                       <p className="text-xs text-neutral-400">
-                        {ex.volume >= 1000
-                          ? `${(ex.volume / 1000).toFixed(1)}t`
-                          : `${Math.round(ex.volume)} kg`}{' '}
+                        {formatWeight(ex.volume, unit)}{' '}
                         {t('workout.summary.vol')}
                       </p>
                     )}
                     {ex.estimated1RM > 0 && (
                       <p className="text-xs text-blue-400 font-medium">
-                        ~{ex.estimated1RM} kg {t('workout.summary.oneRM')}
+                        ~{formatWeight(ex.estimated1RM, unit)} {t('workout.summary.oneRM')}
                       </p>
                     )}
                   </div>

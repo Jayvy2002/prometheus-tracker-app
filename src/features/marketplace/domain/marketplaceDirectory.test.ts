@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
 import { latestMigrationContaining } from '../../../lib/migrationScan';
+import { marketplaceUiSource } from '../../../lib/marketplaceUiSource';
 
 function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
@@ -81,7 +82,7 @@ test('the directory is reachable without a 6th bottom tab and skips intake, not 
   const picker = src('src/components/onboarding/EntryIntentionPage.tsx');
   assert.match(picker, /navigate\(intent === 'find_coach' \? '\/coaches' : '\/dashboard'/);
 
-  const page = src('src/components/marketplace/MarketplacePage.tsx');
+  const page = marketplaceUiSource();
   assert.match(page, /DIRECT_INVITE_CONSENT_SCOPES/);
   assert.match(page, /track\('coaching_request_accepted'/);
   assert.match(page, /track\('marketplace_athlete_confirmed'/);

@@ -24,7 +24,12 @@ const corsHeaders = {
  *    list / remove / truncation failure aborts; the Auth user is kept so
  *    close_coach_account + cleanup can be retried. A missing
  *    qualification-proofs bucket (pre-P4) is treated as empty.
- * 3. Auth user deletion (cascades to remaining coach-owned rows).
+ * 3. Auth user deletion. The auth.users BEFORE DELETE trigger
+ *    account_deletion_guard refuses the last operator, removes the operator
+ *    row and purges claimed provisional copies in the same transaction.
+ *
+ * prepare_account_deletion runs first, before step 1: a read-only preflight
+ * so the last operator is refused before any irreversible step.
  */
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -62,6 +67,20 @@ Deno.serve(async (req: Request) => {
     const adminClient = createClient(supabaseUrl, serviceRoleKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
+
+    // 0. Read-only preflight: refuse the last operator before anything irreversible.
+    const { error: prepError } = await adminClient.rpc("prepare_account_deletion", {
+      p_user: user.id,
+    });
+    if (prepError) {
+      const last = (prepError.message ?? "").includes("last_operator");
+      return new Response(
+        JSON.stringify({
+          error: last ? "last_operator" : `prepare_account_deletion: ${prepError.message}`,
+        }),
+        { status: last ? 409 : 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
 
     // 1. Coach transition first — aborts everything on failure (nothing deleted).
     const { data: closed, error: closeError } = await adminClient.rpc(

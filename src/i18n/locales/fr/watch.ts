@@ -1,5 +1,8 @@
 const watch = {
   prometheusWatch: {
+    summary_one: 'Prometheus surveille {{count}} point',
+    summary_other: 'Prometheus surveille {{count}} points',
+    summaryHint: 'Des observations, pas des scores. Rien n’est appliqué tout seul.',
     title: 'Ce que Prometheus surveille',
     subtitle: 'Des observations simples, pas des scores. Rien n’est appliqué tout seul.',
     empty: 'Rien de particulier à suivre pour le moment. Continue d’enregistrer ce que tu fais.',
@@ -9,6 +12,7 @@ const watch = {
     loadError: 'Les observations n’ont pas pu être chargées. Ce n’est pas « rien à suivre ».',
     loadErrorCoach: 'Les observations de ce dossier n’ont pas pu être chargées.',
     more: 'Voir pourquoi',
+    evidence: 'Voir les preuves',
     certainty: 'Lecture',
     observed: 'Ce qui a été vu',
     observedCopy: {

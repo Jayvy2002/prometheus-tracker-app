@@ -11,6 +11,7 @@ import {
 } from './telemetry';
 import { coachingStoreSource } from './coachingStoreSource';
 import { typesSource } from './typesSource';
+import { marketplaceUiSource } from './marketplaceUiSource';
 
 function src(rel: string): string {
   if (rel === 'src/stores/coachingStore.ts') return coachingStoreSource();
@@ -92,8 +93,8 @@ test('track() is wired on the loops that matter (coach, client, solo)', () => {
   assert.match(src('src/lib/types.ts'), /'setup_targets_choice'/);
   assert.match(src('src/lib/types.ts'), /'coaching_request_accepted'/);
   assert.match(src('src/lib/types.ts'), /'marketplace_athlete_confirmed'/);
-  assert.match(src('src/components/marketplace/MarketplacePage.tsx'), /track\('coaching_request_accepted'/);
-  assert.match(src('src/components/marketplace/MarketplacePage.tsx'), /track\('marketplace_athlete_confirmed'/);
+  assert.match(marketplaceUiSource(), /track\('coaching_request_accepted'/);
+  assert.match(marketplaceUiSource(), /track\('marketplace_athlete_confirmed'/);
   const client = src('src/lib/telemetryClient.ts');
   assert.match(client, /from\('product_events'\)/);
   assert.doesNotMatch(client, /await supabase/);
