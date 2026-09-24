@@ -965,6 +965,17 @@ Vision §11.2 et §21. Migration pending `20260924160000_checkin_due` ; preuve S
 - Notification « check-in dû » (catégorie réglable « checkins ») : une seule fois, le jour de l’échéance, à partir de 9 h locale, seulement pour un rythme explicitement choisi et un module check-in suivi ; jamais le lendemain, jamais pour le quotidien implicite. Texte factuel.
 
 Reste : la revue hebdomadaire de Prometheus reste hebdomadaire et ne lit pas encore les réponses personnalisées.
+
+## Mensurations (branche `agent/p5-14-mensurations`, en revue)
+
+Vision §14.4 et §13. Migration pending `20260924170000_body_measurements` ; preuve SQL `supabase/tests/body_measurements.sql`.
+
+- `body_measurements` : un tour (cm) par site et par jour (cou, épaules, poitrine, taille, hanches, bras G/D, avant-bras, cuisses G/D, mollet). L’athlète écrit et corrige ; son Coach actif lit seulement ; un Coach sans relation active ne voit rien (RLS).
+- Corps → « Mensurations » (avec le module poids) : dernière valeur, date, écart depuis la mesure précédente, courbe propre à chaque site. Aucun score, aucune couleur « bien/mal ». Saisie de quelques sites seulement ; corriger un jour préremplit ce jour ; vider un champ retire la valeur de ce jour. Unité cm/in selon le profil, virgule acceptée.
+- Calendrier : le jour affiche « N mensurations » et ouvre la vue. Fiche client Coach (Progression) : mêmes courbes en lecture seule.
+- Export personnel : `body_measurements` inclus.
+
+Reste : pas de lecture des mensurations par la revue hebdomadaire ; pas de mode hors ligne (saisie hors séance).
 ---
 
 # P6 — Architecture économique de bêta
