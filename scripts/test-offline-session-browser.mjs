@@ -54,6 +54,8 @@ function civil(d) {
 const coach = await actor('offline-coach', true);
 const athlete = await actor('offline-athlete', false);
 check(await admin.from('coach_client_links').insert({ coach_id: coach.id, client_id: athlete.id, status: 'active' }));
+// As a real activation does: the coach follows training, so /workout is open.
+check(await admin.from('client_tracking_config').insert({ coach_id: coach.id, client_id: athlete.id, track_workouts: true }));
 
 // A session every day, started two weeks ago: whatever the runner's weekday, one is due today.
 const start = new Date();
