@@ -43,6 +43,10 @@
     {
       "version": "20260924160000",
       "name": "checkin_due"
+    },
+    {
+      "version": "20260924170000",
+      "name": "body_measurements"
     }
   ]
 }

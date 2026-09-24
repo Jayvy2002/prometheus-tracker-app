@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Dumbbell, Apple, Scale, CalendarDays, CalendarRange } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Dumbbell, Apple, Scale, CalendarDays, CalendarRange, Ruler } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useClientTracking } from '../../lib/useClientTracking';
 import { checkinHasAnyField, showModule } from '../../lib/clientTracking';
@@ -35,6 +35,7 @@ interface DaySummary {
   nutrition: { totalCals: number; protein: number; carbs: number; fat: number } | null;
   nutritionCount: number;
   weights: number[];
+  measurementCount: number;
   checkinNote: string | null;
 }
 
@@ -174,9 +175,14 @@ export default function CalendarPage() {
         .eq('user_id', user.id)
         .eq('checked_at', selectedDate)
         .limit(1),
-    ]).then(([workoutRes, nutritionRes, weightRes, checkinRes]) => {
+      supabase
+        .from('body_measurements')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('measured_at', selectedDate),
+    ]).then(([workoutRes, nutritionRes, weightRes, checkinRes, measureRes]) => {
       if (seq !== summarySeq.current) return;
-      if (responsesHaveError([workoutRes, nutritionRes, weightRes, checkinRes])) {
+      if (responsesHaveError([workoutRes, nutritionRes, weightRes, checkinRes, measureRes])) {
         setSummaryError(true);
         setDaySummary(null);
         setSummaryLoading(false);
@@ -196,6 +202,7 @@ export default function CalendarPage() {
         nutrition: totalNutrition,
         nutritionCount: nutritionLogs.length,
         weights: calendarDayWeights(weightRes.data ?? []),
+        measurementCount: (measureRes.data ?? []).length,
         checkinNote: ((checkinRes.data ?? [])[0]?.notes as string | undefined)?.trim() || null,
       });
       setSummaryLoading(false);
@@ -640,6 +647,19 @@ export default function CalendarPage() {
               <p className="text-sm text-neutral-400">{t('calendar.day.noWeight')}</p>
             </Card>
           )}
+          {daySummary && daySummary.measurementCount > 0 && showModule(tracking, 'weight') ? (
+            <Card
+              className="flex items-center gap-3 cursor-pointer hover:border-neutral-700/70 active:scale-[0.98] transition-all"
+              onClick={() => navigate('/body?view=measurements')}
+            >
+              <div className="w-9 h-9 rounded-xl bg-neutral-800 flex items-center justify-center shrink-0">
+                <Ruler size={16} className="text-neutral-300" aria-hidden="true" />
+              </div>
+              <p className="text-sm font-semibold text-white">
+                {t('measurements.calendarEntry', { count: daySummary.measurementCount })}
+              </p>
+            </Card>
+          ) : null}
           {daySummary?.checkinNote ? (
             <Card>
               <p className="text-sm font-semibold text-white mb-1">{t('calendar.day.checkin')}</p>

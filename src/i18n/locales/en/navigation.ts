@@ -29,6 +29,7 @@ const navigation = {
     programs: 'Programs',
     myProgram: 'My program',
     photos: 'Photos',
+    measurements: 'Measurements',
     recipes: 'Recipes',
     today: 'Dashboard',
     messages: 'Messages',

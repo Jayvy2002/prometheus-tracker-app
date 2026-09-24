@@ -3,6 +3,7 @@ import { visibleCheckinFields } from '../../lib/clientTracking';
 import GoalPanel from '../goals/GoalPanel';
 import ClientCheckinPlanCard from '../checkin/ClientCheckinPlanCard';
 import ConstraintsPanel from '../constraints/ConstraintsPanel';
+import MeasurementsPage from '../measurements/MeasurementsPage';
 import { useEffect, useMemo, useState } from 'react';
 import { useClientDossier } from '../../features/coaching/hooks/useClientDossier';
 import { useClientPhotoSharing } from '../../features/coaching/hooks/useClientPhotoSharing';
@@ -164,6 +165,7 @@ function Kpi({ label, value, tone }: { label: string; value: string; tone?: stri
 export default function ClientDetailPage() {
   const { t } = useTranslation();
   const unit = useProfileStore(s => s.profile?.unit_weight === 'lbs' ? 'lbs' : 'kg');
+  const lengthUnit = useProfileStore(s => s.profile?.unit_height === 'in' ? 'in' : 'cm');
   const { id } = useParams();
   const photoSharing = useClientPhotoSharing(id);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -984,6 +986,8 @@ export default function ClientDetailPage() {
               />
             )}
             <WeightChart points={weightChartPoints(weights)} />
+            {/* Measurements: read-only for the coach, the athlete owns them (Vision §14.4). */}
+            {tracking.track_weight && id ? <MeasurementsPage userId={id} unit={lengthUnit} viewer="coach" /> : null}
             {/* Photos are private by default; the athlete chooses to share (Vision §14.4). */}
             {photoSharing?.status === 'ready' && !photoSharing.shared ? (
               <p className="text-sm text-neutral-500" data-testid="client-photos-private">

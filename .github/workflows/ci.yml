@@ -593,6 +593,14 @@ jobs:
         run: |
           set -euo pipefail
           grep -F 'checkin due: same schedule as the app, once on the due day from 9:00, module off or no plan never chased, category settable' /tmp/checkin-due.txt
+      - name: Test body measurements
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/body_measurements.sql | tee /tmp/body-measurements.txt
+      - name: Confirm body measurements echo
+        run: |
+          set -euo pipefail
+          grep -F 'body measurements: athlete writes and corrects, one value per site and day, active coach reads only, others blind' /tmp/body-measurements.txt
       - name: Test qualification proof Storage API withdraw
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
