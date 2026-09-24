@@ -718,6 +718,7 @@ const common = {
         messages: 'I get a message',
         coaching: 'A coaching request moves forward',
         program: 'My coach sends me a program',
+        checkins: 'My check-in is planned for today',
         decisions: 'Prometheus prepares proposals to decide',
       },
       fixedTitle: 'Fixed-time reminders',

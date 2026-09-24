@@ -585,6 +585,14 @@ jobs:
         run: |
           set -euo pipefail
           grep -F 'checkin templates and plans: typed questions, coach decides, solo decides alone, answers keep labels, other coach blind, history kept' /tmp/checkin-templates-plans.txt
+      - name: Test checkin due
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/checkin_due.sql | tee /tmp/checkin-due.txt
+      - name: Confirm checkin due echo
+        run: |
+          set -euo pipefail
+          grep -F 'checkin due: same schedule as the app, once on the due day from 9:00, module off or no plan never chased, category settable' /tmp/checkin-due.txt
       - name: Test qualification proof Storage API withdraw
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

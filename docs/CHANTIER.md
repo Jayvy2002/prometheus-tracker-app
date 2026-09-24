@@ -954,6 +954,17 @@ Vision §10–11. Migration pending `20260924150000_checkin_templates_plans` ; p
 - Écrans : Coach › Modèles de check-in (`/coach/checkins`), fiche client › Check-ins (modèle, rythme, raisons), check-in de l’athlète (rythme et prochaine date, « pourquoi » sous chaque habitude, questions du modèle), Solo › Réglages du check-in (`/checkin/settings`, ses propres questions et son rythme). L’historique affiche les réponses personnalisées.
 
 Reste (PR suivante) : utiliser la fréquence pour « check-in dû » (Aujourd’hui, alertes Coach à la place de la fenêtre fixe de 7 jours, notification). La revue hebdomadaire reste hebdomadaire.
+
+## « Check-in dû » suit la fréquence (branche `agent/p5-13-checkin-due`, en revue)
+
+Vision §11.2 et §21. Migration pending `20260924160000_checkin_due` ; preuve SQL `supabase/tests/checkin_due.sql`.
+
+- Une seule règle d’échéance, côté app (`checkinSchedule.ts`) et côté base (`checkin_last_due`), vérifiée sur les mêmes cas (hebdo, toutes les deux semaines, mensuel avec mois courts, quotidien). Un nouveau rythme commence le jour où il est choisi.
+- Aujourd’hui : « check-in » n’apparaît que lorsqu’une échéance est passée sans check-in depuis ; quotidien seulement quand aucun rythme n’a été choisi.
+- Alertes Coach : la fenêtre fixe de 7 jours est remplacée par le rythme du client + 2 jours de grâce (sans rythme : une semaine de silence, comme avant) ; jamais avant que la relation ait pu produire un check-in. Libellé « Check-in attendu non reçu ».
+- Notification « check-in dû » (catégorie réglable « checkins ») : une seule fois, le jour de l’échéance, à partir de 9 h locale, seulement pour un rythme explicitement choisi et un module check-in suivi ; jamais le lendemain, jamais pour le quotidien implicite. Texte factuel.
+
+Reste : la revue hebdomadaire de Prometheus reste hebdomadaire et ne lit pas encore les réponses personnalisées.
 ---
 
 # P6 — Architecture économique de bêta

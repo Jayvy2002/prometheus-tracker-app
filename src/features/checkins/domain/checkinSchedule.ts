@@ -110,3 +110,32 @@ export function isCheckinDue(plan: ScheduleInput, lastCheckinDate: string | null
   if (!due) return false;
   return !lastCheckinDate || daysBetween(due, lastCheckinDate) < 0;
 }
+
+/** Days of grace after a due date before the coach is told (Vision §11.2: missing ≠ fault). */
+export const CHECKIN_GRACE_DAYS = 2;
+/** Without an explicit rhythm, the coach hears about a whole week of silence. */
+export const DEFAULT_SILENCE_DAYS = 7;
+
+/**
+ * Should the coach see « check-in expected, not received »? With a rhythm: a
+ * due date passed by the grace days and nothing since. Without one (or daily):
+ * a whole week without any check-in. Never before the relationship could have
+ * produced one.
+ */
+export function checkinOverdueForCoach(input: {
+  plan: ScheduleInput | null;
+  lastCheckinDate: string | null;
+  today: string;
+  linkedAt: string | null;
+}): boolean {
+  const linked = input.linkedAt ? input.linkedAt.slice(0, 10) : null;
+  if (!input.plan || input.plan.frequency === 'daily') {
+    const since = addDays(input.today, -(DEFAULT_SILENCE_DAYS - 1));
+    if (linked && daysBetween(linked, addDays(input.today, -DEFAULT_SILENCE_DAYS)) < 0) return false;
+    return !input.lastCheckinDate || daysBetween(since, input.lastCheckinDate) < 0;
+  }
+  const due = lastDueDate(input.plan, addDays(input.today, -CHECKIN_GRACE_DAYS));
+  if (!due) return false;
+  if (linked && daysBetween(linked, due) < 0) return false;
+  return !input.lastCheckinDate || daysBetween(due, input.lastCheckinDate) < 0;
+}

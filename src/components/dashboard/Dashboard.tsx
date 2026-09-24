@@ -48,6 +48,8 @@ import SoloProgramProposal from './SoloProgramProposal';
 import SoloWeeklyReview from './SoloWeeklyReview';
 import LinkEndedBanner from './LinkEndedBanner';
 import WatchSummaryRow from './WatchSummaryRow';
+import { useCheckinPlan } from '../../features/checkins/hooks/useCheckinPlan';
+import { isCheckinDue } from '../../features/checkins/domain/checkinSchedule';
 
 function getWeekDates(todayCivil: string): string[] {
   const [y, m, d] = todayCivil.split('-').map(Number);
@@ -198,7 +200,13 @@ export default function Dashboard() {
   const showRoutineHero = !showGymHero && !!nextRoutine && showModule(tracking, 'workouts');
   const showNextActionHero = !activityPending && !showGymHero && !showRoutineHero && nextAction !== null;
   const hasPrimaryHero = dueGymHero || showRoutineHero || showNextActionHero;
-  const checkinDue = !firstRun && showModule(tracking, 'checkins') && !todayCheckin && !activityPending;
+  // Vision §11.2: « due » follows the athlete's rhythm (daily when none was chosen).
+  const checkinSchedule = useCheckinPlan(user?.id);
+  const checkinDue = !firstRun && showModule(tracking, 'checkins') && !activityPending && !checkinSchedule.loading && (
+    checkinSchedule.plan
+      ? isCheckinDue(checkinSchedule.plan, todayCheckin ? programClock.today : checkinSchedule.lastCheckinDate, programClock.today)
+      : !todayCheckin
+  );
   const unreadMessage = !!myCoach && unreadMessageCount > 0
     && homeDismissTick >= 0
     && !isHomeMessageDismissed(user?.id, latestCoachMessage?.id);

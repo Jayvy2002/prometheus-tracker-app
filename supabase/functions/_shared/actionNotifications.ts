@@ -12,7 +12,8 @@ export type ActionNotificationKind =
   | 'athlete_confirmed'
   | 'program_assigned'
   | 'proposals_waiting'
-  | 'constraint_declared';
+  | 'constraint_declared'
+  | 'checkin_due';
 
 export interface ActionNotificationRow {
   kind: ActionNotificationKind | string;
@@ -106,6 +107,13 @@ export function renderActionNotification(row: ActionNotificationRow): PushPayloa
           ? `${name ?? 'Un client'} a signalé une douleur ou une contrainte.`
           : `${name ?? 'A client'} reported a pain or a constraint.`,
         tag: `constraint:${row.url}`,
+        url: row.url,
+      };
+    case 'checkin_due':
+      return {
+        title,
+        body: fr ? 'Ton check-in est prévu aujourd’hui.' : 'Your check-in is planned for today.',
+        tag: 'checkin-due',
         url: row.url,
       };
     default:
