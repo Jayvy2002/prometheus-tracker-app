@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { currentElapsedMs, loadSessionTimer } from '../../lib/sessionTimer';
-import { useResumableWorkout } from '../../features/workout/hooks/useResumableWorkout';
+import { useIsResumeShownInline, useResumableWorkout } from '../../features/workout/hooks/useResumableWorkout';
 
 /** Barre globale : une séance ouverte aujourd'hui ou hier se reprend depuis n'importe quel écran. */
 export default function SessionResumeBar() {
@@ -14,12 +14,14 @@ export default function SessionResumeBar() {
   const user = useAuthStore(s => s.user);
   const fetchWorkouts = useWorkoutStore(s => s.fetchWorkouts);
   const open = useResumableWorkout();
+  const shownInline = useIsResumeShownInline(open?.id);
 
   useEffect(() => {
     if (user) void fetchWorkouts(user.id);
   }, [user, fetchWorkouts]);
 
-  if (location.pathname.startsWith('/workout/') || !open) return null;
+  // The screen already shows « Continuer » for this session: one resume point, not two.
+  if (location.pathname.startsWith('/workout/') || !open || shownInline) return null;
   const elapsed = Math.floor(currentElapsedMs(loadSessionTimer(open.id)) / 1000);
   const minutes = Math.max(1, Math.round((elapsed || open.duration_seconds || 0) / 60) || 1);
 

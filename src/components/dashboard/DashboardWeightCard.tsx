@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { Area, AreaChart, ResponsiveContainer, YAxis } from 'recharts';
 import { Scale } from 'lucide-react';
 import CardLink from '../ui/CardLink';
+import { formatNumber, formatSignedNumber } from '../../lib/utils';
 
 export interface DashboardWeightPoint {
   date: string;
@@ -32,7 +33,7 @@ export default function DashboardWeightCard({ points, unit, latest, delta }: Pro
         </div>
         {latest !== null ? (
           <p className="text-lg font-semibold text-white leading-tight">
-            {latest} <span className="text-xs font-normal text-neutral-500">{unit}</span>
+            {formatNumber(latest)} <span className="text-xs font-normal text-neutral-500">{unit}</span>
           </p>
         ) : (
           <p className="text-xs text-neutral-500">{t('dashboard.noWeightYet')}</p>
@@ -40,7 +41,7 @@ export default function DashboardWeightCard({ points, unit, latest, delta }: Pro
         {delta !== null && delta !== 0 && (
           // Neutral colour: gaining is the goal for some, losing for others (Vision §14 — no judgement).
           <p className="text-[11px] text-neutral-300">
-            {delta > 0 ? '+' : ''}{delta} {unit} · {t('dashboard.thisWeek')}
+            {formatSignedNumber(delta)} {unit} · {t('dashboard.thisWeek')}
           </p>
         )}
         {showChart ? (

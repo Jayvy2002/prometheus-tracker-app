@@ -241,20 +241,54 @@ export function inToCm(inches: number): number {
   return Math.round(inches * 2.54 * 10) / 10;
 }
 
+/**
+ * Language used for numbers and clock times when a caller passes none. The
+ * i18n bootstrap keeps it in sync with the app language (78,3 kg in French,
+ * 78.3 kg in English).
+ */
+let displayLanguage = 'fr';
+
+export function setDisplayLanguage(lang: string): void {
+  displayLanguage = lang || 'fr';
+}
+
+/** A number in the app language: 78,3 · 10 000 (fr) / 78.3 · 10,000 (en). */
+export function formatNumber(
+  value: number,
+  options: { maxDigits?: number; minDigits?: number; lang?: string } = {},
+): string {
+  const { maxDigits = 1, minDigits = 0, lang = displayLanguage } = options;
+  return new Intl.NumberFormat(dateLocale(lang), {
+    maximumFractionDigits: maxDigits,
+    minimumFractionDigits: minDigits,
+  }).format(value);
+}
+
+/** Signed number in the app language (« +1,2 », « −0,5 »). */
+export function formatSignedNumber(value: number, options: { maxDigits?: number; lang?: string } = {}): string {
+  const text = formatNumber(Math.abs(value), options);
+  if (value > 0) return `+${text}`;
+  if (value < 0) return `-${text}`;
+  return text;
+}
+
+/** Clock time in the app language: 22:26 (fr) / 10:26 PM (en). */
+export function formatClock(value: string | number | Date, lang: string = displayLanguage): string {
+  return new Date(value).toLocaleTimeString(dateLocale(lang), { hour: '2-digit', minute: '2-digit' });
+}
+
 export function formatWeight(kg: number, unit: 'kg' | 'lbs'): string {
-  if (unit === 'lbs') return `${kgToLbs(kg)} lbs`;
-  return `${Math.round(kg * 10) / 10} kg`;
+  return `${formatNumber(weightInUnit(kg, unit))} ${unit}`;
 }
 
 /** Compact load for set lines (« 80kg × 5 »), converted to the viewer's unit. */
 export function formatLoad(kg: number, unit: 'kg' | 'lbs'): string {
-  return unit === 'lbs' ? `${kgToLbs(kg)}lbs` : `${Math.round(kg * 10) / 10}kg`;
+  return `${formatNumber(weightInUnit(kg, unit))}${unit}`;
 }
 
-/** Signed weight change (« +1.2 kg »), converted to the viewer's unit. */
+/** Signed weight change (« +1,2 kg »), converted to the viewer's unit. */
 export function formatWeightDelta(kg: number, unit: 'kg' | 'lbs'): string {
-  const value = unit === 'lbs' ? kgToLbs(kg) : Math.round(kg * 10) / 10;
-  return `${value > 0 ? '+' : ''}${value} ${unit}`;
+  return `${formatSignedNumber(weightInUnit(kg, unit))} ${unit}`;
 }
 
 /** Weight in the viewer's unit, as a bare number for charts. */

@@ -17,6 +17,7 @@ import { programExerciseRpcFields } from '../lib/programSetPrescription';
 import { snapshotToDayDrafts, parseRevisionOrganization, parseRevisionMeta, snapshotToPhaseDrafts, programFromFrozenRevision, type ProgramRevisionRow } from '../lib/programRevisionDiff';
 import { normalizeSessionOrganization } from '../features/programs/domain/sessionOrganization';
 import type { ProgramPhase, ProgramPhaseDraft } from '../features/programs/domain/programPhases';
+import { programUsageById, type ProgramUsage } from '../features/programs/domain/programListStatus';
 
 type ProgramDayDraft = {
   id?: string;
@@ -100,6 +101,8 @@ interface ProgramState {
   assignment: ProgramAssignment | null;
   loading: boolean;
   fetchPrograms: (ownerId: string) => Promise<void>;
+  /** Coach list: how many clients follow each program (active / paused). */
+  fetchProgramUsage: (programIds: string[]) => Promise<Record<string, ProgramUsage>>;
   fetchProgram: (programId: string) => Promise<Program | null>;
   createProgram: (
     program: Omit<Partial<Program>, 'phases'> & { phases?: ProgramPhaseDraft[] },
@@ -251,6 +254,17 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
     } finally {
       set({ loading: false });
     }
+  },
+
+  fetchProgramUsage: async (programIds) => {
+    if (programIds.length === 0) return {};
+    const { data, error } = await supabase
+      .from('program_assignments')
+      .select('program_id, status')
+      .in('program_id', programIds)
+      .in('status', ['active', 'paused']);
+    if (error) return {};
+    return programUsageById((data ?? []) as Array<{ program_id: string; status: string }>);
   },
 
   fetchProgram: async (programId) => {

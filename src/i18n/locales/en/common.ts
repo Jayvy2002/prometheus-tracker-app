@@ -72,6 +72,7 @@ const common = {
 
   entryIntention: {
     title: 'Why are you here?',
+    changeLater: 'You can change this later: this choice opens a path, it doesn\'t lock you in.',
     solo: 'I train on my own',
     soloHint: 'Log sessions, nutrition, and progress in one place.',
     soloCta: 'Start solo',

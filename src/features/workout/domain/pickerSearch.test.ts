@@ -98,9 +98,9 @@ test('favorites and recents that match the query sit above catalog noise', () =>
 
 test('exercise search folds accents, ranks names over equipment, and matches nicknames', () => {
   const library = [
-    exercise({ name: 'Barbell Bench Press', name_fr: 'Developpe couche', primary_muscles: ['chest'] }),
+    exercise({ name: 'Barbell Bench Press', name_fr: 'Développé couché', primary_muscles: ['chest'] }),
     exercise({ name: 'Barbell Row', name_fr: 'Row barre', primary_muscles: ['lats'], equipment: 'barbell' }),
-    exercise({ name: 'Romanian Deadlift', name_fr: 'Souleve de terre roumain', primary_muscles: ['hamstrings'] }),
+    exercise({ name: 'Romanian Deadlift', name_fr: 'Soulevé de terre roumain', primary_muscles: ['hamstrings'] }),
   ];
   const developpe = rankExercises(library, 'développé couché', 'fr');
   assert.equal(developpe[0].name, 'Barbell Bench Press');
@@ -120,7 +120,7 @@ test('exercise search folds accents, ranks names over equipment, and matches nic
 
   const bar = rankExercises(library, 'barre', 'fr');
   assert.ok(bar.length >= 1);
-  assert.equal(displayExerciseName(library[0], 'fr'), 'Developpe couche');
+  assert.equal(displayExerciseName(library[0], 'fr'), 'Développé couché');
   assert.equal(displayExerciseName(library[0], 'en'), 'Barbell Bench Press');
 });
 

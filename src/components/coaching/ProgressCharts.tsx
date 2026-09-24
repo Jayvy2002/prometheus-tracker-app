@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { Area, AreaChart, Bar, BarChart, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import Card from '../ui/Card';
 import type { DailyNutritionPoint } from '../../lib/types';
-import { weightInUnit } from '../../lib/utils';
+import { formatNumber, weightInUnit } from '../../lib/utils';
 import { useProfileStore } from '../../stores/profileStore';
 
 function tick(value: string) {
@@ -25,7 +25,7 @@ export function WeightChart({ points }: { points: Array<{ date: string; kg: numb
             <YAxis domain={['auto', 'auto']} width={32} tick={{ fill: '#737373', fontSize: 10 }} axisLine={false} tickLine={false} />
             <Tooltip
               contentStyle={{ background: '#171717', border: '1px solid #262626', borderRadius: 12, fontSize: 12 }}
-              formatter={(value) => [`${Number(value).toFixed(1)} ${unit}`, t('coaching.progress.weightTitle')]}
+              formatter={(value) => [`${formatNumber(Number(value))} ${unit}`, t('coaching.progress.weightTitle')]}
             />
             <Area type="monotone" dataKey="value" stroke="#60a5fa" fill="#2563eb33" strokeWidth={2} />
           </AreaChart>

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { loadRepFrontier, newComparableRecord, sessionRecords } from './comparableRecords';
 import { isRecordAtIndex } from './performedSets';
-import { formatLoad, formatWeightDelta } from '../../../lib/utils';
+import { formatClock, formatLoad, formatNumber, formatWeight, formatWeightDelta, setDisplayLanguage } from '../../../lib/utils';
 
 const set = (weight_kg: number, reps: number, extra: Partial<{ completed: boolean; set_type: string }> = {}) => ({
   weight_kg, reps, completed: true, set_type: 'working', ...extra,
@@ -53,9 +53,18 @@ test('progress page records compare like for like when sets detail is known', ()
   assert.equal(isRecordAtIndex(entries, 2), true);
 });
 
-test('coach and athlete screens format loads in the viewer unit', () => {
+test('coach and athlete screens format loads in the viewer unit and language', () => {
+  setDisplayLanguage('en');
   assert.equal(formatLoad(100, 'kg'), '100kg');
   assert.equal(formatLoad(100, 'lbs'), '220.5lbs');
   assert.equal(formatWeightDelta(-1.2, 'kg'), '-1.2 kg');
   assert.equal(formatWeightDelta(1, 'lbs'), '+2.2 lbs');
+  // French decimals use a comma (78,3 kg), never a point.
+  setDisplayLanguage('fr');
+  assert.equal(formatLoad(82.5, 'kg'), '82,5kg');
+  assert.equal(formatWeight(78.34, 'kg'), '78,3 kg');
+  assert.equal(formatWeightDelta(-1.2, 'kg'), '-1,2 kg');
+  assert.equal(formatNumber(10000, { maxDigits: 0 }).replace(/\s/g, ' '), '10 000');
+  assert.equal(formatClock(new Date(2026, 8, 24, 22, 26)), '22:26');
+  assert.match(formatClock(new Date(2026, 8, 24, 22, 26), 'en'), /^10:26\sPM$/);
 });

@@ -37,7 +37,14 @@ test('P5.3 catalog links a unique alias and never rewrites the written name', ()
   assert.ok(frWorkout.workout.exercisePicker.pendingSaved);
   assert.ok(enWorkout.workout.exercisePicker.pendingSaved);
   assert.equal(foldText('Développé couché'), 'developpe couche');
-  const bench = { name: 'Bench Press', name_fr: 'Developpe couche', aliases: ['bp'] } as Exercise;
+  const bench = { name: 'Bench Press', name_fr: 'Développé couché', aliases: ['bp'] } as Exercise;
   assert.equal(isExactExerciseMatch('BP', bench), true);
   assert.equal(isExactExerciseMatch('Hack Squat', bench), false);
+});
+
+test('history of a catalog exercise follows its catalog id, not the accents of its name', () => {
+  const store = readFileSync(resolve(process.cwd(), 'src/stores/workoutStore.ts'), 'utf8');
+  assert.match(store, /base\.eq\('catalog_exercise_id', catalogExerciseId\)/);
+  const card = readFileSync(resolve(process.cwd(), 'src/components/workout/ExerciseCard.tsx'), 'utf8');
+  assert.match(card, /useExerciseHistory\(exercise\.name, currentWorkout\?\.id, exercise\.catalog_exercise_id\)/);
 });

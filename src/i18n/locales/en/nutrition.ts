@@ -16,6 +16,8 @@ const nutrition = {
     copyFromYesterday: 'Copy from yesterday',
     copyWholeDay: 'Copy all of yesterday',
     foodForm: {
+      forMeal: 'Meal: {{meal}}',
+      forMealOn: 'Meal: {{meal}} · {{date}}',
       title: 'Add Food',
       searchPlaceholder: 'Search food…',
       tabs: {

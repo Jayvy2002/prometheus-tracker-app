@@ -1,4 +1,4 @@
-import { type KeyboardEvent } from 'react';
+import { type KeyboardEvent, useEffect, useRef } from 'react';
 
 export interface TabItem<T extends string> {
   id: T;
@@ -13,6 +13,19 @@ interface TabListProps<T extends string> {
 }
 
 export default function TabList<T extends string>({ tabs, value, onChange, labelledBy }: TabListProps<T>) {
+  const listRef = useRef<HTMLDivElement>(null);
+
+  // On a narrow screen the bar scrolls: the selected tab is always brought into
+  // view, so the user never loses where they are (and deep links land visible).
+  useEffect(() => {
+    const list = listRef.current;
+    const selected = list?.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (!list || !selected) return;
+    const left = selected.offsetLeft - (list.clientWidth - selected.offsetWidth) / 2;
+    if (typeof list.scrollTo === 'function') list.scrollTo({ left: Math.max(0, left) });
+    else list.scrollLeft = Math.max(0, left);
+  }, [value]);
+
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const index = tabs.findIndex(tab => tab.id === value);
     if (index < 0) return;
@@ -33,10 +46,11 @@ export default function TabList<T extends string>({ tabs, value, onChange, label
 
   return (
     <div
+      ref={listRef}
       role="tablist"
       aria-labelledby={labelledBy}
       onKeyDown={onKeyDown}
-      className="flex gap-1 overflow-x-auto mb-4 -mx-4 px-4 scrollbar-hide"
+      className="relative flex gap-1 overflow-x-auto mb-4 -mx-4 px-4 scrollbar-hide"
     >
       {tabs.map(tab => {
         const selected = tab.id === value;

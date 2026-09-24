@@ -152,8 +152,8 @@ interface WorkoutState {
   setCurrentWorkout: (w: Workout | null) => void;
   linkSuperset: (exerciseIds: string[]) => Promise<void>;
   unlinkSuperset: (exerciseId: string) => Promise<void>;
-  fetchPreviousSets: (userId: string, exerciseName: string, currentWorkoutId: string) => Promise<PreviousSet[]>;
-  fetchExerciseHistory: (userId: string, exerciseName: string, currentWorkoutId: string, limit?: number) => Promise<ExerciseSession[]>;
+  fetchPreviousSets: (userId: string, exerciseName: string, currentWorkoutId: string, catalogExerciseId?: string | null) => Promise<PreviousSet[]>;
+  fetchExerciseHistory: (userId: string, exerciseName: string, currentWorkoutId: string, limit?: number, catalogExerciseId?: string | null) => Promise<ExerciseSession[]>;
 }
 
 let drainInFlight = false;
@@ -817,13 +817,17 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
     );
   },
 
-  fetchPreviousSets: async (userId, exerciseName, currentWorkoutId) => {
-    const { data: exercises } = await supabase
+  fetchPreviousSets: async (userId, exerciseName, currentWorkoutId, catalogExerciseId) => {
+    const base = supabase
       .from('workout_exercises')
       .select('id, workout_id, workouts!inner(user_id, date)')
       .eq('workouts.user_id', userId)
-      .ilike('name', exerciseName)
       .neq('workout_id', currentWorkoutId);
+    // A catalog exercise is matched by its catalog id, so accents or case in the
+    // logged name never split its history (« Developpe couche » / « Développé couché »).
+    const { data: exercises } = await (catalogExerciseId
+      ? base.eq('catalog_exercise_id', catalogExerciseId)
+      : base.ilike('name', exerciseName));
 
     if (!exercises || exercises.length === 0) return [];
 
@@ -844,13 +848,17 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
     return (sets ?? []) as PreviousSet[];
   },
 
-  fetchExerciseHistory: async (userId, exerciseName, currentWorkoutId, limit = 5) => {
-    const { data: exercises } = await supabase
+  fetchExerciseHistory: async (userId, exerciseName, currentWorkoutId, limit = 5, catalogExerciseId) => {
+    const base = supabase
       .from('workout_exercises')
       .select('id, workout_id, workouts!inner(user_id, date)')
       .eq('workouts.user_id', userId)
-      .ilike('name', exerciseName)
       .neq('workout_id', currentWorkoutId);
+    // A catalog exercise is matched by its catalog id, so accents or case in the
+    // logged name never split its history (« Developpe couche » / « Développé couché »).
+    const { data: exercises } = await (catalogExerciseId
+      ? base.eq('catalog_exercise_id', catalogExerciseId)
+      : base.ilike('name', exerciseName));
 
     if (!exercises || exercises.length === 0) return [];
 

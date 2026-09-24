@@ -63,6 +63,12 @@ const workout = {
     sessionGone: 'This session is no longer here.',
     sessionGoneHint: 'It was deleted, or you no longer have access. Nothing was invented.',
     finishWorkout: 'Finish Workout',
+    legend: {
+      setTypes: 'The set number shows its type: S = working set, W = warm-up, D = drop set. Tap it to change the type.',
+      rir: 'RIR = reps in reserve: how many more you could have done.',
+      gotIt: 'Got it',
+    },
+    finishShort: 'Finish',
     createFailed: 'Failed to create workout. Please try again.',
     goBack: 'Go Back',
     prescribedVsLogged: '{{prescribed}} prescribed · {{logged}} logged',

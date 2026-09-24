@@ -61,7 +61,10 @@ export default function CoachImportPage() {
   const [subjectId, setSubjectId] = useState<string>(
     requestedDossier
       ? `dossier:${requestedDossier}`
-      : (requested && requested !== 'self' ? requested : (user?.id ?? '')),
+      : requested === 'self'
+        ? (user?.id ?? '')
+        // The main case is a client: no silent « Moi », the coach picks who the data belongs to.
+        : (requested ?? ''),
   );
   const [dossiers, setDossiers] = useState<ProvisionalDossier[]>([]);
   const [dossierLoadError, setDossierLoadError] = useState(false);
@@ -115,8 +118,8 @@ export default function CoachImportPage() {
   useEffect(() => {
     if (!user) return;
     if (requestedDossier) setSubjectId(`dossier:${requestedDossier}`);
-    else if (requested === 'self' || !requested) setSubjectId(user.id);
-    else setSubjectId(requested);
+    else if (requested === 'self') setSubjectId(user.id);
+    else setSubjectId(requested ?? '');
   }, [requested, requestedDossier, user]);
 
   const detections = useMemo(() => (parsed ? detectColumns(parsed.headers) : []), [parsed]);
@@ -365,11 +368,12 @@ export default function CoachImportPage() {
               resetFile();
             }}
           >
+            {!subjectId && <option value="" disabled>{t('coaching.importCsv.chooseSubject')}</option>}
             <optgroup label={t('coaching.importCsv.subjectPeople')}>
-              {user ? <option value={user.id}>{t('coaching.importCsv.myself')}</option> : null}
               {ownedClients.map((client) => (
                 <option key={client.id} value={client.id}>{displayName(client)}</option>
               ))}
+              {user ? <option value={user.id}>{t('coaching.importCsv.myself')}</option> : null}
             </optgroup>
             <optgroup label={t('coaching.importCsv.subjectDossiers')}>
               {openDossiers.map((dossier) => (
@@ -388,7 +392,7 @@ export default function CoachImportPage() {
           </p>
         ) : null}
 
-        {!subjectAllowed ? (
+        {subjectId && !subjectAllowed ? (
           <p className="text-sm text-amber-200 mb-4">{t('coaching.importCsv.errors.not_your_client')}</p>
         ) : null}
 

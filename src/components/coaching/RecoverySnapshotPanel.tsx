@@ -10,7 +10,7 @@ import {
   recoveryContextPayload,
 } from '../../lib/coachRecovery';
 import { displayName } from '../../lib/coachText';
-import { formatDate } from '../../lib/utils';
+import { formatDate, formatNumber } from '../../lib/utils';
 import type { CoachClientSummary, RecoverySnapshot } from '../../lib/types';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
@@ -61,7 +61,7 @@ export default function RecoverySnapshotPanel({
   const name = client ? displayName(client) : t('coaching.unnamed');
   const canAsk = canAskRecoveryAdjust(snapshot);
   const sleepLabel = snapshot.sleepHours != null
-    ? t('coaching.recovery.hours', { n: snapshot.sleepHours })
+    ? t('coaching.recovery.hours', { n: formatNumber(snapshot.sleepHours) })
     : (snapshot.sleepQuality != null ? formatCheckinScore(snapshot.sleepQuality, snapshot.checkin) : '—');
   const painLabel = formatCheckinScore(snapshot.pain, snapshot.checkin);
   const energyLabel = formatCheckinScore(snapshot.energy, snapshot.checkin);
