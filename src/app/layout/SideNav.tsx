@@ -1,5 +1,6 @@
+import { openGlobalSearch } from '../../features/search/openSearch';
 import { NavLink, Link, useLocation } from 'react-router-dom';
-import { Plus } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useCoachingStore } from '../../stores/coachingStore';
@@ -29,6 +30,18 @@ export default function SideNav() {
       </div>
       <div className="px-3 pt-3">
         <WorkspaceSwitcher />
+      </div>
+      <div className="px-3 pt-2">
+        <button
+          type="button"
+          onClick={openGlobalSearch}
+          className="w-full min-h-11 flex items-center gap-2 rounded-xl border border-neutral-800 bg-neutral-900/60 px-3 text-sm text-neutral-400 hover:text-white"
+          data-testid="sidenav-search"
+        >
+          <Search size={16} aria-hidden="true" />
+          <span className="flex-1 text-left">{t('search.title')}</span>
+          <kbd className="text-[10px] text-neutral-600">⌘K</kbd>
+        </button>
       </div>
 
       <nav className="flex-1 px-3 py-3 space-y-3 overflow-y-auto scrollbar-hide">

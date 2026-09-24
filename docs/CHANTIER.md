@@ -1000,6 +1000,17 @@ Vision §19 (et §20 V1 : vidéo de technique envoyée dans le fil, analysée pa
 - Le destinataire ne peut toujours modifier que `read_at` : contenu immuable.
 
 Reste : propositions IA non partageables (elles sont privées au Coach ; décision produit à prendre sur ce que l'athlète en voit) ; référence à une série précise ; vidéo attachée directement à une série hors messagerie (§20) ; fichiers de messagerie à inclure dans la suppression de compte (§30).
+
+## Recherche globale contextuelle (branche `agent/p5-17-recherche`, en revue)
+
+Vision §33. Pas de migration.
+
+- Une seule recherche (⌘K / Ctrl+K, loupe du Dashboard sur mobile, bouton dans la navigation latérale) qui remplace la palette Coach. Le workspace affiché choisit **quoi** chercher ; la RLS décide de ce qui est lisible.
+- Coach : clients, prospects (conversation ouverte), programmes/templates possédés, exercices du catalogue (infos + vidéo), conversations (texte des messages de ses fils, extrait autour du mot). « Demander à Prometheus » reste accessible ; ses réponses s'affichent pour les vraies questions (« qui n'a pas… », « squat de Léa »).
+- Athlète (Solo, Coaché, Coach dans son espace personnel) : exercices (vers sa progression), séances, routines, programmes (possédés + programme du Coach), objectifs, douleurs/contraintes, recettes.
+- Jamais d'existence révélée : chaque source est une lecture RLS filtrée sur ses propres lignes ou ses propres fils ; aucune RPC élargie. Insensible aux accents, 2 lettres minimum, 5 résultats par groupe, navigation clavier, état vide explicite.
+
+Reste : pas d'index plein texte côté serveur (recherche `ilike` sur séances et messages) ; pas de page bibliothèque d'exercices côté Coach.
 ---
 
 # P6 — Architecture économique de bêta
