@@ -56,3 +56,9 @@ test('a declared pain reaches the coach without health details in the push', () 
   assert.equal(push?.body, 'Lucas a signalé une douleur ou une contrainte.');
   assert.doesNotMatch(push?.body ?? '', /knee|genou/);
 });
+
+test('a due check-in is a plain fact, never a reproach', () => {
+  const push = renderActionNotification(row('checkin_due', { url: '/checkin' }));
+  assert.equal(push?.body, 'Ton check-in est prévu aujourd’hui.');
+  assert.doesNotMatch(push?.body ?? '', /oubli|manqu|encore|toujours pas/i);
+});

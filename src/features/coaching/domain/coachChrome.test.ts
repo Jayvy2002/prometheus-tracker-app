@@ -175,8 +175,8 @@ test('UX28: missing logs are not framed as the athlete’s fault', () => {
   assert.doesNotMatch(fr, /Séance manquée/);
   assert.doesNotMatch(fr, /Check-ins manqués/);
   assert.doesNotMatch(fr, /Séances manquées/);
-  // Silence is reported over a window, never « today » (Vision §11.2).
-  assert.match(fr, /pas de check-in depuis 7 jours/);
+  // Silence follows the client's rhythm, never « today » (Vision §11.2).
+  assert.match(fr, /check-in attendu non reçu/);
   assert.doesNotMatch(fr, /pas de check-in aujourd’hui/i);
   assert.doesNotMatch(fr, /missed_checkin: 'Check-in à relire'/);
   assert.match(fr, /Séance non loggée/);

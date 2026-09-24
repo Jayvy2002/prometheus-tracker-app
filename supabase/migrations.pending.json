@@ -39,6 +39,10 @@
     {
       "version": "20260924150000",
       "name": "checkin_templates_plans"
+    },
+    {
+      "version": "20260924160000",
+      "name": "checkin_due"
     }
   ]
 }

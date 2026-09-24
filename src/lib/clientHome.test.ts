@@ -168,7 +168,9 @@ test('client home copy is FR tutoiement; Dashboard never uses a 999 sentinel', (
   assert.doesNotMatch(dash, /navigate\('\/programs\/new'\)/);
   assert.doesNotMatch(dash, /nextAction === 'checkin'/);
   assert.doesNotMatch(dash, /Navigate to="\/checkin"/);
-  assert.match(dash, /showModule\(tracking, 'checkins'\) && !todayCheckin && !activityPending/);
+  // « Due » follows the athlete's check-in rhythm; daily only when none was chosen (Vision §11.2).
+  assert.match(dash, /showModule\(tracking, 'checkins'\) && !activityPending/);
+  assert.match(dash, /isCheckinDue\(checkinSchedule\.plan/);
   assert.match(dash, /NutritionRings/);
   assert.doesNotMatch(dash, /hasSentNutritionTarget/);
   assert.doesNotMatch(dash, /\?\? 2000/);

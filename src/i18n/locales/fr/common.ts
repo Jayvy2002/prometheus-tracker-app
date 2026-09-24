@@ -718,6 +718,7 @@ const common = {
         messages: 'Je reçois un message',
         coaching: 'Une demande de coaching avance',
         program: 'Mon coach m’envoie un programme',
+        checkins: 'Mon check-in est prévu aujourd’hui',
         decisions: 'Prometheus prépare des propositions à décider',
       },
       fixedTitle: 'Rappels à heure fixe',

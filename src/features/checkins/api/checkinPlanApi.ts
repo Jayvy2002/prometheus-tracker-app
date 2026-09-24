@@ -62,3 +62,15 @@ export async function setPlan(input: {
   });
   return { error: error?.message ?? null };
 }
+
+/** Date of the athlete's latest check-in (null if none). */
+export async function fetchLastCheckinDate(userId: string): Promise<string | null> {
+  const { data } = await supabase
+    .from('daily_checkins')
+    .select('checked_at')
+    .eq('user_id', userId)
+    .order('checked_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return (data as { checked_at: string } | null)?.checked_at ?? null;
+}

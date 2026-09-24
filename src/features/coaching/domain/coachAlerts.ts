@@ -1,4 +1,5 @@
 import { addDaysToDateStr, todayStr } from '../../../lib/utils';
+import { checkinOverdueForCoach, type ScheduleInput } from '../../checkins/domain/checkinSchedule';
 import type {
   ClientAlertKind,
   ClientOpsRow,
@@ -22,7 +23,8 @@ const DEFAULT_TRACKING: Pick<
  * about silence that lasts a whole window, and never before the relationship
  * is at least that old: a client linked this morning has missed nothing.
  */
-export const CHECKIN_WINDOW_DAYS = 7;
+/** Check-ins follow each client's rhythm (checkinOverdueForCoach); this only bounds the query. */
+export const CHECKIN_LOOKBACK_DAYS = 45;
 export const NUTRITION_WINDOW_DAYS = 3;
 export const WEIGHT_WINDOW_DAYS = 7;
 export const WORKOUT_WINDOW_DAYS = 7;
@@ -44,8 +46,10 @@ export interface CoachOpsFacts {
   weekday: number;
   localHour: number;
   missedWorkoutCutoffHour: number;
-  /** Clients with a check-in in the last CHECKIN_WINDOW_DAYS days. */
-  checkinUserIds: Set<string>;
+  /** Latest check-in date per client (within CHECKIN_LOOKBACK_DAYS). */
+  lastCheckinByUser: Map<string, string>;
+  /** The rhythm each client's check-in follows (none = a week of silence is the signal). */
+  checkinPlanByClient: Map<string, ScheduleInput>;
   /** Clients with a food log in the last NUTRITION_WINDOW_DAYS days. */
   nutritionUserIds: Set<string>;
   /** Clients with a weigh-in in the last WEIGHT_WINDOW_DAYS days. */
@@ -91,6 +95,17 @@ export function weekAgoStr(today = todayStr()): string {
   return addDaysToDateStr(today, -6);
 }
 
+/** Latest date per user from rows of (user_id, date). */
+export function latestDateByUser(rows: ReadonlyArray<{ user_id: string; checked_at: string }>): Map<string, string> {
+  const latest = new Map<string, string>();
+  for (const row of rows) {
+    const date = row.checked_at.slice(0, 10);
+    const prev = latest.get(row.user_id);
+    if (!prev || date > prev) latest.set(row.user_id, date);
+  }
+  return latest;
+}
+
 export function datePrefix(value: string): string {
   return value.slice(0, 10);
 }
@@ -110,7 +125,12 @@ export function buildClientOpsRows(clients: CoachClientSummary[], facts: CoachOp
       if (!hasProgram) alerts.push('program_unassigned');
 
       const observed = (days: number) => linkedForAtLeast(client.linked_at, facts.today, days);
-      if (tracking.track_checkins && observed(CHECKIN_WINDOW_DAYS) && !facts.checkinUserIds.has(client.id)) {
+      if (tracking.track_checkins && checkinOverdueForCoach({
+        plan: facts.checkinPlanByClient.get(client.id) ?? null,
+        lastCheckinDate: facts.lastCheckinByUser.get(client.id) ?? null,
+        today: facts.today,
+        linkedAt: client.linked_at,
+      })) {
         alerts.push('missing_checkin');
       }
       if (tracking.track_nutrition && observed(NUTRITION_WINDOW_DAYS) && !facts.nutritionUserIds.has(client.id)) {

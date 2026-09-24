@@ -14,7 +14,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useAccountContext } from '@/features/account/hooks/useAccountContext';
 
-type ActionCategory = 'messages' | 'coaching' | 'program' | 'decisions';
+type ActionCategory = 'messages' | 'coaching' | 'program' | 'checkins' | 'decisions';
 
 function Toggle({ checked, onChange, label }: { checked: boolean; onChange: () => void; label: string }) {
   return (
@@ -43,8 +43,8 @@ export default function NotificationSettings() {
   const categories = profile?.notification_categories ?? {};
   // Vision §21: notify what needs an action now; « decisions » only exist for a coach.
   const actionCategories: ActionCategory[] = canCoach
-    ? ['messages', 'coaching', 'program', 'decisions']
-    : ['messages', 'coaching', 'program'];
+    ? ['messages', 'coaching', 'program', 'checkins', 'decisions']
+    : ['messages', 'coaching', 'program', 'checkins'];
   const [permission, setPermission] = useState<NotificationPermission>(
     'Notification' in window ? Notification.permission : 'denied',
   );

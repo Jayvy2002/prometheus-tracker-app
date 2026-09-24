@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { buildClientOpsRows, coachClockFacts, linkedForAtLeast, weekAgoStr, windowStart } from './coachAlerts';
 import type { CoachClientSummary, ClientTrackingConfig } from '../../../lib/types';
+import type { ScheduleInput } from '../../checkins/domain/checkinSchedule';
 
 const client = {
   id: 'client-1', full_name: 'Hugo', email: '', avatar_url: '', linked_at: '',
@@ -15,7 +16,8 @@ function alertsAt(localHour: number, workoutDates: string[] = []) {
   return buildClientOpsRows([client], {
     today, weekAgo: weekAgoStr(today), weekday: 1, localHour,
     missedWorkoutCutoffHour: 21,
-    checkinUserIds: new Set(['client-1']),
+    lastCheckinByUser: new Map([['client-1', '2026-08-30']]),
+    checkinPlanByClient: new Map(),
     nutritionUserIds: new Set(['client-1']),
     weightUserIds: new Set(['client-1']),
     workoutDatesByUser: new Map([['client-1', workoutDates]]),
@@ -38,12 +40,15 @@ test('coach clock uses the configured timezone around UTC midnight', () => {
   assert.deepEqual(clock, { today: '2026-08-31', weekday: 1, localHour: 20 });
 });
 
-function checkinAlertsFor(opts: { linkedAt: string; checkedInWithinWeek: boolean }) {
+function checkinAlertsFor(opts: { linkedAt: string; checkedInWithinWeek: boolean; lastCheckin?: string; plan?: ScheduleInput }) {
   const today = '2026-08-31';
   return buildClientOpsRows([{ ...client, linked_at: opts.linkedAt }], {
     today, weekAgo: weekAgoStr(today), weekday: 1, localHour: 10,
     missedWorkoutCutoffHour: 21,
-    checkinUserIds: new Set(opts.checkedInWithinWeek ? ['client-1'] : []),
+    lastCheckinByUser: new Map(
+      opts.lastCheckin ? [['client-1', opts.lastCheckin]] : opts.checkedInWithinWeek ? [['client-1', '2026-08-28']] : [],
+    ),
+    checkinPlanByClient: new Map(opts.plan ? [['client-1', opts.plan]] : []),
     nutritionUserIds: new Set(),
     weightUserIds: new Set(),
     workoutDatesByUser: new Map(),
@@ -61,6 +66,15 @@ test('a client linked today has missed nothing yet', () => {
   assert.equal(alerts.includes('missing_checkin'), false);
   assert.equal(alerts.includes('missing_nutrition'), false);
   assert.equal(alerts.includes('missing_weight'), false);
+});
+
+test('with a monthly rhythm, three weeks without a check-in is not a silence (Vision §11.2)', () => {
+  const monthly: ScheduleInput = { frequency: 'monthly', weekday: null, anchor_date: '2026-08-05' };
+  // Due on the 5th, checked in on the 6th: nothing to say on the 31st.
+  assert.equal(checkinAlertsFor({ linkedAt: '2026-06-01', checkedInWithinWeek: false, lastCheckin: '2026-08-06', plan: monthly }).includes('missing_checkin'), false);
+  // Weekly on Wednesday (26th), nothing since the 20th, grace over on the 28th: the coach is told.
+  const weekly: ScheduleInput = { frequency: 'weekly', weekday: 3, anchor_date: '2026-08-01' };
+  assert.equal(checkinAlertsFor({ linkedAt: '2026-06-01', checkedInWithinWeek: false, lastCheckin: '2026-08-20', plan: weekly }).includes('missing_checkin'), true);
 });
 
 test('check-in silence is a 7-day window, not a daily expectation', () => {
