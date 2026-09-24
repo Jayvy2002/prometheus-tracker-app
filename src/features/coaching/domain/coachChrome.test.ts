@@ -138,10 +138,13 @@ test('Coached client shell: photos and program in hub, messages in tabs, no coac
   );
   assert.match(coachedMobile, /\bmessages\b/);
   assert.match(coachedMobile, /\bbody\b/);
-  // Calendar is a main page for the coached athlete too; profile opens from the avatar.
+  // Calendar is a main page for the coached athlete too; profile opens from the avatar,
+  // the same one in the Dashboard header and above his other main pages.
   assert.match(coachedMobile, /\bsuivi\b/);
   assert.doesNotMatch(coachedMobile, /\bphotos\b/);
-  assert.match(dashAvatar(), /to="\/profile"/);
+  assert.match(dashAvatar(), /<ProfileAvatarLink \/>/);
+  assert.match(src('src/app/layout/ProfileAvatarLink.tsx'), /to="\/profile"/);
+  assert.match(src('src/app/layout/AppLayout.tsx'), /profileShortcutVisible\(/);
   const dash = src('src/components/dashboard/Dashboard.tsx') + src('src/features/dashboard/hooks/useDashboardBootstrap.ts');
   assert.doesNotMatch(dash, /navigate\('\/photos'\)/);
   assert.doesNotMatch(dash, /dashboard\.photosCard/);

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Dumbbell, Sparkles } from 'lucide-react';
@@ -28,8 +28,11 @@ import { toast } from '../ui/Toast';
  */
 export default function SoloProgramProposal({
   variant = 'full',
+  onSettled,
 }: {
   variant?: 'notice' | 'full';
+  /** Fires once pending proposals are known (shown or not): the Dashboard reveals its late cards together. */
+  onSettled?: () => void;
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -49,9 +52,21 @@ export default function SoloProgramProposal({
 
   const { canUpdateOwnAssignedProgram: canEditOwnPlan } = useResourcePermissions();
 
+  const settledRef = useRef(onSettled);
+  settledRef.current = onSettled;
+
   useEffect(() => {
-    if (!user || !canEditOwnPlan) return;
-    void fetchPendingInterventions();
+    if (!user || !canEditOwnPlan) {
+      settledRef.current?.();
+      return;
+    }
+    let cancelled = false;
+    void fetchPendingInterventions().catch(() => undefined).finally(() => {
+      if (!cancelled) settledRef.current?.();
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [user?.id, canEditOwnPlan]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const row = user && canEditOwnPlan ? pendingSoloProgramDraft(pendingInterventions, user.id) : null;

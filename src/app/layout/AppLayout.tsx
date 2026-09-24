@@ -11,7 +11,9 @@ import { useAccountContext } from '@/features/account/hooks/useAccountContext';
 import AssignedQuestionnaireBanner from '../../components/onboarding/AssignedQuestionnaireBanner';
 import SessionResumeBar from '../../components/workout/SessionResumeBar';
 import { useResumableWorkout } from '@/features/workout/hooks/useResumableWorkout';
-import { quickAddVisible } from '@/app/navigation/navConfig';
+import { quickAddVisible, mobileTabs, navPersona, profileShortcutVisible } from '@/app/navigation/navConfig';
+import { useClientTracking } from '@/features/coaching/hooks/useClientTracking';
+import ProfileAvatarLink from './ProfileAvatarLink';
 
 export default function AppLayout() {
   const coachingRole = useCoachingStore(s => s.coachingRole);
@@ -28,6 +30,13 @@ export default function AppLayout() {
   // weight, programs…) never get a second floating button over it. With a
   // resume bar the FAB sits above it instead of disappearing.
   const hideFab = isCoach || !quickAddVisible(location.pathname);
+  const tracking = useClientTracking();
+  // Profil is a tab for the Solo and the Coach. The coached athlete keeps
+  // Messages as fifth tab: his avatar opens Profil from every main page.
+  const showProfileShortcut = profileShortcutVisible(
+    location.pathname,
+    mobileTabs(navPersona(context), tracking),
+  );
 
   useEffect(() => {
     trackScreen(location.pathname);
@@ -54,6 +63,11 @@ export default function AppLayout() {
       <main className="flex-1 min-w-0 pb-24 md:pb-8 md:ml-64">
         {/* Today uses the desktop width in two columns; reading pages stay narrow. */}
         <div className={`mx-auto w-full ${isCoach ? 'max-w-6xl' : location.pathname === '/dashboard' ? 'max-w-3xl lg:max-w-6xl' : 'max-w-3xl'}`}>
+          {showProfileShortcut && (
+            <div className="md:hidden px-4 pt-3" data-testid="profile-shortcut">
+              <ProfileAvatarLink />
+            </div>
+          )}
           <AssignedQuestionnaireBanner />
           <Outlet />
         </div>
