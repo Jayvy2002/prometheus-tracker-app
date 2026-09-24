@@ -15,6 +15,10 @@
     {
       "version": "20260924090000",
       "name": "offline_session_start"
+    },
+    {
+      "version": "20260924100000",
+      "name": "exercise_catalog_accents"
     }
   ]
 }

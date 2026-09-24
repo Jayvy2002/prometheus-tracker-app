@@ -4,12 +4,20 @@ export function findCatalogExercise(
   exercises: readonly Exercise[],
   name: string,
 ): Exercise | undefined {
-  const q = name.trim().toLowerCase();
+  const q = catalogKey(name);
   if (!q) return undefined;
   return exercises.find(e =>
-    e.name.toLowerCase() === q
-    || (e.name_fr && e.name_fr.toLowerCase() === q),
+    catalogKey(e.name) === q
+    || (e.name_fr && catalogKey(e.name_fr) === q),
   );
+}
+
+/**
+ * Accents and case do not change an exercise: sessions logged as
+ * « Developpe couche » keep matching the catalog's « Développé couché ».
+ */
+function catalogKey(name: string): string {
+  return name.trim().normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
 }
 
 export function catalogHasExecutionMedia(ex: Pick<Exercise, 'video_url' | 'primary_muscles'>): boolean {

@@ -66,8 +66,10 @@ test('deadlift shows the back view; bench the front (and back if triceps are sec
 });
 
 test('catalog match is name or name_fr; media requires video + primary muscles', () => {
-  const bench = sample({ name: 'Bench Press', name_fr: 'Developpe couche' });
+  const bench = sample({ name: 'Bench Press', name_fr: 'Développé couché' });
+  // A session logged before the accents fix still finds its catalog row.
   assert.equal(findCatalogExercise([bench], 'developpe couche')?.name, 'Bench Press');
+  assert.equal(findCatalogExercise([bench], 'Développé Couché')?.name, 'Bench Press');
   assert.equal(catalogHasExecutionMedia(bench), true);
   assert.equal(catalogHasExecutionMedia({ ...bench, video_url: null }), false);
 });

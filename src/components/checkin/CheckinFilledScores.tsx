@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { formatCheckinScore } from '../../lib/checkinScale';
 import { usedCheckinScores } from '../../lib/checkinHistory';
 import type { DailyCheckin } from '../../lib/types';
+import { formatNumber } from '../../lib/utils';
 
 export default function CheckinFilledScores({ row }: { row: DailyCheckin }) {
   const { t } = useTranslation();
@@ -12,7 +13,7 @@ export default function CheckinFilledScores({ row }: { row: DailyCheckin }) {
   return (
     <div className="grid grid-cols-2 gap-2 text-[11px] text-neutral-400" data-testid="checkin-filled-scores">
       {row.sleep_hours != null ? (
-        <span>{t('checkin.sleepHours')}: {row.sleep_hours}</span>
+        <span>{t('checkin.sleepHours')}: {formatNumber(row.sleep_hours)}</span>
       ) : null}
       {scores.map(key => (
         <span key={key}>

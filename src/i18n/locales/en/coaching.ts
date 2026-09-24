@@ -84,6 +84,7 @@ const coaching = {
     moreDetailsCount: 'More details ({{count}})',
     extraHint: 'Optional. Use this for hunger, pain, or mood — you can leave them blank.',
     sleepHours: 'Hours of sleep',
+    sleepHoursInvalid: 'Hours of sleep between 0 and 24 (e.g. 7.5).',
     optional: 'Optional',
     notes: 'Notes',
     notesPlaceholder: 'How are you feeling today?',

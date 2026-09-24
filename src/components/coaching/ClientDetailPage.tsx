@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { useAuthStore } from '../../stores/authStore';
-import { formatDate, formatWeight, formatWeightDelta, todayStr } from '../../lib/utils';
+import { formatClock, formatDate, formatWeight, formatWeightDelta, todayStr } from '../../lib/utils';
 import { useProfileStore } from '../../stores/profileStore';
 import { openDraftHref } from '../../lib/coachInterventions';
 import { outlineFromProgram } from '../../lib/coachDraftSend';
@@ -555,7 +555,7 @@ export default function ClientDetailPage() {
         {dossierFetchedAt && (
           <p className="text-[11px] text-neutral-600 mb-3" role="status">
             {t('coaching.client360.updatedAt', {
-              time: new Date(dossierFetchedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              time: formatClock(dossierFetchedAt),
             })}
           </p>
         )}

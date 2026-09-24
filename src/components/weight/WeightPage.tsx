@@ -6,8 +6,9 @@ import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useWeightStore } from '../../stores/weightStore';
 
-import { formatWeight, formatDate, formatDateShort, parseDateStr, todayStr } from '../../lib/utils';
+import { formatWeight, formatWeightDelta, formatNumber, formatDate, formatDateShort, parseDateStr, todayStr, weightInUnit } from '../../lib/utils';
 import { rollingWeightTrend, weeklyAverageKg } from '../../lib/weeklyWeight';
+import { parseDecimalInput } from '../../features/workout/domain/workoutSetComplete';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, ReferenceLine } from 'recharts';
 import { toast } from '../ui/Toast';
 import Card from '../ui/Card';
@@ -66,7 +67,8 @@ export default function WeightPage() {
 
   const handleSubmit = async () => {
     if (!user || !weight) return;
-    const val = +weight;
+    // « 78,3 » and « 78.3 » are the same weigh-in.
+    const val = parseDecimalInput(weight);
     const minVal = unit === 'lbs' ? 44 : 20;
     const maxVal = unit === 'lbs' ? 660 : 300;
     if (isNaN(val) || val < minVal || val > maxVal) {
@@ -90,7 +92,7 @@ export default function WeightPage() {
 
   const startEdit = (m: typeof measurements[0]) => {
     setEditId(m.id);
-    setWeight(unit === 'lbs' ? (m.weight_kg * 2.20462).toFixed(1) : m.weight_kg.toString());
+    setWeight(formatNumber(weightInUnit(m.weight_kg, unit)));
     setDate(m.measured_at);
     setShowAdd(true);
   };
@@ -108,7 +110,7 @@ export default function WeightPage() {
 
   const filtered = filterByPeriod(sortedAsc, period);
 
-  const show = (kg: number) => (unit === 'lbs' ? +(kg * 2.20462).toFixed(1) : +kg.toFixed(1));
+  const show = (kg: number) => weightInUnit(kg, unit);
   // The trend is computed on all weigh-ins so the first points of a period are not a cold start.
   const trendByDay = new Map(rollingWeightTrend(sortedAsc).map(row => [row.day, row.trend_kg]));
   const chartData = filtered.map((m: { weight_kg: number; measured_at: string }) => ({
@@ -168,7 +170,7 @@ export default function WeightPage() {
               <div className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium
                 ${diff > 0 ? 'bg-amber-500/10 text-amber-400' : 'bg-blue-500/10 text-blue-400'}`}>
                 {diff > 0 ? <TrendingUp size={14} /> : diff < 0 ? <TrendingDown size={14} /> : <Minus size={14} />}
-                {diff > 0 ? '+' : ''}{unit === 'lbs' ? (diff * 2.20462).toFixed(1) : diff} {unit}
+                {formatWeightDelta(diff, unit)}
               </div>
             )}
           </div>
@@ -200,10 +202,11 @@ export default function WeightPage() {
                 <Tooltip
                   contentStyle={{ background: '#0a0a0a', border: '1px solid #262626', borderRadius: '12px', fontSize: 12 }}
                   labelStyle={{ color: '#94a3b8' }}
+                  formatter={(value) => `${formatNumber(Number(value))} ${unit}`}
                 />
                 {targetKg > 0 && (
                   <ReferenceLine
-                    y={unit === 'lbs' ? +(targetKg * 2.20462).toFixed(1) : +targetKg.toFixed(1)}
+                    y={weightInUnit(targetKg, unit)}
                     stroke="#f59e0b"
                     strokeDasharray="4 4"
                     label={{ value: t('weight.goalLine'), fill: '#f59e0b', fontSize: 10 }}
@@ -241,11 +244,11 @@ export default function WeightPage() {
         <div className="space-y-4">
           <Input
             label={t('weight.weightField', { unit })}
-            type="number"
-            step="0.1"
+            type="text"
+            inputMode="decimal"
+            autoComplete="off"
             value={weight}
             onChange={e => setWeight(e.target.value)}
-            placeholder="75.0"
           />
           <Input label={t('weight.date')} type="date" value={date} onChange={e => setDate(e.target.value)} />
           <Button onClick={handleSubmit} className="w-full">{editId ? t('common.update') : t('common.save')}</Button>

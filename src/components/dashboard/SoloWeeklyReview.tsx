@@ -24,7 +24,7 @@ import { listAthleteDecisionLogBestEffort } from '../../features/signals/domain/
 import { loadWeeklyReviewMemory, persistAthleteWeeklyReviewCycle } from '../../features/signals/domain/weeklyReviewCycle';
 import { weeklyReviewInputFromSolo } from '../../features/signals/domain/weeklyReview';
 import type { AthleteDecisionLog } from '../../lib/types';
-import { addDaysToDateStr, todayStr } from '../../lib/utils';
+import { addDaysToDateStr, formatNumber, formatSignedNumber, todayStr } from '../../lib/utils';
 import Button from '../ui/Button';
 import { toast } from '../ui/Toast';
 
@@ -198,9 +198,9 @@ export default function SoloWeeklyReview() {
   const draft = proposal.draft;
   const messageKey = soloReviewMessageKey(review);
   const delta = evidence.deltaKg;
-  const deltaLabel = delta == null ? '—' : `${delta > 0 ? '+' : ''}${delta.toFixed(1)}`;
+  const deltaLabel = delta == null ? '—' : formatSignedNumber(delta, { maxDigits: 1 });
   const pct = evidence.ratio > 0 ? Math.round(evidence.ratio * 100) : null;
-  const pctWeek = evidence.pctPerWeek == null ? '—' : Math.abs(evidence.pctPerWeek).toFixed(1);
+  const pctWeek = evidence.pctPerWeek == null ? '—' : formatNumber(Math.abs(evidence.pctPerWeek), { minDigits: 1 });
 
   const message = t(messageKey, {
     delta: deltaLabel,

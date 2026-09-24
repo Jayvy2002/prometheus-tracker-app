@@ -84,6 +84,7 @@ const coaching = {
     moreDetailsCount: 'Plus de détails ({{count}})',
     extraHint: 'Optionnel. Utile pour faim, douleurs, humeur — tu peux laisser vide.',
     sleepHours: 'Heures de sommeil',
+    sleepHoursInvalid: 'Heures de sommeil entre 0 et 24 (ex. 7,5).',
     optional: 'Optionnel',
     notes: 'Notes',
     notesPlaceholder: 'Comment tu te sens aujourd’hui ?',

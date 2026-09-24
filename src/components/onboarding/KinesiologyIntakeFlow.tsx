@@ -12,7 +12,7 @@ import { clearOnboardingDeferred, useCoachingStore } from '../../stores/coaching
 import { stripSelfServeNutritionTargets } from '../../lib/coachOwnedTargets';
 import { isCoachedAthlete } from '../../lib/coachRole';
 import { track } from '../../lib/telemetryClient';
-import { todayStr } from '../../lib/utils';
+import { formatNumber, todayStr } from '../../lib/utils';
 import type { UserProfile } from '../../lib/types';
 import {
   DUREE_OPTIONS,
@@ -576,7 +576,7 @@ function ScreenTargets({ targets }: { targets: SoloIntakeTargets | null }) {
       </div>
       <div className="flex items-center gap-2 text-xs text-neutral-400">
         <Droplets size={14} className="text-cyan-400" />
-        {t('intake.targets.water', { liters: (targets.water_ml / 1000).toFixed(1) })}
+        {t('intake.targets.water', { liters: formatNumber(targets.water_ml / 1000, { minDigits: 1 }) })}
       </div>
       <p className="text-xs text-neutral-500">{t('intake.targets.hint')}</p>
     </div>

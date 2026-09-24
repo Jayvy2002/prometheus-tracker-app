@@ -537,6 +537,14 @@ jobs:
         run: |
           set -euo pipefail
           grep -F 'offline session start: idempotent replay, offline date kept, foreign op refused, provenance RPC-only' /tmp/offline-session-start.txt
+      - name: Test exercise catalog accents
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/exercise_catalog_accents.sql | tee /tmp/exercise-catalog-accents.txt
+      - name: Confirm exercise catalog accents echo
+        run: |
+          set -euo pipefail
+          grep -F 'exercise catalog accents: French names accented, identity and unaccented search kept' /tmp/exercise-catalog-accents.txt
       - name: Test qualification proof Storage API withdraw
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

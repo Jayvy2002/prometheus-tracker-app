@@ -65,7 +65,7 @@ export default function ExerciseCard({
   const [showNotes, setShowNotes] = useState(!!exercise.notes);
   const [localNotes, setLocalNotes] = useState('');
   const [localName, setLocalName] = useState(exercise.name);
-  const history = useExerciseHistory(exercise.name, currentWorkout?.id);
+  const history = useExerciseHistory(exercise.name, currentWorkout?.id, exercise.catalog_exercise_id);
   const [showLinkPicker, setShowLinkPicker] = useState(false);
   const [showMedia, setShowMedia] = useState(false);
   const [plateOpen, setPlateOpen] = useState(false);

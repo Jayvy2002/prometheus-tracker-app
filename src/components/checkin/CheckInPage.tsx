@@ -8,7 +8,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useCheckinStore } from '../../stores/checkinStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useCoachingStore } from '../../stores/coachingStore';
-import { todayStr } from '../../lib/utils';
+import { formatNumber, todayStr } from '../../lib/utils';
 import { clampCheckinScore } from '../../lib/checkinScale';
 import { isSoloAthlete } from '../../lib/coachRole';
 import { displayName } from '../../lib/coachText';
@@ -37,6 +37,7 @@ import ScoreSlider from './ScoreSlider';
 import CheckinFilledScores from './CheckinFilledScores';
 import CheckinHistoryList from './CheckinHistoryList';
 import { adherencePercentFromScore, adherenceScoreFromPercent } from '../../lib/checkinScale';
+import { parseDecimalInput } from '../../features/workout/domain/workoutSetComplete';
 
 const SCALE_COPY: Record<CheckinScaleKey, { field: string; low: string; high: string }> = {
   sleep_quality: { field: 'sleep_quality', low: 'poor', high: 'excellent' },
@@ -131,7 +132,7 @@ export default function CheckInPage() {
 
   useEffect(() => {
     if (!todayCheckin || logDate !== todayStr()) return;
-    setSleepHours(todayCheckin.sleep_hours != null ? String(todayCheckin.sleep_hours) : '');
+    setSleepHours(todayCheckin.sleep_hours != null ? formatNumber(todayCheckin.sleep_hours) : '');
     setNotes(todayCheckin.notes || '');
     setScales({
       sleep_quality: todayCheckin.sleep_quality,
@@ -155,7 +156,14 @@ export default function CheckInPage() {
   const handleSave = async () => {
     if (!user) return;
     setSaving(true);
-    const hours = sleepHours.trim() === '' ? null : Number(sleepHours);
+    // « 7,5 » and « 7.5 » are the same night. An invalid value is refused, never dropped silently.
+    const parsedHours = parseDecimalInput(sleepHours);
+    const hours = sleepHours.trim() === '' ? null : parsedHours;
+    if (hours != null && (!Number.isFinite(hours) || hours < 0 || hours > 24)) {
+      setSaving(false);
+      toast(t('checkin.sleepHoursInvalid'), 'error');
+      return;
+    }
     const payload: DailyCheckinInput = {
       checked_at: logDate,
       notes: showCheckinField(tracking, 'notes') || notes.trim()
@@ -284,14 +292,11 @@ export default function CheckInPage() {
           <div className="space-y-5" data-testid="checkin-core">
             {coreVars.includes('sleep_hours') && (
               <Input
-                type="number"
+                type="text"
                 inputMode="decimal"
-                min={0}
-                max={24}
-                step={0.5}
+                autoComplete="off"
                 value={sleepHours}
                 onChange={e => setSleepHours(e.target.value)}
-                placeholder="7.5"
                 label={t('checkin.sleepHours')}
               />
             )}

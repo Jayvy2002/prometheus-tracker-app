@@ -6,6 +6,7 @@ import LanguageDetector from 'i18next-browser-languagedetector';
 // The actual locale files are populated by the i18n agent.
 import en from './locales/en';
 import fr from './locales/fr';
+import { setDisplayLanguage } from '../lib/utils';
 
 i18n
   .use(LanguageDetector)
@@ -38,6 +39,8 @@ i18n
 export default i18n;
 
 function applyDocumentLang(lang: string) {
+  // Numbers and clock times follow the app language, not the browser's.
+  setDisplayLanguage(lang);
   if (typeof document === 'undefined') return;
   document.documentElement.lang = lang.toLowerCase().startsWith('fr') ? 'fr' : 'en';
 }
