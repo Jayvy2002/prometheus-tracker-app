@@ -1,5 +1,7 @@
 import ClientQuestionnairePanel from '../onboarding/ClientQuestionnairePanel';
+import { visibleCheckinFields } from '../../lib/clientTracking';
 import GoalPanel from '../goals/GoalPanel';
+import ClientCheckinPlanCard from '../checkin/ClientCheckinPlanCard';
 import ConstraintsPanel from '../constraints/ConstraintsPanel';
 import { useEffect, useMemo, useState } from 'react';
 import { useClientDossier } from '../../features/coaching/hooks/useClientDossier';
@@ -1002,6 +1004,10 @@ export default function ClientDetailPage() {
           </div>
         ) : tab === 'checkins' ? (
           <div className="space-y-3">
+            {/* Vision §10–11: the coach chooses template, rhythm and why each habit is asked. */}
+            {id && user && (
+              <ClientCheckinPlanCard clientId={id} coachId={user.id} habits={visibleCheckinFields(tracking).filter(k => k !== 'notes')} />
+            )}
             {id && focusedCheckin ? (
               <CheckinReviewPanel
                 checkin={focusedCheckin}

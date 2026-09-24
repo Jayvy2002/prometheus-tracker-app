@@ -198,6 +198,9 @@ export interface DailyCheckin {
   energy_level: number | null;
   mood: number | null;
   notes: string;
+  /** Answers to the template's custom questions, with the label of the moment (Vision §11). */
+  custom_answers?: import('../features/checkins/domain/checkinTemplate').CustomAnswer[];
+  template_id?: string | null;
   created_at: string;
   updated_at: string;
 }

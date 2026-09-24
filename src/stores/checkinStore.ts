@@ -61,6 +61,9 @@ export const useCheckinStore = create<CheckinState>((set) => ({
       energy_level: clampCheckinScore(input.energy_level),
       mood: clampCheckinScore(input.mood),
       notes: input.notes ?? '',
+      // Vision §11: custom answers are replaced as a whole for this day (label of the moment kept).
+      ...(input.custom_answers !== undefined ? { custom_answers: input.custom_answers } : {}),
+      ...(input.template_id !== undefined ? { template_id: input.template_id } : {}),
       updated_at: new Date().toISOString(),
     };
     const { data, error } = await supabase

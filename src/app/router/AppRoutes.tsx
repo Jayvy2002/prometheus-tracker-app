@@ -57,6 +57,8 @@ const CoachInboxPage = lazy(() => import('../../components/coaching/CoachInboxPa
 const ClientMessagesPage = lazy(() => import('../../components/coaching/ClientMessagesPage'));
 const ClientPhotosPage = lazy(() => import('../../components/coaching/ClientPhotosPage'));
 const CoachQuestionnairePage = lazy(() => import('../../components/coaching/CoachQuestionnairePage'));
+const CheckinTemplatesPage = lazy(() => import('../../components/checkin/CheckinTemplatesPage'));
+const CheckinSettingsPage = lazy(() => import('../../components/checkin/CheckinSettingsPage'));
 const ClientQuestionnairePanel = lazy(() => import('../../components/onboarding/ClientQuestionnairePanel'));
 const CoachLearnedPage = lazy(() => import('../../components/coaching/CoachLearnedPage'));
 const CoachImportPage = lazy(() => import('../../components/coaching/CoachImportPage'));
@@ -295,6 +297,7 @@ export default function AppRoutes() {
         <Route path="/progress/exercise/:exerciseName" element={<CoachTrackerRedirect><ExerciseProgressPage /></CoachTrackerRedirect>} />
         <Route path="/stats" element={<CoachTrackerRedirect><StatsPage /></CoachTrackerRedirect>} />
         <Route path="/checkin" element={<CoachTrackerRedirect><TrackingGate module="checkins"><CheckInPage /></TrackingGate></CoachTrackerRedirect>} />
+        <Route path="/checkin/settings" element={<CoachTrackerRedirect><TrackingGate module="checkins"><CheckinSettingsPage /></TrackingGate></CoachTrackerRedirect>} />
         <Route path="/clients" element={<CoachOnly><ClientsPage /></CoachOnly>} />
         <Route path="/clients/:id" element={<CoachOnly><ActiveRelationshipBoundary><ClientDetailPage /></ActiveRelationshipBoundary></CoachOnly>} />
         <Route path="/clients/:id/setup" element={<CoachOnly><ActiveRelationshipBoundary><ClientSetupPage /></ActiveRelationshipBoundary></CoachOnly>} />
@@ -305,6 +308,7 @@ export default function AppRoutes() {
         <Route path="/photos" element={<CoachTrackerRedirect><ClientPhotosPage /></CoachTrackerRedirect>} />
         <Route path="/prometheus" element={<CoachOnly><AskPrometheusPage /></CoachOnly>} />
         <Route path="/coach/questionnaire" element={<CoachOnly><CoachQuestionnairePage key={user.id} /></CoachOnly>} />
+        <Route path="/coach/checkins" element={<CoachOnly><CheckinTemplatesPage key={user.id} /></CoachOnly>} />
         <Route path="/questionnaire" element={<AthleteQuestionnairePage key={user.id} />} />
         <Route path="/coach/learned" element={<CoachOnly><CoachLearnedPage /></CoachOnly>} />
         <Route path="/coach/import" element={<CoachOnly><CoachImportPage /></CoachOnly>} />
