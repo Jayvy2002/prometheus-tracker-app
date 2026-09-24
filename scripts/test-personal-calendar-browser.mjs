@@ -77,6 +77,11 @@ check(await admin.from('coach_client_links').insert([
   { coach_id: coach.id, client_id: coached.id, status: 'active' },
   { coach_id: coach.id, client_id: dual.id, status: 'active' },
 ]));
+// As a real activation does: the coach follows training, so personal routines stay open.
+check(await admin.from('client_tracking_config').insert([
+  { coach_id: coach.id, client_id: coached.id, track_workouts: true },
+  { coach_id: coach.id, client_id: dual.id, track_workouts: true },
+]));
 
 function civilInTimeZone(timeZone, d = new Date()) {
   const fmt = new Intl.DateTimeFormat('en-CA', {
