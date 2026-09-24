@@ -47,7 +47,7 @@ test('an unreadable answer is « none », never « paid »', () => {
 });
 
 test('SQL contract: separate table, service-only writes, own reads, coach grace from P1.5', () => {
-  const sql = src('supabase/migrations/20260923140000_p6_entitlements.sql');
+  const sql = src('supabase/migrations/20260924205000_p6_entitlements.sql');
   assert.match(sql, /CREATE TABLE IF NOT EXISTS public\.account_entitlements/);
   assert.match(sql, /REVOKE ALL ON public\.account_entitlements FROM PUBLIC, anon, authenticated/);
   assert.match(sql, /GRANT SELECT ON public\.account_entitlements TO authenticated/);
@@ -62,7 +62,7 @@ test('SQL contract: separate table, service-only writes, own reads, coach grace 
   // The legacy free/premium model is not an input.
   assert.doesNotMatch(sql, /FROM public\.subscriptions|role = 'premium'/);
   const pending = JSON.parse(src('supabase/migrations.pending.json')) as { pending: Array<{ version: string }> };
-  assert.ok(pending.pending.some(row => row.version === '20260923140000'));
+  assert.ok(pending.pending.some(row => row.version === '20260924205000'));
   assert.match(src('.github/workflows/ci.yml'), /supabase\/tests\/p6_entitlements\.sql/);
 });
 

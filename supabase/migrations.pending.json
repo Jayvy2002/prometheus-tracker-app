@@ -9,10 +9,6 @@
       "name": "p5_audit_followup"
     },
     {
-      "version": "20260923140000",
-      "name": "p6_entitlements"
-    },
-    {
       "version": "20260923170000",
       "name": "progress_photo_sharing"
     },
@@ -63,6 +59,10 @@
     {
       "version": "20260924200000",
       "name": "account_deletion_window"
+    },
+    {
+      "version": "20260924205000",
+      "name": "p6_entitlements"
     }
   ]
 }

@@ -70,4 +70,4 @@ Profil → Avancé → carte « Accès », en lecture seule : ligne Personnel, l
 
 ## Migration
 
-`20260923140000_p6_entitlements`, pending. Horodatée après les deux migrations en attente de la PR #221 pour garder l’ordre d’application.
+`20260924205000_p6_entitlements`, pending. D’abord horodatée `20260923140000` ; renommée avant son application parce que la production avait déjà reçu les migrations de l’audit 2 (`20260924200000`) et que la CLI refuse d’insérer une version antérieure à la dernière version distante. Elle ne crée que des objets nouveaux (`account_entitlements` et ses fonctions), l’ordre n’a donc aucun effet sur le schéma.
