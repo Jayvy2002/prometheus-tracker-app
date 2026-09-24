@@ -96,9 +96,10 @@ export default function CoachDashboard() {
             <IconButton label={t('common.search')} onClick={openGlobalSearch}>
               <Search size={18} />
             </IconButton>
-            <IconButton label={t('coaching.ask.shortcut')} onClick={() => navigate('/prometheus')}>
-              <Sparkles size={18} />
-            </IconButton>
+            <Button type="button" variant="secondary" size="sm" aria-label={t('soloAsk.label')} onClick={() => navigate('/prometheus')}>
+              <Sparkles size={16} aria-hidden="true" />
+              <span aria-hidden="true">{t('soloAsk.short')}</span>
+            </Button>
           </div>
         </div>
 

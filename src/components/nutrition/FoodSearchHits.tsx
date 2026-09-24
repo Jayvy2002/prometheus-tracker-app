@@ -34,12 +34,12 @@ export default function FoodSearchHits({ results, onSelect }: Props) {
                 {p.brand && <span className="text-neutral-500 ml-1.5 text-xs">{p.brand}</span>}
               </div>
             </div>
-            <span className="text-xs text-neutral-500 whitespace-nowrap">{Math.round(p.calories_per_100g)} cal</span>
+            <span className="text-xs text-neutral-500 whitespace-nowrap">{t('nutrition.kcalPer100g', { value: Math.round(p.calories_per_100g) })}</span>
           </div>
           <div className="text-[11px] text-neutral-600 mt-0.5 pl-[18px]">
             {t(foodProvenanceKey(foodProvenanceKind(p)))}
             {' · '}
-            P: {Math.round(p.protein_per_100g)}g | C: {Math.round(p.carbs_per_100g)}g | F: {Math.round(p.fat_per_100g)}g / 100g
+            {t('nutrition.macrosPer100g', { p: Math.round(p.protein_per_100g), c: Math.round(p.carbs_per_100g), f: Math.round(p.fat_per_100g) })}
           </div>
         </button>
       ))}

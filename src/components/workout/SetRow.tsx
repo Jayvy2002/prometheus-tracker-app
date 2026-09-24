@@ -342,7 +342,7 @@ export function SetRow({
               ${typeInfo.bgColor} ${typeInfo.color} hover:brightness-125`}
           >
             {showSets ? <span>{index + 1}</span> : null}
-            <span>{typeInfo.shortLabel}</span>
+            <span>{optionLabel(t, 'setTypeShort', typeInfo.value, typeInfo.shortLabel)}</span>
           </button>
           {showTypePicker && (
             <SetTypePicker

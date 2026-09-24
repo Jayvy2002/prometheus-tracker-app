@@ -267,11 +267,11 @@ test('Clients page uses the roster sort and row facts, Setup only if not configu
   const fr = i18nLocaleSource('fr');
   assert.match(fr, /noProgram:\s*'Pas de programme'/);
   assert.match(fr, /goalCut:\s*'Sèche'/);
-  assert.match(fr, /goalPerf:\s*'Perf'/);
+  assert.match(fr, /goalPerf:\s*'Performance'/);
   assert.match(fr, /prevFile:\s*'Fiche précédente'/);
   assert.match(fr, /nextFile:\s*'Fiche suivante'/);
   assert.match(fr, /checkin:\s*'Check-in'/);
-  assert.match(fr, /missed:\s*'Logs manquants'/);
+  assert.match(fr, /missed:\s*'Saisies manquantes'/);
   assert.match(fr, /filterWhy:/);
 });
 

@@ -13,6 +13,7 @@ import { supabase } from '../../lib/supabase';
 import { isCoachedAthlete } from '../../lib/coachRole';
 import { profileHasMedicalFlags } from '../../lib/kinesiologyIntake';
 import { getAge } from '../../lib/utils';
+import { MIN_LOGGED_DAYS_FOR_GAP } from '../../lib/clientHome';
 import {
   SOLO_REVIEW_WINDOW_DAYS,
   computeSoloWeeklyReview,
@@ -246,8 +247,15 @@ export default function SoloWeeklyReview() {
           <p className="text-sm text-white leading-snug whitespace-pre-line">{message}</p>
           <div className="mt-3 grid grid-cols-3 gap-2">
             <div className="rounded-lg bg-neutral-900 border border-neutral-800 p-2">
-              <p className="text-[10px] text-neutral-500 flex items-center gap-1"><Flame size={10} className="text-orange-400" /> {t('soloReview.statKcal')}</p>
-              <p className="text-sm font-bold text-white">{draft?.calories ?? evidence.avgCalories}</p>
+              <p className="text-[10px] text-neutral-500 flex items-center gap-1">
+                <Flame size={10} className="text-orange-400" aria-hidden="true" />
+                {draft ? t('soloReview.statKcalTarget') : t('soloReview.statKcal')}
+              </p>
+              <p className="text-sm font-bold text-white">
+                {draft
+                  ? formatNumber(draft.calories, { maxDigits: 0 })
+                  : evidence.loggedDays >= MIN_LOGGED_DAYS_FOR_GAP ? formatNumber(evidence.avgCalories, { maxDigits: 0 }) : '—'}
+              </p>
             </div>
             <div className="rounded-lg bg-neutral-900 border border-neutral-800 p-2">
               <p className="text-[10px] text-neutral-500">{t('soloReview.statWeight')}</p>
@@ -258,7 +266,9 @@ export default function SoloWeeklyReview() {
               <p className="text-sm font-bold text-white">{evidence.workouts}</p>
             </div>
           </div>
-          <p className="text-[11px] text-neutral-500 mt-1">{t('soloReview.nothingAuto')}</p>
+          <p className="text-[11px] text-neutral-500 mt-1">
+            {t('soloReview.statWindow', { days: SOLO_REVIEW_WINDOW_DAYS, count: evidence.loggedDays })} {t('soloReview.nothingAuto')}
+          </p>
         </div>
       </div>
 

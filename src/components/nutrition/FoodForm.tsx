@@ -378,7 +378,7 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
                     <div className="flex items-center gap-2">
                       <Clock size={13} className="text-neutral-500 shrink-0" />
                       <span className="font-medium text-white text-sm flex-1 truncate">{p.name}</span>
-                      <span className="text-xs text-neutral-500">{p.calories_per_100g} cal/100g</span>
+                      <span className="text-xs text-neutral-500">{t('nutrition.kcalPer100g', { value: Math.round(p.calories_per_100g) })}</span>
                     </div>
                   </button>
                 ))}
@@ -413,7 +413,7 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
                         <span className="font-medium text-white text-sm">{f.product_name}</span>
                         {f.brand && <span className="text-neutral-500 text-xs ml-1">{f.brand}</span>}
                       </div>
-                      <span className="text-xs text-neutral-500">{f.calories_per_100g} cal/100g</span>
+                      <span className="text-xs text-neutral-500">{t('nutrition.kcalPer100g', { value: Math.round(f.calories_per_100g) })}</span>
                     </div>
                   </button>
                 ))}

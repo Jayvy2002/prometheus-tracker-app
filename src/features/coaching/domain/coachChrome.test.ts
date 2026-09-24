@@ -179,8 +179,8 @@ test('UX28: missing logs are not framed as the athlete’s fault', () => {
   assert.match(fr, /check-in attendu non reçu/);
   assert.doesNotMatch(fr, /pas de check-in aujourd’hui/i);
   assert.doesNotMatch(fr, /missed_checkin: 'Check-in à relire'/);
-  assert.match(fr, /Séance non loggée/);
-  assert.match(fr, /Signaler une séance non loggée/);
+  assert.match(fr, /Séance non enregistrée/);
+  assert.match(fr, /Signaler une séance non enregistrée/);
   assert.match(fr, /Check-ins en attente/);
   const en = src('src/i18n/locales/en/coaching.ts');
   assert.doesNotMatch(en, /has missed/);

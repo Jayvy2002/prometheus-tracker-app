@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parseAccountSnapshot, resolveAccountContext } from '../../lib/accountContext';
-import { desktopSections, mobileTabs, navPersona, pathMatchesItem, quickAddActions, tabIndexForPath } from './navConfig';
+import { desktopSections, mobileTabs, navPersona, pathMatchesItem, quickAddActions, quickAddVisible, tabIndexForPath } from './navConfig';
 
 const src = (rel: string) => readFileSync(resolve(process.cwd(), rel), 'utf8');
 
@@ -137,4 +137,17 @@ test('tab matching prefers the longest prefix and respects end', () => {
   const profile = tabs.find(item => item.path === '/profile');
   assert.ok(profile);
   assert.equal(pathMatchesItem('/coach/profile', profile), false);
+});
+
+test('quick add floats only where it is the natural way to log, never over a page action or a form', () => {
+  for (const path of ['/dashboard', '/workout', '/calendar', '/suivi', '/stats', '/watch', '/exercise-progress', '/progress/exercise/Squat']) {
+    assert.equal(quickAddVisible(path), true, path);
+  }
+  for (const path of [
+    '/workout/new', '/workout/abc', '/messages', '/messages/abc', '/checkin', '/checkin/settings',
+    '/nutrition', '/weight', '/body', '/programs', '/routines', '/recipes', '/profile', '/photos',
+    '/coaches', '/coach/profile', '/coaching-requests', '/import', '/questionnaire',
+  ]) {
+    assert.equal(quickAddVisible(path), false, path);
+  }
 });

@@ -11,6 +11,7 @@ import Card from '../ui/Card';
 import Button from '../ui/Button';
 import IconButton from '../ui/IconButton';
 import Modal from '../ui/Modal';
+import { toast } from '../ui/Toast';
 import PageHeader from '../ui/PageHeader';
 import PageTransition from '../ui/PageTransition';
 import RoutineForm from './RoutineForm';
@@ -55,7 +56,10 @@ export default function RoutinesPage() {
     setStarting(routineId);
     try {
       const routine = await fetchRoutineWithExercises(routineId);
-      if (!routine) return;
+      if (!routine) {
+        toast(t('workout.startRoutineFailed'), 'error');
+        return;
+      }
       const workoutId = await startWorkoutFromTemplate({
         userId: user.id,
         name: routine.name,
@@ -67,7 +71,11 @@ export default function RoutinesPage() {
           order_index: ex.order_index,
         })),
       });
+      // A refused start is said out loud: the button never silently does nothing.
       if (workoutId) navigate(`/workout/${workoutId}`);
+      else toast(t('workout.startRoutineFailed'), 'error');
+    } catch {
+      toast(t('workout.startRoutineFailed'), 'error');
     } finally {
       setStarting(null);
     }

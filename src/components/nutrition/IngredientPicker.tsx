@@ -264,7 +264,7 @@ export default function IngredientPicker({ onAdd, onClose }: Props) {
                     <div className="flex items-center gap-2">
                       <Clock size={13} className="text-neutral-500 shrink-0" />
                       <span className="font-medium text-white text-sm flex-1 truncate">{p.name}</span>
-                      <span className="text-xs text-neutral-500">{p.calories_per_100g} cal/100g</span>
+                      <span className="text-xs text-neutral-500">{t('nutrition.kcalPer100g', { value: Math.round(p.calories_per_100g) })}</span>
                     </div>
                   </button>
                 ))}
@@ -291,7 +291,7 @@ export default function IngredientPicker({ onAdd, onClose }: Props) {
                         <span className="font-medium text-white text-sm">{f.product_name}</span>
                         {f.brand && <span className="text-neutral-500 text-xs ml-1">{f.brand}</span>}
                       </div>
-                      <span className="text-xs text-neutral-500">{f.calories_per_100g} cal/100g</span>
+                      <span className="text-xs text-neutral-500">{t('nutrition.kcalPer100g', { value: Math.round(f.calories_per_100g) })}</span>
                     </div>
                   </button>
                 ))}
@@ -343,7 +343,7 @@ export default function IngredientPicker({ onAdd, onClose }: Props) {
           {+calories > 0 && +quantity > 0 && (
             <div className="bg-blue-600/10 border border-blue-500/30 rounded-xl p-3 text-sm">
               <p className="text-blue-400 font-medium">
-                {t('nutrition.foodForm.total')} {Math.round(+calories * scale)} {t('common.cal')} | P: {Math.round(+protein * scale)}g | C: {Math.round(+carbs * scale)}g | F: {Math.round(+fat * scale)}g
+                {t('nutrition.totalLine', { cal: Math.round(+calories * scale), p: Math.round(+protein * scale), c: Math.round(+carbs * scale), f: Math.round(+fat * scale) })}
               </p>
             </div>
           )}

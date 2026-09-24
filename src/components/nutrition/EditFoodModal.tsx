@@ -100,7 +100,7 @@ export default function EditFoodModal({ log, onClose }: Props) {
           <Input label={`${t('common.fat')} (g)`} type="number" value={fat} onChange={e => setFat(e.target.value)} />
         </div>
         <p className="text-sm text-blue-400 font-medium">
-          {t('nutrition.foodForm.total')} {Math.round(+calories || 0)} cal | P: {Math.round(+protein || 0)}g | C: {Math.round(+carbs || 0)}g | F: {Math.round(+fat || 0)}g
+          {t('nutrition.totalLine', { cal: Math.round(+calories || 0), p: Math.round(+protein || 0), c: Math.round(+carbs || 0), f: Math.round(+fat || 0) })}
         </p>
         <div className="flex gap-3">
           <Button variant="secondary" onClick={onClose} className="flex-1" disabled={saving}>{t('common.cancel')}</Button>

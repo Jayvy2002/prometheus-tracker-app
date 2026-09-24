@@ -148,7 +148,8 @@ interface WorkoutState {
   updateSet: (id: string, data: Partial<WorkoutSet>) => Promise<void>;
   deleteSet: (id: string) => Promise<void>;
   restoreSet: (exerciseId: string, setData: WorkoutSet) => Promise<void>;
-  restoreExercise: (workoutId: string, exerciseData: WorkoutExercise) => Promise<void>;
+  /** true once the exercise and its sets are back (or queued offline): undo never claims more. */
+  restoreExercise: (workoutId: string, exerciseData: WorkoutExercise) => Promise<boolean>;
   setCurrentWorkout: (w: Workout | null) => void;
   linkSuperset: (exerciseIds: string[]) => Promise<void>;
   unlinkSuperset: (exerciseId: string) => Promise<void>;
@@ -693,6 +694,14 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
       order_index: exerciseData.order_index,
       notes: exerciseData.notes,
       superset_group_id: exerciseData.superset_group_id,
+      // The targets shown in the logger come back with the exercise.
+      prescribed_sets: exerciseData.prescribed_sets ?? null,
+      prescribed_reps: exerciseData.prescribed_reps ?? null,
+      prescribed_reps_min: exerciseData.prescribed_reps_min ?? null,
+      prescribed_rir: exerciseData.prescribed_rir ?? null,
+      prescribed_rest_seconds: exerciseData.prescribed_rest_seconds ?? null,
+      prescribed_weight_kg: exerciseData.prescribed_weight_kg ?? null,
+      catalog_exercise_id: exerciseData.catalog_exercise_id ?? null,
     };
     const sets = (exerciseData.sets ?? []).map(s => ({
       set_type: s.set_type,
@@ -707,6 +716,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
       cluster_reps_per_burst: s.cluster_reps_per_burst,
       myo_is_activation: s.myo_is_activation,
       drop_percentage: s.drop_percentage,
+      drop_segments: s.drop_segments ?? null,
     }));
     const op = takeQueuedOp('exercise.restore', { row: { ...row }, sets }, owner);
     const { data: newEx, error: exError } = await supabase
@@ -717,13 +727,14 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
     if ((exError && !isTransportError(exError)) || (!newEx && op && typeof navigator !== 'undefined' && navigator.onLine)) {
       if (op) removeOfflineOp(op.id, owner);
       console.error('restoreExercise failed:', exError?.message);
-      return;
+      return false;
     }
     const online = !!newEx && !exError;
     if (op && online) removeOfflineOp(op.id, owner);
     const exerciseId = online ? (newEx as WorkoutExercise).id : offlineTempId((op as { id: string }).id);
 
     let restoredSets: WorkoutSet[] = [];
+    let setsRestored = true;
     if (sets.length > 0 && online) {
       const { data: setsData, error: setsError } = await supabase
         .from('workout_sets')
@@ -731,6 +742,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
         .select();
       if (setsError) console.error('restoreExercise sets failed:', setsError.message);
       restoredSets = (setsData ?? []) as WorkoutSet[];
+      setsRestored = !setsError;
     } else if (sets.length > 0) {
       restoredSets = sets.map((s, i) => ({ ...s, id: `${exerciseId}:set:${i}`, exercise_id: exerciseId } as WorkoutSet));
     }
@@ -748,6 +760,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
       setCacheItem(workoutCacheKey(workoutId), updated);
       return { currentWorkout: updated, ...queueCounts(owner) };
     });
+    return setsRestored;
   },
 
   setCurrentWorkout: (w) => set({ currentWorkout: w }),

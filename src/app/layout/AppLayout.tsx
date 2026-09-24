@@ -11,6 +11,7 @@ import { useAccountContext } from '@/features/account/hooks/useAccountContext';
 import AssignedQuestionnaireBanner from '../../components/onboarding/AssignedQuestionnaireBanner';
 import SessionResumeBar from '../../components/workout/SessionResumeBar';
 import { useResumableWorkout } from '@/features/workout/hooks/useResumableWorkout';
+import { quickAddVisible } from '@/app/navigation/navConfig';
 
 export default function AppLayout() {
   const coachingRole = useCoachingStore(s => s.coachingRole);
@@ -22,16 +23,11 @@ export default function AppLayout() {
   const isCoach = context.activeWorkspace === 'coaching';
   const location = useLocation();
   const resumable = useResumableWorkout();
-  // Quick add stays on Today and on the training page; the session logger
-  // (/workout/:id, /workout/new) has its own actions. With a resume bar the
-  // FAB sits above it instead of disappearing.
-  const hideFab = isCoach
-    || location.pathname.startsWith('/workout/')
-    || location.pathname.startsWith('/coaches')
-    || location.pathname === '/coach/profile'
-    || location.pathname === '/coaching-requests'
-    || location.pathname.startsWith('/messages')
-    || location.pathname.startsWith('/checkin');
+  // Quick add stays on Today, the training page and the reading pages. Pages
+  // with their own main action or a form (logger, messages, check-in, nutrition,
+  // weight, programs…) never get a second floating button over it. With a
+  // resume bar the FAB sits above it instead of disappearing.
+  const hideFab = isCoach || !quickAddVisible(location.pathname);
 
   useEffect(() => {
     trackScreen(location.pathname);

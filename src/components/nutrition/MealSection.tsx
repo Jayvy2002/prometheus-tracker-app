@@ -50,7 +50,7 @@ export default function MealSection({ category, label, logs, onAdd, onEdit, onRe
       <div className="flex items-center gap-3 px-4 py-3">
         <Icon size={16} className="text-neutral-400" />
         <span className="text-sm font-medium text-white flex-1">{label}</span>
-        <span className="text-xs text-neutral-500">{Math.round(totalCals)} cal</span>
+        <span className="text-xs text-neutral-500">{t('nutrition.kcalValue', { value: Math.round(totalCals) })}</span>
         {onReuse && (
           <button
             onClick={onReuse}
@@ -77,9 +77,9 @@ export default function MealSection({ category, label, logs, onAdd, onEdit, onRe
                 <p className="text-[10px] text-neutral-500">{log.quantity}{log.unit}</p>
               </div>
               <div className="text-right">
-                <p className="text-sm font-medium text-white">{Math.round(log.calories)} cal</p>
+                <p className="text-sm font-medium text-white">{t('nutrition.kcalValue', { value: Math.round(log.calories) })}</p>
                 <p className="text-[10px] text-neutral-500">
-                  P:{Math.round(log.protein)}  C:{Math.round(log.carbs)}  F:{Math.round(log.fat)}
+                  {t('nutrition.macrosShort', { p: Math.round(log.protein), c: Math.round(log.carbs), f: Math.round(log.fat) })}
                 </p>
               </div>
               <button onClick={() => onEdit(log)} className="p-1 text-neutral-600 hover:text-blue-400 transition-colors">

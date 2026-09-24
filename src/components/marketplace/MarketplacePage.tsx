@@ -3,6 +3,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { RefreshCw } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
+import { useAccountContext } from '@/features/account/hooks/useAccountContext';
 import { useProfileStore } from '../../stores/profileStore';
 import { supabase } from '../../lib/supabase';
 import { MARKETPLACE_CONSENT_VERSION, comparisonIds, coachingRequestKey, clearCoachingRequestKey, coachHasVerifiedBadge, marketFilters, normalizeJoinRequestStatus, normalizeProspectSnapshot, requestActivatesFollow, type CoachPublicProfile, type CoachQualification, type CoachingRequest, type MarketplaceReport } from '../../lib/marketplace';
@@ -38,6 +39,7 @@ const SERVER_ERRORS = ['profile_changed', 'coach_unavailable', 'coach_account_cl
 export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile' | 'detail' | 'requests' }) {
   const { t } = useTranslation();
   const owner = useAuthStore(s => s.user?.id) ?? '';
+  const accountContext = useAccountContext();
   const fullName = useProfileStore(s => s.profile?.full_name) ?? '';
   const fetchMyRole = useCoachingStore(s => s.fetchMyRole);
   const fetchClients = useCoachingStore(s => s.fetchClients);
@@ -183,12 +185,15 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
   const openMine = mine.filter(row => isOpenRequest(row.status));
 
   // An athlete's requests are a tab of « Trouver un coach »; a coach's are « Demandes reçues ».
+  // The workspace decides for an empty list: a coach at work never reads « Trouver un coach ».
+  const coachView = accountContext.activeWorkspace === 'coaching';
+  const athleteRequests = mode === 'requests' && (mine.length > 0 || !coachView);
   const title = mode === 'requests'
-    ? t(mine.length ? 'marketplace.directory' : 'marketplace.receivedTitle')
+    ? t(athleteRequests ? 'marketplace.directory' : 'marketplace.receivedTitle')
     : t(`marketplace.${mode}`);
   const subtitle = mode === 'directory' ? t('marketplace.directorySubtitle') : mode === 'profile' ? t('marketplace.profileSubtitle') : null;
   // Athlete sections: the coaches, and their own requests. A coach reaches received requests from the side nav.
-  const athleteTabs = mode === 'directory' || (mode === 'requests' && mine.length > 0);
+  const athleteTabs = mode === 'directory' || athleteRequests;
 
   const content = () => {
     if (status === 'loading') return <p role="status" className="text-sm text-neutral-400">{t('marketplace.loading')}</p>;
@@ -197,8 +202,17 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
       if (!requests.length) {
         return (
           <div className="space-y-3 rounded-2xl border border-neutral-800 p-5 text-center">
-            <p className="text-sm text-neutral-300">{t('marketplace.noRequests')}</p>
-            <Link to="/coaches" className="inline-flex min-h-11 items-center text-sm text-blue-300 hover:text-white">{t('marketplace.directory')}</Link>
+            {athleteRequests ? (
+              <>
+                <p className="text-sm text-neutral-300">{t('marketplace.noRequests')}</p>
+                <Link to="/coaches" className="inline-flex min-h-11 items-center text-sm text-blue-300 hover:text-white">{t('marketplace.directory')}</Link>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-neutral-300">{t('marketplace.noReceivedRequests')}</p>
+                <Link to="/coach/profile" className="inline-flex min-h-11 items-center text-sm text-blue-300 hover:text-white">{t('marketplace.profile')}</Link>
+              </>
+            )}
           </div>
         );
       }

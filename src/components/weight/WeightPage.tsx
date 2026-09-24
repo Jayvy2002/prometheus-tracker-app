@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, TrendingDown, TrendingUp, Minus, Trash2, CreditCard as Edit3 } from 'lucide-react';
+import { Plus, TrendingDown, TrendingUp, Minus, Trash2, Pencil } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
@@ -19,6 +19,7 @@ import PageTransition from '../ui/PageTransition';
 import EmptyState from '../ui/EmptyState';
 import { useClientTracking } from '../../lib/useClientTracking';
 import { showModule } from '../../lib/clientTracking';
+import { niceWeightAxis } from '../../lib/chartAxis';
 
 type Period = '7d' | '30d' | '3m' | 'all';
 
@@ -99,8 +100,8 @@ export default function WeightPage() {
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
-    await deleteMeasurement(deleteTarget);
-    toast(t('weight.toasts.deleted'), 'error');
+    const ok = await deleteMeasurement(deleteTarget);
+    toast(t(ok ? 'weight.toasts.deleted' : 'weight.toasts.deleteFailed'), ok ? 'success' : 'error');
     setDeleteTarget(null);
   };
 
@@ -118,6 +119,7 @@ export default function WeightPage() {
     weight: show(m.weight_kg),
     trend: show(trendByDay.get(m.measured_at.slice(0, 10)) ?? m.weight_kg),
   }));
+  const axis = niceWeightAxis(chartData.flatMap(d => [d.weight, d.trend]));
 
   const week = weeklyAverageKg(measurements, todayStr());
   // Headline = 7-day mean; delta = vs the 7 days before. No mix of a mean and a raw weigh-in.
@@ -198,7 +200,17 @@ export default function WeightPage() {
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData}>
                 <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#737373' }} axisLine={false} tickLine={false} />
-                <YAxis domain={['dataMin - 1', 'dataMax + 1']} tick={{ fontSize: 10, fill: '#737373' }} axisLine={false} tickLine={false} width={35} />
+                {/* Even whole-number ticks in the app language (« 62 · 64 · 66 », never « 65.35 »). */}
+                <YAxis
+                  domain={axis?.domain ?? ['dataMin - 1', 'dataMax + 1']}
+                  ticks={axis?.ticks}
+                  allowDecimals={false}
+                  tickFormatter={(v: number) => formatNumber(v, { maxDigits: 0 })}
+                  tick={{ fontSize: 10, fill: '#737373' }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={35}
+                />
                 <Tooltip
                   contentStyle={{ background: '#0a0a0a', border: '1px solid #262626', borderRadius: '12px', fontSize: 12 }}
                   labelStyle={{ color: '#94a3b8' }}
@@ -229,11 +241,21 @@ export default function WeightPage() {
               <p className="font-medium text-white">{formatWeight(m.weight_kg, unit)}</p>
               <p className="text-xs text-neutral-500">{formatDate(m.measured_at)}</p>
             </div>
-            <button onClick={() => startEdit(m)} className="p-2 text-neutral-500 hover:text-white transition-colors">
-              <Edit3 size={14} />
+            <button
+              type="button"
+              onClick={() => startEdit(m)}
+              aria-label={t('common.edit')}
+              className="min-h-11 min-w-11 flex items-center justify-center rounded-lg text-neutral-400 hover:text-white transition-colors"
+            >
+              <Pencil size={16} aria-hidden="true" />
             </button>
-            <button onClick={() => setDeleteTarget(m.id)} className="p-2 text-neutral-600 hover:text-rose-400 transition-colors">
-              <Trash2 size={14} />
+            <button
+              type="button"
+              onClick={() => setDeleteTarget(m.id)}
+              aria-label={t('common.delete')}
+              className="min-h-11 min-w-11 flex items-center justify-center rounded-lg text-neutral-400 hover:text-rose-400 transition-colors"
+            >
+              <Trash2 size={16} aria-hidden="true" />
             </button>
           </Card>
           </div>

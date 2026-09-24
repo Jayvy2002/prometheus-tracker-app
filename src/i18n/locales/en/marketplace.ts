@@ -89,6 +89,7 @@ const marketplace = {
     request_closed: 'This request already received a response. Reload to see its status.',
     session_changed: 'The signed-in account changed. Please reload.',
     noRequests: 'No requests yet.',
+    noReceivedRequests: 'No requests received yet. Athletes find you once your profile is published and open to requests.',
     viewCoach: 'View the coach’s profile',
     whyThisCoach: 'Why this coach?',
     compatible: '{{n}}% match',

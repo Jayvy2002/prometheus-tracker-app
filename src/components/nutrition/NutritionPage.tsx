@@ -204,11 +204,10 @@ export default function NutritionPage() {
   return (
     <PageTransition>
     <div className="px-4 pt-6">
-      <div className="flex items-start justify-between mb-4 gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold text-white">{t('nutrition.title')}</h1>
-        </div>
-        <div className="relative flex items-center gap-2">
+      {/* The actions wrap under the title on a narrow phone instead of running off the edge. */}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <h1 className="mr-auto text-2xl font-semibold text-white">{t('nutrition.title')}</h1>
+        <div className="relative ml-auto flex items-center gap-2">
           {solo && user && (
             <button
               type="button"
@@ -216,9 +215,10 @@ export default function NutritionPage() {
               aria-label={t('soloAsk.label')}
               aria-expanded={askOpen}
               title={t('soloAsk.label')}
-              className={`min-h-11 min-w-11 flex items-center justify-center rounded-xl ${askOpen ? 'bg-blue-600/20 text-blue-300' : 'bg-neutral-900 text-neutral-400'}`}
+              className={`min-h-11 flex items-center justify-center gap-1.5 px-3 rounded-xl text-sm font-medium ${askOpen ? 'bg-blue-600/20 text-blue-300' : 'bg-neutral-900 text-neutral-300'}`}
             >
               <Sparkles size={16} aria-hidden="true" />
+              <span aria-hidden="true">{t('soloAsk.short')}</span>
             </button>
           )}
           <button

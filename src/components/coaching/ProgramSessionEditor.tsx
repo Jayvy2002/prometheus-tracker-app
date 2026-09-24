@@ -22,6 +22,7 @@ import ExercisePicker from '../workout/ExercisePicker';
 import AgentDraftingCard from './AgentDraftingCard';
 import Button from '../ui/Button';
 import { SET_TYPES } from '../../lib/constants';
+import { optionLabel } from '../../lib/optionLabels';
 import { PROGRAM_SET_TYPES } from '../../lib/programSetPrescription';
 import Card from '../ui/Card';
 import Input from '../ui/Input';
@@ -672,7 +673,7 @@ export default function ProgramSessionEditor({
                           className="mt-0.5 w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1 text-xs text-white"
                         >
                           {SET_TYPES.filter(st => PROGRAM_SET_TYPES.includes(st.value as typeof PROGRAM_SET_TYPES[number])).map(st => (
-                            <option key={st.value} value={st.value}>{st.label}</option>
+                            <option key={st.value} value={st.value}>{optionLabel(t, 'setTypes', st.value, st.label)}</option>
                           ))}
                         </select>
                       </label>

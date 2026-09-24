@@ -40,6 +40,7 @@ import { effectiveVersionStart } from '../../features/programs/domain/programPha
 import { dismissHomeMessage, isHomeMessageDismissed } from '../../lib/messageDrafts';
 import type { ProgramDay } from '../../lib/types';
 import PageTransition from '../ui/PageTransition';
+import { toast } from '../ui/Toast';
 import Button from '../ui/Button';
 import CardLink from '../ui/CardLink';
 import ListRow from '../ui/ListRow';
@@ -249,7 +250,11 @@ export default function Dashboard() {
         programDayId: day.id,
         exercises: (day.exercises ?? []).map((ex, i) => toWorkoutTemplateExercise(ex, i)),
       });
+      // A refused start is said out loud: the button never silently does nothing.
       if (workoutId) navigate(`/workout/${workoutId}`);
+      else toast(t('workout.startRoutineFailed'), 'error');
+    } catch {
+      toast(t('workout.startRoutineFailed'), 'error');
     } finally {
       setStartingRoutine(false);
     }
@@ -333,7 +338,10 @@ export default function Dashboard() {
                   setStartingRoutine(true);
                   try {
                     const routine = await fetchRoutineWithExercises(nextRoutine.id);
-                    if (!routine) return;
+                    if (!routine) {
+                      toast(t('workout.startRoutineFailed'), 'error');
+                      return;
+                    }
                     const workoutId = await startWorkoutFromTemplate({
                       userId: user.id,
                       name: routine.name,
@@ -346,6 +354,9 @@ export default function Dashboard() {
                       })),
                     });
                     if (workoutId) navigate(`/workout/${workoutId}`);
+                    else toast(t('workout.startRoutineFailed'), 'error');
+                  } catch {
+                    toast(t('workout.startRoutineFailed'), 'error');
                   } finally {
                     setStartingRoutine(false);
                   }
