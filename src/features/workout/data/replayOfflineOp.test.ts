@@ -33,6 +33,17 @@ function fakeSupabase() {
         db().failNextWrite = null;
         return { data: null, error };
       }
+      if (name === 'declare_constraint') {
+        const rows = (db().tables.constraints ??= []);
+        if (!rows.some(r => r.client_op_id === args.p_client_op_id)) {
+          rows.push({ id: `srv-c-${++db().seq}`, ...args, client_op_id: args.p_client_op_id } as Row);
+        }
+        if (db().loseNextResponse) {
+          db().loseNextResponse = false;
+          return { data: null, error: { message: 'Failed to fetch' } };
+        }
+        return { data: rows[0].id, error: null };
+      }
       if (name !== 'start_workout_from_template_op') return { data: null, error: { message: 'unknown rpc' } };
       const rows = (db().tables.workouts ??= []);
       let workout = rows.find(r => r.client_op_id === args.p_client_op_id);
@@ -204,4 +215,24 @@ test('a session started offline replays once and hands back real ids for every e
   const maps = new Map(replay.extraMaps);
   assert.equal(maps.get('local-op-start.e0'), 'srv-ex-srv-1-0');
   assert.equal(maps.get('local-op-start.e0.s1'), 'srv-set-srv-1-0-1');
+});
+
+test('a pain reported offline mid-session is declared once, and a session still local is not sent as an id', async () => {
+  g.__replayTest = { db: freshDb() };
+  const { replayOfflineOp } = await loadReplay();
+  const declare = op('op-pain', 'constraint.declare', {
+    userId: 'athlete-1', kind: 'pain', bodyArea: 'knee', severity: 3, persistence: 'temporary',
+    exerciseName: 'Squat', workoutId: 'local-op-start',
+  });
+  g.__replayTest.db.loseNextResponse = true;
+  assert.equal((await replayOfflineOp(declare, identity)).transport, true);
+  assert.deepEqual(await replayOfflineOp(declare, identity), {});
+  const rows = g.__replayTest.db.tables.constraints;
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].p_workout_id, null, 'an unmapped local session id never reaches the server');
+  // Once the session is synced, its real id is used.
+  g.__replayTest = { db: freshDb() };
+  await replayOfflineOp(op('op-pain-2', 'constraint.declare', { userId: 'athlete-1', kind: 'pain', workoutId: 'local-op-start' }),
+    id => (id === 'local-op-start' ? 'srv-w-1' : id));
+  assert.equal(g.__replayTest.db.tables.constraints[0].p_workout_id, 'srv-w-1');
 });

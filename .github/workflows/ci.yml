@@ -569,6 +569,14 @@ jobs:
         run: |
           set -euo pipefail
           grep -F 'goal lifecycle: replace keeps context, pause/resume/reach/maintain, closed stays closed, goal_at, coach scope, profile changes recorded once' /tmp/goal-lifecycle.txt
+      - name: Test athlete constraints
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/athlete_constraints.sql | tee /tmp/athlete-constraints.txt
+      - name: Confirm athlete constraints echo
+        run: |
+          set -euo pipefail
+          grep -F 'athlete constraints: declared in session, idempotent replay, updated, resolved kept, coach scope, coach told' /tmp/athlete-constraints.txt
       - name: Test qualification proof Storage API withdraw
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

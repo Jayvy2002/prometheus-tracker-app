@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { User, Target, Ruler, Lock, LogOut, ChevronDown, MessageSquare, Bell, Trash2, Globe, Users, SlidersHorizontal, ClipboardList, Inbox, Shield, Sparkles, Upload, FolderOpen, LayoutList } from 'lucide-react';
+import { User, Target, Ruler, Lock, LogOut, ChevronDown, MessageSquare, Bell, Trash2, Globe, Users, SlidersHorizontal, ClipboardList, Inbox, Shield, Sparkles, Upload, FolderOpen, LayoutList, Activity } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
@@ -19,6 +19,7 @@ import PageTransition from '../ui/PageTransition';
 import PersonalInfoForm from './PersonalInfoForm';
 import GoalsForm from './GoalsForm';
 import GoalPanel from '../goals/GoalPanel';
+import ConstraintsPanel from '../constraints/ConstraintsPanel';
 import PersonalModulesForm from './PersonalModulesForm';
 import UnitsForm from './UnitsForm';
 import PasswordForm from './PasswordForm';
@@ -31,7 +32,7 @@ import ClientCoachRelationshipPanel from '../coaching/ClientCoachRelationshipPan
 import SoloHub from './SoloHub';
 import WorkspaceSwitcher from '../layout/WorkspaceSwitcher';
 
-type Section = 'personal' | 'goals' | 'modules' | 'units' | 'password' | 'feedback' | 'notifications' | 'language' | 'coachPrefs';
+type Section = 'personal' | 'goals' | 'constraints' | 'modules' | 'units' | 'password' | 'feedback' | 'notifications' | 'language' | 'coachPrefs';
 
 interface AccordionSectionProps {
   id: Section;
@@ -87,7 +88,7 @@ export default function ProfilePage() {
   const [searchParams] = useSearchParams();
   const requestedSection = searchParams.get('section');
   const [openSection, setOpenSection] = useState<Section | null>(
-    requestedSection === 'goals' || requestedSection === 'modules' ? requestedSection : null,
+    requestedSection === 'goals' || requestedSection === 'modules' || requestedSection === 'constraints' ? requestedSection : null,
   );
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
@@ -229,6 +230,12 @@ export default function ProfilePage() {
             </div>
           )}
           <GoalsForm onBack={() => setOpenSection(null)} inline />
+        </AccordionSection>
+        )}
+
+        {!inCoaching && user && (
+        <AccordionSection id="constraints" icon={Activity} label={t('constraints.title')} isOpen={openSection === 'constraints'} onToggle={() => toggle('constraints')} animationDelay="135ms">
+          <ConstraintsPanel userId={user.id} viewer="athlete" />
         </AccordionSection>
         )}
 

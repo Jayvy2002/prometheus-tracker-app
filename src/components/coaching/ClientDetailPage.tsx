@@ -1,5 +1,6 @@
 import ClientQuestionnairePanel from '../onboarding/ClientQuestionnairePanel';
 import GoalPanel from '../goals/GoalPanel';
+import ConstraintsPanel from '../constraints/ConstraintsPanel';
 import { useEffect, useMemo, useState } from 'react';
 import { useClientDossier } from '../../features/coaching/hooks/useClientDossier';
 import { useClientPhotoSharing } from '../../features/coaching/hooks/useClientPhotoSharing';
@@ -628,6 +629,13 @@ export default function ClientDetailPage() {
             {id ? (
               <Card>
                 <GoalPanel userId={id} unit={unit} />
+              </Card>
+            ) : null}
+
+            {/* Vision §7.6: what the athlete declared; the coach decides what to change. */}
+            {id ? (
+              <Card>
+                <ConstraintsPanel userId={id} viewer="coach" />
               </Card>
             ) : null}
 

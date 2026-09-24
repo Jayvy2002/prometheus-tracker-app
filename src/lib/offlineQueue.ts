@@ -14,7 +14,8 @@ export type OfflineOpType =
   | 'set.delete'
   | 'set.restore'
   | 'superset.link'
-  | 'superset.unlink';
+  | 'superset.unlink'
+  | 'constraint.declare';
 
 export type OfflineOpStatus = 'pending' | 'dead';
 
@@ -245,6 +246,7 @@ export function isQuotaError(error: unknown): boolean {
 const OFFLINE_OP_KEYS: Record<OfflineOpType, string> = {
   'workout.create': 'workout.offlineOp.create',
   'workout.startTemplate': 'workout.offlineOp.startTemplate',
+  'constraint.declare': 'workout.offlineOp.constraintDeclare',
   'workout.update': 'workout.offlineOp.update',
   'workout.delete': 'workout.offlineOp.delete',
   'exercise.add': 'workout.offlineOp.exerciseAdd',

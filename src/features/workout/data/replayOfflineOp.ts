@@ -1,6 +1,6 @@
 import { supabase } from '../../../lib/supabase';
 import { isTransportError, type OfflineOp } from '../../../lib/offlineQueue';
-import { offlineTempId } from './offlineIds';
+import { offlineTempId, referencesOfflineTempId } from './offlineIds';
 import { mapOfflineStartShape, type OfflineStartShape } from '../domain/offlineStart';
 
 interface ReplayResult {
@@ -49,6 +49,27 @@ export async function replayOfflineOp(
         }
         if (error && isTransportError(error)) return { transport: true };
         return { error: error?.message ?? 'workout.startTemplate failed' };
+      }
+      case 'constraint.declare': {
+        // Vision §7.6 + §26: a pain reported mid-session without network reaches
+        // the athlete's record once (declare_constraint is idempotent on op.id).
+        const workoutId = str(p.workoutId) ? mapId(str(p.workoutId)) : '';
+        const { error } = await supabase.rpc('declare_constraint', {
+          p_user: str(p.userId),
+          p_kind: str(p.kind),
+          p_body_area: str(p.bodyArea) || 'other',
+          p_description: str(p.description),
+          p_severity: typeof p.severity === 'number' ? p.severity : null,
+          p_persistence: str(p.persistence) || 'temporary',
+          p_exercise_name: str(p.exerciseName) || null,
+          // A session still waiting for its server id is not sent as a fake uuid.
+          p_workout_id: workoutId && !referencesOfflineTempId(workoutId) ? workoutId : null,
+          p_client_op_id: op.id,
+        });
+        // Nothing local points at a constraint: no id to map.
+        if (!error) return {};
+        if (isTransportError(error)) return { transport: true };
+        return { error: error.message };
       }
       case 'workout.create': {
         const { data, error } = await supabase

@@ -25,6 +25,9 @@ import ExercisePicker from './ExercisePicker';
 import SoloAskBar from '../solo/SoloAskBar';
 import { soloAskFromProfile } from '../../lib/soloAskDefaults';
 import OverflowMenu, { type OverflowAction } from '../ui/OverflowMenu';
+import Modal from '../ui/Modal';
+import { useAuthStore } from '../../stores/authStore';
+import DeclareConstraintForm from '../constraints/DeclareConstraintForm';
 import { SetRow, SupersetLinkPicker } from './SetRow';
 import { getOverloadSuggestion, SUGGESTION_KEY } from '../../features/workout/domain/overloadSuggestion';
 import { useExerciseHistory } from '../../features/workout/hooks/useExerciseHistory';
@@ -71,6 +74,10 @@ export default function ExerciseCard({
   const [plateOpen, setPlateOpen] = useState(false);
   const [showAsk, setShowAsk] = useState(false);
   const [replaceOpen, setReplaceOpen] = useState(false);
+  const [painOpen, setPainOpen] = useState(false);
+  /** After a pain report: adapt today (temporary), and see a professional when it is serious. */
+  const [painNote, setPainNote] = useState<null | 'adapt' | 'advice'>(null);
+  const athleteId = useAuthStore(s => s.user?.id ?? null);
   const catalogExercises = useExerciseStore(s => s.exercises);
   const fetchExercises = useExerciseStore(s => s.fetchExercises);
   const catalog = findCatalogExercise(catalogExercises, exercise.name);
@@ -178,6 +185,12 @@ export default function ExerciseCard({
       label: t('workout.exerciseCard.replaceToday'),
       onSelect: () => setReplaceOpen(true),
     },
+    // Vision §7.6: a pain is declared where it happens, even offline.
+    ...(athleteId && currentWorkout?.user_id === athleteId ? [{
+      id: 'pain',
+      label: t('constraints.reportPain'),
+      onSelect: () => { setPainNote(null); setPainOpen(true); },
+    }] : []),
     {
       id: 'skip-today',
       label: t('workout.exerciseCard.skipToday'),
@@ -267,6 +280,17 @@ export default function ExerciseCard({
           <OverflowMenu label={t('workout.exerciseCard.moreActions')} actions={overflowActions} />
         </div>
       </div>
+
+      {painNote && (
+        <div role="status" className="mx-3 sm:mx-4 mb-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100 space-y-2">
+          <p>{t('constraints.adaptToday')}</p>
+          {painNote === 'advice' && <p>{t('constraints.professionalAdvice')}</p>}
+          <div className="flex gap-2">
+            <button type="button" className="min-h-11 text-amber-200 underline" onClick={() => setReplaceOpen(true)}>{t('workout.exerciseCard.replaceToday')}</button>
+            <button type="button" className="min-h-11 text-neutral-300" onClick={() => setPainNote(null)}>{t('common.dismiss')}</button>
+          </div>
+        </div>
+      )}
 
       {showMedia && catalog && (
         <div className="px-3 sm:px-4 pb-3 animate-fade-in">
@@ -429,6 +453,21 @@ export default function ExerciseCard({
           setLocalName(name);
         }}
       />
+      <Modal open={painOpen} onClose={() => setPainOpen(false)} title={t('constraints.reportPain')}>
+        {athleteId && (
+          <DeclareConstraintForm
+            userId={athleteId}
+            exerciseName={localName || exercise.name}
+            workoutId={currentWorkout?.id ?? null}
+            onCancel={() => setPainOpen(false)}
+            onDone={({ queued, advice }) => {
+              setPainOpen(false);
+              setPainNote(advice ? 'advice' : 'adapt');
+              if (queued) useWorkoutStore.getState().refreshPendingOps();
+            }}
+          />
+        )}
+      </Modal>
       <PlateCalc
         open={plateOpen}
         onClose={() => setPlateOpen(false)}

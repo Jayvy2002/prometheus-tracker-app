@@ -31,6 +31,10 @@
     {
       "version": "20260924130000",
       "name": "goal_lifecycle"
+    },
+    {
+      "version": "20260924140000",
+      "name": "athlete_constraints"
     }
   ]
 }

@@ -50,3 +50,9 @@ test('the cron function carries the same copy, inlined for its one-file deploy',
   assert.equal(inlined, expected);
   assert.doesNotMatch(edge, /from '\.\.\/_shared\/actionNotifications/);
 });
+
+test('a declared pain reaches the coach without health details in the push', () => {
+  const push = renderActionNotification(row('constraint_declared', { payload: { name: 'Lucas', area: 'knee', kind: 'pain' }, url: '/clients/x' }));
+  assert.equal(push?.body, 'Lucas a signalé une douleur ou une contrainte.');
+  assert.doesNotMatch(push?.body ?? '', /knee|genou/);
+});
