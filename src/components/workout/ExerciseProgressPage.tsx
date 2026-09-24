@@ -117,8 +117,8 @@ export default function ExerciseProgressPage({ embedded = false }: { embedded?: 
       <PageTransition>
         <div className="px-4 pt-6 pb-28">
           <div className="flex items-center gap-3 mb-5 animate-fade-in-down">
-            <button onClick={() => navigate('/exercise-progress')} className="min-h-11 min-w-11 -ml-2 text-neutral-400 hover:text-white transition-colors">
-              <ArrowLeft size={20} />
+            <button type="button" onClick={() => navigate('/exercise-progress')} aria-label={t('common.back')} className="min-h-11 min-w-11 -ml-2 inline-flex items-center justify-center text-neutral-400 hover:text-white transition-colors">
+              <ArrowLeft size={20} aria-hidden="true" />
             </button>
             <h1 className="text-lg font-bold text-white flex-1 truncate">{detail.name}</h1>
             {hasCoach ? (
@@ -174,8 +174,8 @@ export default function ExerciseProgressPage({ embedded = false }: { embedded?: 
                       if (href) navigate(href);
                     }}
                   >
-                    <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#737373' }} axisLine={false} tickLine={false} />
-                    <YAxis domain={['dataMin - 5', 'dataMax + 5']} tick={{ fontSize: 9, fill: '#737373' }} axisLine={false} tickLine={false} width={35} />
+                    <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#949494' }} axisLine={false} tickLine={false} />
+                    <YAxis domain={['dataMin - 5', 'dataMax + 5']} tick={{ fontSize: 10, fill: '#949494' }} axisLine={false} tickLine={false} width={35} />
                     <Tooltip contentStyle={{ background: '#0a0a0a', border: '1px solid #262626', borderRadius: '12px', fontSize: 11 }} />
                     <Line type="monotone" dataKey="1RM" stroke="#2563eb" strokeWidth={2} dot={{ r: 4, fill: '#2563eb' }} />
                   </LineChart>
@@ -319,7 +319,7 @@ export default function ExerciseProgressPage({ embedded = false }: { embedded?: 
                             {isNewPR && <Trophy size={12} className="text-amber-400" />}
                           </div>
                           {ex.trend !== 0 && (
-                            <span className={`text-[10px] font-medium ${ex.trend > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            <span className={`text-[11px] font-medium ${ex.trend > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                               {ex.trend > 0 ? '+' : ''}{ex.trend}%
                             </span>
                           )}
@@ -339,7 +339,7 @@ export default function ExerciseProgressPage({ embedded = false }: { embedded?: 
                 {!searching && (
                 <div className="flex items-center gap-2 mb-3">
                   <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wide">{t('progress.allExercises')}</h2>
-                  <span className="text-[10px] text-neutral-600 bg-neutral-800 px-1.5 py-0.5 rounded">{allData.length}</span>
+                  <span className="text-[11px] text-neutral-600 bg-neutral-800 px-1.5 py-0.5 rounded">{allData.length}</span>
                 </div>
                 )}
 
@@ -350,7 +350,7 @@ export default function ExerciseProgressPage({ embedded = false }: { embedded?: 
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
                     placeholder={t('progress.searchPlaceholder')}
-                    className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-9 pr-3 py-2.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-neutral-600 transition-colors"
+                    className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-9 pr-3 py-2.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-[#525252] transition-colors"
                   />
                 </div>
 

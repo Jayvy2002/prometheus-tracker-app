@@ -58,7 +58,7 @@ export function plateInventory(unit: WeightUnit): number[] {
 
 export function plateStyle(plate: number, unit: WeightUnit): PlateStyle {
   const table = unit === 'lbs' ? LBS_STYLE : KG_STYLE;
-  return table[plate] ?? { bg: 'bg-neutral-700', text: 'text-white', ring: 'ring-neutral-500' };
+  return table[plate] ?? { bg: 'bg-neutral-700', text: 'text-white', ring: 'ring-[#737373]' };
 }
 
 export function plateHeightPx(plate: number, unit: WeightUnit): number {

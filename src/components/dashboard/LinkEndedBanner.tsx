@@ -58,7 +58,7 @@ export default function LinkEndedBanner() {
         <button
           type="button"
           onClick={dismiss}
-          className="p-1 rounded-md text-neutral-500 hover:text-neutral-300"
+          className="-m-2 min-h-11 min-w-11 inline-flex items-center justify-center rounded-md text-neutral-400 hover:text-neutral-200"
           aria-label={t('common.dismiss')}
         >
           <X size={14} />

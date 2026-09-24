@@ -276,7 +276,7 @@ export default function SoloWeeklyReview({ onSettled }: { onSettled?: () => void
           <p className="text-sm text-white leading-snug whitespace-pre-line">{message}</p>
           <div className="mt-3 grid grid-cols-3 gap-2">
             <div className="rounded-lg bg-neutral-900 border border-neutral-800 p-2">
-              <p className="text-[10px] text-neutral-500 flex items-center gap-1">
+              <p className="text-[11px] text-neutral-500 flex items-center gap-1">
                 <Flame size={10} className="text-orange-400" aria-hidden="true" />
                 {draft ? t('soloReview.statKcalTarget') : t('soloReview.statKcal')}
               </p>
@@ -287,11 +287,11 @@ export default function SoloWeeklyReview({ onSettled }: { onSettled?: () => void
               </p>
             </div>
             <div className="rounded-lg bg-neutral-900 border border-neutral-800 p-2">
-              <p className="text-[10px] text-neutral-500">{t('soloReview.statWeight')}</p>
+              <p className="text-[11px] text-neutral-500">{t('soloReview.statWeight')}</p>
               <p className="text-sm font-bold text-white">{deltaLabel}</p>
             </div>
             <div className="rounded-lg bg-neutral-900 border border-neutral-800 p-2">
-              <p className="text-[10px] text-neutral-500">{t('soloReview.statSessions')}</p>
+              <p className="text-[11px] text-neutral-500">{t('soloReview.statSessions')}</p>
               <p className="text-sm font-bold text-white">{evidence.workouts}</p>
             </div>
           </div>

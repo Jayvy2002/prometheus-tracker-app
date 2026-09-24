@@ -252,7 +252,7 @@ export default function RestTimer({
               onBlur={applyCustom}
               className="w-14 h-12 bg-neutral-900 border border-neutral-800 rounded-xl text-center text-lg font-mono text-white focus:outline-none focus:border-blue-500 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
             />
-            <span className="text-[10px] text-neutral-500 mt-1">min</span>
+            <span className="text-[11px] text-neutral-500 mt-1">min</span>
           </div>
           <span className="text-xl font-bold text-neutral-500 mb-4">:</span>
           <div className="flex flex-col items-center">
@@ -267,7 +267,7 @@ export default function RestTimer({
               onKeyDown={e => { if (e.key === 'Enter') applyCustom(); }}
               className="w-14 h-12 bg-neutral-900 border border-neutral-800 rounded-xl text-center text-lg font-mono text-white focus:outline-none focus:border-blue-500 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
             />
-            <span className="text-[10px] text-neutral-500 mt-1">sec</span>
+            <span className="text-[11px] text-neutral-500 mt-1">sec</span>
           </div>
         </div>
       </div>

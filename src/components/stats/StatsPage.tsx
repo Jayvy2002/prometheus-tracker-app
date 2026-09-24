@@ -347,7 +347,7 @@ export default function StatsPage({ embedded = false }: { embedded?: boolean }) 
                 <p className="text-xl font-bold text-white">{formatNumber(avgCalories, { maxDigits: 0 })}</p>
                 <p className="text-[11px] text-neutral-500">{t('stats.labels.avgCalories')}</p>
                 {calorieTarget > 0 && (
-                  <p className="text-[10px] text-neutral-600 mt-0.5">{t('common.target')}: {formatNumber(calorieTarget, { maxDigits: 0 })}</p>
+                  <p className="text-[11px] text-neutral-600 mt-0.5">{t('common.target')}: {formatNumber(calorieTarget, { maxDigits: 0 })}</p>
                 )}
               </Card>
               )}
@@ -362,7 +362,7 @@ export default function StatsPage({ embedded = false }: { embedded?: boolean }) 
                 </div>
                 <p className="text-xl font-bold text-white">{totalWorkouts}</p>
                 <p className="text-[11px] text-neutral-500">{t('stats.labels.workouts')}</p>
-                <p className="text-[10px] text-neutral-600 mt-0.5">{uniqueWorkoutDays} {t('stats.differentDays')}</p>
+                <p className="text-[11px] text-neutral-600 mt-0.5">{uniqueWorkoutDays} {t('stats.differentDays')}</p>
               </Card>
               )}
 
@@ -377,7 +377,7 @@ export default function StatsPage({ embedded = false }: { embedded?: boolean }) 
                 <p className="text-xl font-bold text-white">{avgProtein} g</p>
                 <p className="text-[11px] text-neutral-500">{t('stats.labels.avgProtein')}</p>
                 {proteinTarget > 0 && (
-                  <p className="text-[10px] text-neutral-600 mt-0.5">{t('common.target')}: {proteinTarget} g</p>
+                  <p className="text-[11px] text-neutral-600 mt-0.5">{t('common.target')}: {proteinTarget} g</p>
                 )}
               </Card>
               )}
@@ -393,7 +393,7 @@ export default function StatsPage({ embedded = false }: { embedded?: boolean }) 
                 <p className="text-xl font-bold text-white">{formatNumber(avgWater / 1000)} L</p>
                 <p className="text-[11px] text-neutral-500">{t('stats.labels.avgWater')}</p>
                 {waterTarget > 0 && (
-                  <p className="text-[10px] text-neutral-600 mt-0.5">{t('common.target')}: {formatNumber(waterTarget / 1000)} L</p>
+                  <p className="text-[11px] text-neutral-600 mt-0.5">{t('common.target')}: {formatNumber(waterTarget / 1000)} L</p>
                 )}
               </Card>
               )}
@@ -443,9 +443,9 @@ export default function StatsPage({ embedded = false }: { embedded?: boolean }) 
                   <ResponsiveContainer width="100%" height="100%">
                     {chartTab === 'calories' ? (
                       <BarChart data={calorieChartData} barSize={period === '3months' ? 4 : period === 'month' ? 8 : 16}>
-                        <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#737373' }} axisLine={false} tickLine={false}
+                        <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#949494' }} axisLine={false} tickLine={false}
                           interval={period === '3months' ? 6 : period === 'month' ? 4 : 0} />
-                        <YAxis tick={{ fontSize: 9, fill: '#737373' }} axisLine={false} tickLine={false} width={32} />
+                        <YAxis tick={{ fontSize: 10, fill: '#949494' }} axisLine={false} tickLine={false} width={32} />
                         <Tooltip contentStyle={{ background: '#0a0a0a', border: '1px solid #262626', borderRadius: '12px', fontSize: 11 }} />
                         <Bar dataKey="value" fill="#2563eb" radius={[3, 3, 0, 0]} />
                       </BarChart>
@@ -457,16 +457,16 @@ export default function StatsPage({ embedded = false }: { embedded?: boolean }) 
                             <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
                           </linearGradient>
                         </defs>
-                        <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#737373' }} axisLine={false} tickLine={false}
+                        <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#949494' }} axisLine={false} tickLine={false}
                           interval={period === '3months' ? 6 : period === 'month' ? 4 : 0} />
-                        <YAxis domain={['dataMin - 1', 'dataMax + 1']} tick={{ fontSize: 9, fill: '#737373' }} axisLine={false} tickLine={false} width={35} />
+                        <YAxis domain={['dataMin - 1', 'dataMax + 1']} tick={{ fontSize: 10, fill: '#949494' }} axisLine={false} tickLine={false} width={35} />
                         <Tooltip contentStyle={{ background: '#0a0a0a', border: '1px solid #262626', borderRadius: '12px', fontSize: 11 }} />
                         <Area type="monotone" dataKey="value" stroke="#10b981" strokeWidth={2} fill="url(#weightGrad)" dot={{ r: 3, fill: '#10b981' }} />
                       </AreaChart>
                     ) : (
                       <BarChart data={workoutByWeek} barSize={24}>
-                        <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#737373' }} axisLine={false} tickLine={false} />
-                        <YAxis tick={{ fontSize: 9, fill: '#737373' }} axisLine={false} tickLine={false} width={20} allowDecimals={false} />
+                        <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#949494' }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fontSize: 10, fill: '#949494' }} axisLine={false} tickLine={false} width={20} allowDecimals={false} />
                         <Tooltip contentStyle={{ background: '#0a0a0a', border: '1px solid #262626', borderRadius: '12px', fontSize: 11 }} />
                         <Bar dataKey="value" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                       </BarChart>

@@ -84,7 +84,7 @@ export default function ListRow({
         <div className="flex items-center gap-2 min-w-0">
           <div className="text-sm font-medium text-white truncate">{title}</div>
           {badge != null ? (
-            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-600 text-white shrink-0">
+            <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-blue-600 text-white shrink-0">
               {badge}
             </span>
           ) : null}

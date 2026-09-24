@@ -24,6 +24,7 @@ import {
 } from '../../lib/questionnaireBuilder';
 import { displayName } from '../../lib/coachText';
 import { toast } from '../ui/Toast';
+import { ensureLanguage } from '../../i18n';
 import CoachQuestionnaireFields from '../onboarding/CoachQuestionnaireFields';
 import Button from '../ui/Button';
 import Modal from '../ui/Modal';
@@ -384,7 +385,7 @@ export default function CoachQuestionnairePage() {
                 <Button type="button" variant={previewLang === 'fr' ? 'primary' : 'secondary'} data-testid="questionnaire-preview-fr" onClick={() => setPreviewLang('fr')}>
                   {t('coachQuestionnaire.previewLangFr')}
                 </Button>
-                <Button type="button" variant={previewLang === 'en' ? 'primary' : 'secondary'} data-testid="questionnaire-preview-en" onClick={() => setPreviewLang('en')}>
+                <Button type="button" variant={previewLang === 'en' ? 'primary' : 'secondary'} data-testid="questionnaire-preview-en" onClick={() => { void ensureLanguage('en').then(() => setPreviewLang('en')).catch(() => toast(t('errors.generic'), 'error')); }}>
                   {t('coachQuestionnaire.previewLangEn')}
                 </Button>
               </div>

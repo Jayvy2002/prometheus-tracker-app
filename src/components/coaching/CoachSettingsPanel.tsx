@@ -162,7 +162,7 @@ export default function CoachSettingsPanel() {
             />
           </label>
         ))}
-        <p className="text-[10px] text-neutral-600">{t('coaching.settings.templateHint')}</p>
+        <p className="text-[11px] text-neutral-600">{t('coaching.settings.templateHint')}</p>
       </div>
 
       <Link to="/coach/profile" className="block text-blue-400">{t('marketplace.profile')}</Link>

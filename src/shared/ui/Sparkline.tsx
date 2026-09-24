@@ -10,7 +10,7 @@ export default function Sparkline({
   height?: number;
 }) {
   if (values.length < 2) {
-    return <span className="text-[10px] text-neutral-600">—</span>;
+    return <span className="text-[11px] text-neutral-600">—</span>;
   }
   const min = Math.min(...values);
   const max = Math.max(...values);

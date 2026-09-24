@@ -2,9 +2,8 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 
-// Translations are imported lazily to keep the bundle split clean.
-// The actual locale files are populated by the i18n agent.
-import en from './locales/en';
+// French is the default and fallback: it ships in the main bundle. English is
+// loaded on demand (its own chunk), so a French phone never downloads it.
 import fr from './locales/fr';
 import { setDisplayLanguage } from '../lib/utils';
 
@@ -13,9 +12,10 @@ i18n
   .use(initReactI18next)
   .init({
     resources: {
-      en: { translation: en },
       fr: { translation: fr },
     },
+    // English arrives later through addResourceBundle (ensureLanguage).
+    partialBundledLanguages: true,
     lng: 'fr',
     fallbackLng: 'fr',
     supportedLngs: ['fr', 'en'],
@@ -48,9 +48,34 @@ function applyDocumentLang(lang: string) {
 i18n.on('languageChanged', applyDocumentLang);
 applyDocumentLang(i18n.language || 'fr');
 
+let englishLoad: Promise<void> | null = null;
+
+/**
+ * Makes sure a language's texts are loaded before it is shown or used
+ * (profile switch, coach questionnaire preview in English). French is always there.
+ */
+export function ensureLanguage(lang: string): Promise<void> {
+  if (!lang.toLowerCase().startsWith('en') || i18n.hasResourceBundle('en', 'translation')) {
+    return Promise.resolve();
+  }
+  englishLoad ??= import('./locales/en')
+    .then(module => {
+      i18n.addResourceBundle('en', 'translation', module.default, true, true);
+    })
+    .catch(error => {
+      englishLoad = null;
+      throw error;
+    });
+  return englishLoad;
+}
+
 /** Call this when the user changes their language in the profile. */
 export function setAppLanguage(lang: string) {
-  i18n.changeLanguage(lang);
   localStorage.setItem('prometheus_language', lang);
-  applyDocumentLang(lang);
+  // Switch only once the texts are there: never a screen of raw keys. If the
+  // English chunk cannot load (offline first visit), the app stays in French.
+  void ensureLanguage(lang)
+    .then(() => i18n.changeLanguage(lang))
+    .then(() => applyDocumentLang(lang))
+    .catch(error => console.error('language load failed:', error));
 }

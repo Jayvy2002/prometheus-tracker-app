@@ -484,7 +484,7 @@ export function SetRow({
         <div className="px-2 pb-2 space-y-1" data-drop-segments="true">
           {segments.map((row, i) => (
             <div key={i} className="flex items-center gap-1.5 pl-6">
-              <span className="text-[10px] text-sky-400/70 w-4">{i + 1}</span>
+              <span className="text-[11px] text-sky-400/70 w-4">{i + 1}</span>
               {showLoad && (
                 <input
                   type="number"
@@ -524,7 +524,7 @@ export function SetRow({
       {isTempo && (
         <div className="px-2 pb-2 -mt-0.5 animate-fade-in">
           <div className="flex items-center gap-2 pl-6">
-            <span className="text-[10px] text-teal-400/70 font-medium shrink-0">{optionLabel(t, 'setTypes', 'tempo')}</span>
+            <span className="text-[11px] text-teal-400/70 font-medium shrink-0">{optionLabel(t, 'setTypes', 'tempo')}</span>
             <input
               type="text"
               value={localTempo}
@@ -544,7 +544,7 @@ export function SetRow({
       {isCluster && (
         <div className="px-2 pb-2 -mt-0.5 animate-fade-in">
           <div className="flex items-center gap-2 pl-6">
-            <span className="text-[10px] text-cyan-400/70 font-medium shrink-0">{optionLabel(t, 'setTypes', 'cluster')}</span>
+            <span className="text-[11px] text-cyan-400/70 font-medium shrink-0">{optionLabel(t, 'setTypes', 'cluster')}</span>
             <input
               type="number"
               inputMode="numeric"
@@ -554,7 +554,7 @@ export function SetRow({
               className="w-12 bg-neutral-800/60 border border-cyan-500/20 rounded-lg px-2 py-1 text-xs text-cyan-300 text-center focus:outline-none focus:ring-1 focus:ring-cyan-500 placeholder-neutral-600"
               placeholder={t('workout.exerciseCard.repsShort')}
             />
-            <span className="text-[10px] text-neutral-600">{t('workout.exerciseCard.burst')}</span>
+            <span className="text-[11px] text-neutral-600">{t('workout.exerciseCard.burst')}</span>
             <input
               type="number"
               inputMode="numeric"
@@ -564,11 +564,11 @@ export function SetRow({
               className="w-12 bg-neutral-800/60 border border-cyan-500/20 rounded-lg px-2 py-1 text-xs text-cyan-300 text-center focus:outline-none focus:ring-1 focus:ring-cyan-500 placeholder-neutral-600"
               placeholder="20"
             />
-            <span className="text-[10px] text-neutral-600">{t('workout.exerciseCard.restSeconds')}</span>
+            <span className="text-[11px] text-neutral-600">{t('workout.exerciseCard.restSeconds')}</span>
           </div>
           {localClusterBurst && localReps && (
             <div className="pl-6 mt-1">
-              <span className="text-[10px] text-cyan-400/60 font-medium">
+              <span className="text-[11px] text-cyan-400/60 font-medium">
                 {Math.ceil(parseInt(localReps, 10) / (parseInt(localClusterBurst, 10) || 1))}\u00d7{localClusterBurst} @ {localClusterRest}s
               </span>
             </div>
@@ -609,7 +609,7 @@ export function SupersetLinkPicker({ currentExerciseId, onClose }: { currentExer
 
   return (
     <div ref={pickerRef} className="absolute top-full right-0 mt-1 z-50 bg-neutral-900 border border-neutral-700/50 rounded-xl p-2 shadow-xl animate-fade-in min-w-[200px]">
-      <p className="text-[10px] text-neutral-500 font-medium uppercase tracking-wider mb-1.5 px-1">{t('workout.exerciseCard.linkWith')}</p>
+      <p className="text-[11px] text-neutral-500 font-medium uppercase tracking-wider mb-1.5 px-1">{t('workout.exerciseCard.linkWith')}</p>
       <div className="space-y-1">
         {exercises.map(ex => (
           <button

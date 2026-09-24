@@ -82,7 +82,7 @@ export default function AvatarUpload() {
         onChange={handleFileSelect}
         className="hidden"
       />
-      <p className="text-[10px] text-neutral-600 mt-1.5 text-center max-w-[10rem]">{t('profile.avatar.publicHint')}</p>
+      <p className="text-[11px] text-neutral-600 mt-1.5 text-center max-w-[10rem]">{t('profile.avatar.publicHint')}</p>
     </div>
   );
 }

@@ -199,14 +199,14 @@ export default function WeightPage() {
           <div className="h-44">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData}>
-                <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#737373' }} axisLine={false} tickLine={false} />
+                <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#949494' }} axisLine={false} tickLine={false} />
                 {/* Even whole-number ticks in the app language (« 62 · 64 · 66 », never « 65.35 »). */}
                 <YAxis
                   domain={axis?.domain ?? ['dataMin - 1', 'dataMax + 1']}
                   ticks={axis?.ticks}
                   allowDecimals={false}
                   tickFormatter={(v: number) => formatNumber(v, { maxDigits: 0 })}
-                  tick={{ fontSize: 10, fill: '#737373' }}
+                  tick={{ fontSize: 10, fill: '#949494' }}
                   axisLine={false}
                   tickLine={false}
                   width={35}

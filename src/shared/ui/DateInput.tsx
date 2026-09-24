@@ -76,7 +76,7 @@ export default function DateInput({ value, onChange }: DateInputProps) {
         error
           ? 'border-red-500/70'
           : focused
-            ? 'border-neutral-600'
+            ? 'border-[#525252]'
             : 'border-neutral-800/50'
       }`}
     >

@@ -21,8 +21,8 @@ export function WeightChart({ points }: { points: Array<{ date: string; kg: numb
       <div className="h-40">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={points.map(p => ({ date: p.date, value: weightInUnit(p.kg, unit) }))}>
-            <XAxis dataKey="date" tickFormatter={tick} tick={{ fill: '#737373', fontSize: 10 }} axisLine={false} tickLine={false} />
-            <YAxis domain={['auto', 'auto']} width={32} tick={{ fill: '#737373', fontSize: 10 }} axisLine={false} tickLine={false} />
+            <XAxis dataKey="date" tickFormatter={tick} tick={{ fill: '#949494', fontSize: 10 }} axisLine={false} tickLine={false} />
+            <YAxis domain={['auto', 'auto']} width={32} tick={{ fill: '#949494', fontSize: 10 }} axisLine={false} tickLine={false} />
             <Tooltip
               contentStyle={{ background: '#171717', border: '1px solid #262626', borderRadius: 12, fontSize: 12 }}
               formatter={(value) => [`${formatNumber(Number(value))} ${unit}`, t('coaching.progress.weightTitle')]}
@@ -47,8 +47,8 @@ export function NutritionChart({ points }: { points: DailyNutritionPoint[] }) {
       <div className="h-40">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={points}>
-            <XAxis dataKey="date" tickFormatter={tick} tick={{ fill: '#737373', fontSize: 10 }} axisLine={false} tickLine={false} />
-            <YAxis width={36} tick={{ fill: '#737373', fontSize: 10 }} axisLine={false} tickLine={false} />
+            <XAxis dataKey="date" tickFormatter={tick} tick={{ fill: '#949494', fontSize: 10 }} axisLine={false} tickLine={false} />
+            <YAxis width={36} tick={{ fill: '#949494', fontSize: 10 }} axisLine={false} tickLine={false} />
             {target > 0 && <ReferenceLine y={target} stroke="#f59e0b" strokeDasharray="4 4" />}
             <Tooltip
               contentStyle={{ background: '#171717', border: '1px solid #262626', borderRadius: 12, fontSize: 12 }}
@@ -59,7 +59,7 @@ export function NutritionChart({ points }: { points: DailyNutritionPoint[] }) {
         </ResponsiveContainer>
       </div>
       {target > 0 && (
-        <p className="text-[10px] text-neutral-500 mt-1">{t('coaching.progress.calorieTarget', { n: Math.round(target) })}</p>
+        <p className="text-[11px] text-neutral-500 mt-1">{t('coaching.progress.calorieTarget', { n: Math.round(target) })}</p>
       )}
     </Card>
   );
@@ -73,8 +73,8 @@ export function LiftLineChart({ points }: { points: Array<{ date: string; topSet
     <div className="h-40">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={points.map(p => ({ ...p, topSet: weightInUnit(p.topSet, unit) }))}>
-          <XAxis dataKey="date" tickFormatter={tick} tick={{ fill: '#737373', fontSize: 10 }} axisLine={false} tickLine={false} />
-          <YAxis domain={['auto', 'auto']} width={36} tick={{ fill: '#737373', fontSize: 10 }} axisLine={false} tickLine={false} />
+          <XAxis dataKey="date" tickFormatter={tick} tick={{ fill: '#949494', fontSize: 10 }} axisLine={false} tickLine={false} />
+          <YAxis domain={['auto', 'auto']} width={36} tick={{ fill: '#949494', fontSize: 10 }} axisLine={false} tickLine={false} />
           <Tooltip
             contentStyle={{ background: '#171717', border: '1px solid #262626', borderRadius: 12, fontSize: 12 }}
             formatter={(value) => [`${Number(value)} ${unit}`, t('coaching.progress.topSet')]}

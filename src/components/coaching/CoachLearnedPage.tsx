@@ -157,7 +157,7 @@ export default function CoachLearnedPage() {
                           {t('coaching.learned.delete')}
                         </button>
                         {row.disabled ? (
-                          <span className="text-[10px] text-neutral-600">{t('coaching.learned.disabledHint')}</span>
+                          <span className="text-[11px] text-neutral-600">{t('coaching.learned.disabledHint')}</span>
                         ) : null}
                       </div>
                     </Card>

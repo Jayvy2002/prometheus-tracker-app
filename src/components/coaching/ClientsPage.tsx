@@ -237,17 +237,17 @@ export default function ClientsPage() {
                   <div className="flex items-center gap-2">
                     <p className="font-medium text-white truncate">{c.full_name || c.email || t('coaching.unnamed')}</p>
                     {!c.onboarding_completed && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 shrink-0">
+                      <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 shrink-0">
                         {t('coaching.badgeOnboarding')}
                       </span>
                     )}
                     {c.onboarding_completed && ops && shouldOpenSetup(ops) && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/15 text-blue-300 shrink-0">
+                      <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-blue-500/15 text-blue-300 shrink-0">
                         {t('coaching.badgeSetup')}
                       </span>
                     )}
                     {c.medical_flags && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-rose-500/15 text-rose-300 shrink-0">
+                      <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-rose-500/15 text-rose-300 shrink-0">
                         {t('coaching.badgeMedical')}
                       </span>
                     )}
@@ -310,12 +310,12 @@ export default function ClientsPage() {
                     {' · '}
                     {new Date(inv.expires_at).toLocaleDateString(i18n.language)}
                   </p>
-                  <button onClick={() => copyUrl(inv.token)} className="p-1.5 text-neutral-400 hover:text-white">
-                    <Copy size={14} className={copied === inv.token ? 'text-emerald-400' : ''} />
+                  <button type="button" onClick={() => copyUrl(inv.token)} aria-label={t('coaching.invite.copyLink')} className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg text-neutral-400 hover:text-white">
+                    <Copy size={16} aria-hidden="true" className={copied === inv.token ? 'text-emerald-400' : ''} />
                   </button>
                   <button
                     onClick={() => revokeInvite(inv.id)}
-                    className="text-[10px] text-neutral-500 hover:text-rose-400"
+                    className="text-[11px] text-neutral-500 hover:text-rose-400"
                   >
                     {t('common.delete')}
                   </button>

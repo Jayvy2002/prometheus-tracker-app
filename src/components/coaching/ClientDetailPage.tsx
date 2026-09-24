@@ -195,7 +195,7 @@ function DossierSection({
 function Kpi({ label, value, tone }: { label: string; value: string; tone?: string }) {
   return (
     <div className="rounded-xl bg-neutral-900/70 px-3 py-2 min-w-0">
-      <p className="text-[10px] text-neutral-500 uppercase tracking-wide truncate">{label}</p>
+      <p className="text-[11px] text-neutral-500 uppercase tracking-wide truncate">{label}</p>
       <p className={`text-sm font-medium mt-0.5 truncate ${tone || 'text-white'}`}>{value}</p>
     </div>
   );
@@ -577,7 +577,7 @@ export default function ClientDetailPage() {
             <div className="flex items-start gap-2 min-w-0">
               <h1 className="text-xl font-bold leading-tight text-white line-clamp-2 break-words min-w-0" data-testid="client-file-name">{client ? displayName(client, t('coaching.unnamed')) : t('coaching.unnamed')}</h1>
               {medicalFlagIds(parseIntake(clientProfile?.kinesiology_intake)).length > 0 && (
-                <span className="mt-1 text-[10px] px-1.5 py-0.5 rounded-full bg-rose-500/15 text-rose-300 shrink-0">
+                <span className="mt-1 text-[11px] px-1.5 py-0.5 rounded-full bg-rose-500/15 text-rose-300 shrink-0">
                   {t('coaching.badgeMedical')}
                 </span>
               )}
@@ -1154,7 +1154,7 @@ export default function ClientDetailPage() {
               <Card key={n.id}>
                 <div className="flex items-center gap-2 mb-1">
                   {n.workout_id ? <Dumbbell size={12} className="text-blue-400" /> : <CalendarDays size={12} className="text-neutral-500" />}
-                  <span className="text-[10px] text-neutral-500">{n.note_date || n.created_at.slice(0, 10)}</span>
+                  <span className="text-[11px] text-neutral-500">{n.note_date || n.created_at.slice(0, 10)}</span>
                 </div>
                 <p className="text-sm text-neutral-200">{n.body}</p>
               </Card>

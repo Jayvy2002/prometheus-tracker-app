@@ -249,6 +249,7 @@ export default function ExerciseCard({
           onClick={() => setExpanded(!expanded)}
           className="min-h-11 min-w-11 shrink-0 inline-flex items-center justify-center text-neutral-400 hover:text-white"
           aria-expanded={expanded}
+          aria-label={`${t(expanded ? 'common.collapse' : 'common.expand')} · ${localName || t('workout.exerciseCard.exerciseNamePlaceholder')}`}
         >
           {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
         </button>
@@ -262,14 +263,14 @@ export default function ExerciseCard({
               </span>
             ) : null}
             {isPR && (
-              <span className="flex items-center gap-1 text-[10px] text-amber-400 bg-amber-400/10 rounded px-1.5 py-0.5 font-bold">
+              <span className="flex items-center gap-1 text-[11px] text-amber-400 bg-amber-400/10 rounded px-1.5 py-0.5 font-bold">
                 <Award size={10} />
                 PR
               </span>
             )}
             {totalSets > 0 && (
               <span
-                className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${completedCount === totalSets ? 'text-emerald-400 bg-emerald-400/10' : 'text-neutral-500 bg-neutral-800/50'}`}
+                className={`text-[11px] font-medium px-1.5 py-0.5 rounded ${completedCount === totalSets ? 'text-emerald-400 bg-emerald-400/10' : 'text-neutral-500 bg-neutral-800/50'}`}
                 aria-label={t('workout.exerciseCard.setsProgress', { done: completedCount, total: totalSets })}
               >
                 <span aria-hidden="true">{completedCount}/{totalSets}</span>
@@ -295,7 +296,7 @@ export default function ExerciseCard({
               title={t('workout.plates.open')}
             >
               <Disc3 size={16} aria-hidden="true" />
-              <span className="text-[10px] leading-none" aria-hidden="true">{t('workout.plates.title')}</span>
+              <span className="text-[11px] leading-none" aria-hidden="true">{t('workout.plates.title')}</span>
             </button>
           )}
           <OverflowMenu label={t('workout.exerciseCard.moreActions')} actions={overflowActions} />
@@ -389,7 +390,7 @@ export default function ExerciseCard({
       {expanded && (
         <div className="px-3 sm:px-4 pb-4 animate-fade-in">
           {(exercise.sets?.length ?? 0) > 0 && (
-            <div className="flex items-center gap-1.5 text-[10px] text-neutral-600 font-medium uppercase tracking-wider mb-2 px-1">
+            <div className="flex items-center gap-1.5 text-[11px] text-neutral-600 font-medium uppercase tracking-wider mb-2 px-1">
               <div className="w-11 text-center shrink-0">{t('workout.exerciseCard.setColumn')}</div>
               <div className="w-14 text-center shrink-0">{t('workout.exerciseCard.previousColumn')}</div>
               <div className={`flex-1 min-w-0 grid gap-1.5 ${
@@ -453,7 +454,7 @@ export default function ExerciseCard({
           {/* Myo-rep total reps counter */}
           {myoSets.length > 1 && myoTotalReps > 0 && (
             <div className="mt-1.5 px-1">
-              <span className="text-[10px] text-rose-400/70 font-medium">
+              <span className="text-[11px] text-rose-400/70 font-medium">
                 {t('workout.exerciseCard.myoTotal', { reps: myoTotalReps, sets: myoSets.length })}
               </span>
             </div>

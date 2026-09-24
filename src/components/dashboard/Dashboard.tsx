@@ -441,7 +441,7 @@ export default function Dashboard() {
 
         <div className="min-w-0 lg:col-start-2 lg:row-start-1 lg:row-span-2" data-testid="dashboard-column-overview">
         {!activityPending && (
-          <p className="text-[10px] font-semibold text-neutral-600 uppercase tracking-widest mb-2 mt-1">
+          <p className="text-[11px] font-semibold text-neutral-600 uppercase tracking-widest mb-2 mt-1">
             {t('dashboard.overviewTitle')}
           </p>
         )}
@@ -506,7 +506,7 @@ export default function Dashboard() {
                         <span className={`h-2 w-2 rounded-full ${isDone
                           ? weekGoalMet ? 'bg-emerald-400' : 'bg-blue-400'
                           : isToday ? 'bg-neutral-300' : 'bg-neutral-700'}`} />
-                        <span className={`text-[9px] ${isToday ? 'text-white' : 'text-neutral-600'}`}>
+                        <span className={`text-[10px] ${isToday ? 'text-white' : 'text-neutral-600'}`}>
                           {t(`routines.form.days.${key}`)}
                         </span>
                       </div>
@@ -546,7 +546,7 @@ export default function Dashboard() {
 
         <div className="min-w-0 lg:col-start-1 lg:row-start-2" data-testid="dashboard-attention">
         {attentionReady && hasAttention && (
-          <p className="text-[10px] font-semibold text-neutral-600 uppercase tracking-widest mb-2 mt-1">
+          <p className="text-[11px] font-semibold text-neutral-600 uppercase tracking-widest mb-2 mt-1">
             {t('dashboard.attentionTitle')}
           </p>
         )}
