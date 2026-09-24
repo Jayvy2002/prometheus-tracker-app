@@ -23,6 +23,10 @@
     {
       "version": "20260924110000",
       "name": "personal_modules_honest_defaults"
+    },
+    {
+      "version": "20260924120000",
+      "name": "action_now_notifications"
     }
   ]
 }

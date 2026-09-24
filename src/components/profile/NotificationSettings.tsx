@@ -11,6 +11,10 @@ import {
 import type { NotificationSettings as NS } from '../../lib/notifications';
 
 import { useAuthStore } from '../../stores/authStore';
+import { useProfileStore } from '../../stores/profileStore';
+import { useAccountContext } from '@/features/account/hooks/useAccountContext';
+
+type ActionCategory = 'messages' | 'coaching' | 'program' | 'decisions';
 
 function Toggle({ checked, onChange, label }: { checked: boolean; onChange: () => void; label: string }) {
   return (
@@ -34,6 +38,13 @@ export default function NotificationSettings() {
   const supported = 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window;
 
   const { user } = useAuthStore();
+  const { profile, updateProfile } = useProfileStore();
+  const canCoach = useAccountContext().capabilities.coach;
+  const categories = profile?.notification_categories ?? {};
+  // Vision §21: notify what needs an action now; « decisions » only exist for a coach.
+  const actionCategories: ActionCategory[] = canCoach
+    ? ['messages', 'coaching', 'program', 'decisions']
+    : ['messages', 'coaching', 'program'];
   const [permission, setPermission] = useState<NotificationPermission>(
     'Notification' in window ? Notification.permission : 'denied',
   );
@@ -79,6 +90,19 @@ export default function NotificationSettings() {
     }
     setPermission(granted ? 'granted' : 'denied');
     setRequesting(false);
+  };
+
+  const toggleCategory = async (category: ActionCategory) => {
+    if (!user) return;
+    setOpError(null);
+    const next = { ...categories, [category]: categories[category] === false };
+    const result = await updateProfile(user.id, { notification_categories: next });
+    if (result.error) {
+      setOpError(t('profile.notifications.saveFailed'));
+      return;
+    }
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
   };
 
   const update = (patch: Partial<NS>) => {
@@ -155,6 +179,28 @@ export default function NotificationSettings() {
           {requesting ? t('profile.notifications.requesting') : t('profile.notifications.enable')}
         </button>
       )}
+
+      <section className="space-y-3" aria-labelledby="notif-action-title">
+        <div>
+          <h3 id="notif-action-title" className="text-sm text-white font-semibold">{t('profile.notifications.actionTitle')}</h3>
+          <p className="text-xs text-neutral-500 mt-0.5">{t('profile.notifications.actionHint')}</p>
+        </div>
+        {actionCategories.map(category => (
+          <div key={category} className="flex items-center justify-between gap-3">
+            <p className="text-sm text-neutral-200">{t(`profile.notifications.categories.${category}`)}</p>
+            <Toggle
+              checked={categories[category] !== false}
+              onChange={() => void toggleCategory(category)}
+              label={t(`profile.notifications.categories.${category}`)}
+            />
+          </div>
+        ))}
+      </section>
+
+      <div className="pt-1">
+        <h3 className="text-sm text-white font-semibold">{t('profile.notifications.fixedTitle')}</h3>
+        <p className="text-xs text-neutral-500 mt-0.5">{t('profile.notifications.fixedHint')}</p>
+      </div>
 
       <div className="space-y-2">
         <div className="flex items-center justify-between">
