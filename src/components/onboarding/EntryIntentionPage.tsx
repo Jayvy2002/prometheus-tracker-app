@@ -47,6 +47,8 @@ export default function EntryIntentionPage() {
         <div className="text-center space-y-2">
           <img src="/logo.svg" alt="" className="w-12 h-12 mx-auto" />
           <h1 className="text-2xl font-semibold tracking-tight">{t('entryIntention.title')}</h1>
+          {/* Vision §5.1: the intention opens a path, it does not lock an identity. */}
+          <p className="mt-2 text-sm text-neutral-400" data-testid="entry-intention-reassurance">{t('entryIntention.changeLater')}</p>
         </div>
         {error && <p role="alert" className="text-rose-300 text-center">{t('entryIntention.error')}</p>}
         <div className="space-y-3">

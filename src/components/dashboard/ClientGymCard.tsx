@@ -6,6 +6,7 @@ import type { ClientGymCard as GymCard } from '../../lib/clientGym';
 import type { ProgramDay, ProgramDayExercise } from '../../lib/types';
 import Button from '../ui/Button';
 import ListRow from '../ui/ListRow';
+import { useRegisterInlineResume } from '../../features/workout/hooks/useResumableWorkout';
 
 interface Props {
   card: GymCard;
@@ -43,6 +44,7 @@ export default function ClientGymCard({
   onOpenProgram,
 }: Props) {
   const { t } = useTranslation();
+  useRegisterInlineResume(card.kind === 'continue' && card.day ? card.workoutId : null);
   if (card.kind === 'none') return null;
 
   const weekLabel = [
@@ -82,8 +84,8 @@ export default function ClientGymCard({
   }
 
   const day = card.day;
-  if (!day) return null;
   const continueMode = card.kind === 'continue';
+  if (!day) return null;
   const title = continueMode
     ? t('dashboard.gym.continue', { name: day.name || programName })
     : card.isToday && typeof day.weekday === 'number'

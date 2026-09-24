@@ -7,9 +7,9 @@ import { useAuthStore } from '../../stores/authStore';
 import { useProgramStore } from '../../stores/programStore';
 import { useRoutineStore } from '../../stores/routineStore';
 import { useCoachingStore } from '../../stores/coachingStore';
-import { todayStr } from '../../lib/utils';
+import { formatDateShort, todayStr } from '../../lib/utils';
 import { isCoachedAthlete } from '../../lib/coachRole';
-import type { ProgramDay } from '../../lib/types';
+import type { Program, ProgramDay } from '../../lib/types';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import Input from '../ui/Input';
@@ -22,6 +22,7 @@ import ErrorState from '../ui/ErrorState';
 import { toast } from '../ui/Toast';
 import { assignStartLabel } from '../../lib/programWrite';
 import { programSessionLabel } from '../../features/programs/domain/namedSession';
+import { programListStatus, type ProgramUsage } from '../../features/programs/domain/programListStatus';
 
 function programDeleteToast(error: string, t: (key: string) => string): string {
   if (error.includes('program_has_history')) return t('programs.deleteHasHistory');
@@ -35,7 +36,8 @@ export default function ProgramsPage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const { programs, programsError, loading, fetchPrograms, createProgram, deleteProgram, assignProgram, duplicateProgram } = useProgramStore();
+  const { programs, programsError, loading, fetchPrograms, fetchProgramUsage, createProgram, deleteProgram, assignProgram, duplicateProgram } = useProgramStore();
+  const [usage, setUsage] = useState<Record<string, ProgramUsage>>({});
   const { routines, fetchRoutines } = useRoutineStore();
   const { clients, fetchClients, coachingRole, myCoach } = useCoachingStore();
   const isCoach = useAccountContext().capabilities.coach;
@@ -57,6 +59,32 @@ export default function ProgramsPage() {
     fetchRoutines(user.id);
     if (isCoach) fetchClients();
   }, [user, isCoach]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const programIdsKey = programs.map(p => p.id).join(',');
+  useEffect(() => {
+    if (!isCoach || !programIdsKey) return;
+    let live = true;
+    void fetchProgramUsage(programIdsKey.split(',')).then(next => { if (live) setUsage(next); });
+    return () => { live = false; };
+  }, [isCoach, programIdsKey, fetchProgramUsage]);
+
+  const statusLabel = (p: Program): string => {
+    const status = programListStatus(p);
+    if (status.kind === 'draft') return t('programs.listStatus.draft');
+    if (status.kind === 'scheduled') {
+      return status.on
+        ? t('programs.listStatus.scheduledOn', { revision: status.revision, next: status.nextRevision, date: formatDateShort(status.on, i18n.language) })
+        : t('programs.listStatus.scheduled', { revision: status.revision, next: status.nextRevision });
+    }
+    return t('programs.listStatus.version', { revision: status.revision });
+  };
+
+  const usageLabel = (p: Program): string => {
+    const u = usage[p.id];
+    if (!u || u.active + u.paused === 0) return t('programs.listStatus.noClient');
+    const active = t('programs.listStatus.clients', { count: u.active });
+    return u.paused > 0 ? `${active} · ${t('programs.listStatus.paused', { count: u.paused })}` : active;
+  };
 
   const weekdayLabel = (d: number) => t(`programs.weekdays.${d}`);
 
@@ -160,6 +188,11 @@ export default function ProgramsPage() {
                       {' · '}
                       {t('programs.weeksCount', { n: p.duration_weeks })}
                     </p>
+                    {isCoach && (
+                      <p className="text-xs text-neutral-500 mt-1" data-testid="program-list-status">
+                        {statusLabel(p)} · {usageLabel(p)}
+                      </p>
+                    )}
                     <div className="flex flex-wrap gap-1 mt-2">
                       {(p.days ?? []).filter(d => d.name).map(d => (
                         <span key={d.id} className="text-xs px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400">
@@ -202,7 +235,7 @@ export default function ProgramsPage() {
         )}
 
         {isCoach && (
-        <p className="mt-6 text-sm text-neutral-500">{t('programs.templatesHint')}</p>
+        <p className="mt-6 text-sm text-neutral-500">{t('programs.routinesHint')}</p>
         )}
         {isCoach && (
         <button type="button" onClick={() => navigate('/routines')} className="mt-2 min-h-11 text-sm text-blue-400">

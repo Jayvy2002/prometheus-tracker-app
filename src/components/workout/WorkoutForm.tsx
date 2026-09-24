@@ -52,6 +52,7 @@ import { useProgramStore } from '../../stores/programStore';
 import { shiftProgramWeekdays } from '../../lib/soloAsk';
 import { usePlanSessionLabel } from '../../features/programs/hooks/usePlanSessionLabel';
 import { usePreferencesStore } from '../../stores/preferencesStore';
+import SetLegend from './SetLegend';
 
 interface LocationState {
   routineId?: string;
@@ -534,22 +535,12 @@ function WorkoutFormInner() {
 
   return (
     <div className="px-3 pt-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-4" data-workout-logger="true">
-      <div className="flex items-center gap-1 mb-3">
+      {/* Controls on one line, the session name on its own line: never cut to « L… ». */}
+      <div className="flex items-center gap-1">
         <IconButton label={t('common.back')} onClick={handleBack} className="-ml-1 shrink-0">
           <ArrowLeft size={20} />
         </IconButton>
-        {isProgramSession ? (
-          <p className="flex-1 min-w-0 text-base sm:text-lg font-semibold text-white truncate" data-testid="ux22-session-label">
-            {planSessionLabel}
-          </p>
-        ) : (
-        <input
-          value={workoutName}
-          onChange={e => setWorkoutName(e.target.value)}
-          placeholder={t('workout.workoutName')}
-          className="flex-1 min-w-0 bg-transparent border-0 px-1 text-base sm:text-lg font-semibold text-white placeholder-neutral-500 focus:outline-none focus:ring-0"
-        />
-        )}
+        <div className="flex-1" />
         <div className="flex items-center shrink-0">
           <SessionTimer elapsedSeconds={elapsedSeconds} running={timer.running} onToggle={toggleSessionTimer} />
           {restEnabled && (
@@ -561,12 +552,27 @@ function WorkoutFormInner() {
           </IconButton>
           )}
           <Button type="button" size="sm" onClick={requestFinish} disabled={saving}>
-            {saving ? t('common.saving') : t('workout.finishWorkout')}
+            {saving ? t('common.saving') : t('workout.finishShort')}
           </Button>
           <IconButton label={t('workout.sessionMenu')} onClick={() => setSessionMenu(v => !v)}>
             <MoreVertical size={18} />
           </IconButton>
         </div>
+      </div>
+      <div className="mb-3 px-1 min-w-0">
+        {isProgramSession ? (
+          <h1 className="text-lg sm:text-xl font-semibold text-white break-words" data-testid="ux22-session-label">
+            {planSessionLabel}
+          </h1>
+        ) : (
+        <input
+          value={workoutName}
+          onChange={e => setWorkoutName(e.target.value)}
+          placeholder={t('workout.workoutName')}
+          aria-label={t('workout.workoutName')}
+          className="w-full bg-transparent border-0 p-0 text-lg sm:text-xl font-semibold text-white placeholder-neutral-500 focus:outline-none focus:ring-0"
+        />
+        )}
       </div>
       {sessionMenu && (
         <div className="mb-3 rounded-xl border border-neutral-800 bg-neutral-950 p-2 space-y-1">
@@ -580,6 +586,8 @@ function WorkoutFormInner() {
           </button>
         </div>
       )}
+
+      {(currentWorkout.exercises?.length ?? 0) > 0 && <SetLegend />}
 
       {!isProgramSession && (state.offPlan || workoutName === t('nav.addWorkoutOffPlan')) && (
         <p data-testid="workout-off-plan-notice" className="mb-3 text-sm text-neutral-400">

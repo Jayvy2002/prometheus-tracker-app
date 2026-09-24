@@ -274,6 +274,9 @@ export default function Dashboard() {
 
         <LinkEndedBanner />
 
+        {/* Desktop: today (priority, alerts, decision) beside the overview. Mobile: one column. */}
+        <div className="lg:grid lg:grid-cols-2 lg:gap-6 lg:items-start">
+        <div className="min-w-0" data-testid="dashboard-column-today">
         <div data-testid="dashboard-priority">
         {dueGymHero && assignment?.program && (
           <ClientGymCard
@@ -433,6 +436,8 @@ export default function Dashboard() {
         {!hasCoach && !activityPending && !firstRun && <SoloWeeklyReview />}
         <SoloProgramProposal variant="notice" />
 
+        </div>
+        <div className="min-w-0" data-testid="dashboard-column-overview">
         {!activityPending && (
           <p className="text-[10px] font-semibold text-neutral-600 uppercase tracking-widest mb-2 mt-1">
             {t('dashboard.overviewTitle')}
@@ -529,6 +534,8 @@ export default function Dashboard() {
           )}
         </div>
         )}
+        </div>
+        </div>
         </div>
       </div>
     </PageTransition>

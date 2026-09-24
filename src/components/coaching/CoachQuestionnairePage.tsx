@@ -66,6 +66,19 @@ export default function CoachQuestionnairePage() {
     return () => { active = false; };
   }, [userId, t]);
 
+  // One card per questionnaire: its latest version (older versions stay in the history).
+  const latestVersions = useMemo(() => {
+    const byId = new Map<string, (typeof versions)[number]>();
+    for (const v of versions) {
+      const current = byId.get(v.definition.id);
+      if (!current || v.definition.version > current.definition.version) byId.set(v.definition.id, v);
+    }
+    return [...byId.values()];
+  }, [versions]);
+  const defaultVersion = versions.find(v => v.id === defaultId) ?? null;
+  const localizedName = (definition: { name: { fr: string; en: string } }) =>
+    (i18n.language.startsWith('en') ? definition.name.en : definition.name.fr) || definition.name.fr || definition.name.en;
+
   const previous = useMemo(() => {
     if (!selected) return null;
     return versions
@@ -213,39 +226,73 @@ export default function CoachQuestionnairePage() {
       {error && <p role="alert" className="text-red-400">{error}</p>}
       {!selected ? (
         <>
-          <div className="flex flex-wrap gap-2">
+          {/* 1. What new clients receive today. */}
+          <p className="text-sm text-neutral-300" data-testid="questionnaire-current-default">
+            {t('coachQuestionnaire.currentDefault', {
+              name: defaultVersion ? localizedName(defaultVersion.definition) : t('coachQuestionnaire.standardName'),
+            })}
+          </p>
+          {defaultVersion && (
+            <Button variant="ghost" size="sm" onClick={() => void chooseDefault(null)} disabled={busy}>
+              {t('coachQuestionnaire.standard')}
+            </Button>
+          )}
+
+          {/* 2. My questionnaires: the latest version of each, older versions stay in history. */}
+          <section className="space-y-2" aria-labelledby="questionnaire-list-title">
+            <h2 id="questionnaire-list-title" className="text-sm font-semibold text-white">{t('coachQuestionnaire.listTitle')}</h2>
+            {latestVersions.length === 0 ? (
+              <p className="text-sm text-neutral-500">{t('coachQuestionnaire.listEmpty')}</p>
+            ) : latestVersions.map(v => (
+              <div key={v.id} className="border border-neutral-800 rounded-xl p-3 space-y-2">
+                <p data-testid={`questionnaire-card-${v.id}`} className="text-sm text-white">
+                  <span className="font-medium">{localizedName(v.definition)}</span>
+                  <span className="text-neutral-500"> · v{v.definition.version}</span>
+                  {defaultVersion?.definition.id === v.definition.id && (
+                    <span className="ml-2 text-xs text-emerald-400">
+                      ✓ {defaultId === v.id
+                        ? t('coachQuestionnaire.defaultBadge')
+                        : t('coachQuestionnaire.defaultBadgeOlder', { version: defaultVersion.definition.version })}
+                    </span>
+                  )}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" data-testid={`questionnaire-edit-${v.id}`} disabled={busy} onClick={() => {
+                    const d = structuredClone(v.definition);
+                    d.version = nextVersion(versions, d.id);
+                    setSelected(d);
+                    setPreview(false);
+                  }}>{t('common.edit')}</Button>
+                  <Button size="sm" variant="secondary" disabled={busy} onClick={() => {
+                    const d = structuredClone(v.definition);
+                    d.id = crypto.randomUUID();
+                    d.version = 1;
+                    setSelected(d);
+                  }}>{t('coachQuestionnaire.duplicate')}</Button>
+                  {defaultId !== v.id && (
+                    <Button size="sm" variant="secondary" disabled={busy} onClick={() => void chooseDefault(v.id)}>{t('coachQuestionnaire.useDefault')}</Button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </section>
+
+          {/* 3. Create: one recommended start, two alternatives. */}
+          <section className="space-y-2" aria-labelledby="questionnaire-create-title">
+            <h2 id="questionnaire-create-title" className="text-sm font-semibold text-white">{t('coachQuestionnaire.createTitle')}</h2>
             <Button data-testid="questionnaire-from-short" onClick={() => newDefinition('short')} disabled={busy}>
               {t('coachQuestionnaire.fromShort')}
             </Button>
-            <Button variant="secondary" onClick={() => newDefinition('empty')} disabled={busy}>
-              {t('coachQuestionnaire.emptyQuestionnaire')}
-            </Button>
-            <Button variant="secondary" onClick={() => newDefinition('standard')} disabled={busy}>
-              {t('coachQuestionnaire.fromStandard')}
-            </Button>
-            <Button variant="ghost" onClick={() => void chooseDefault(null)} disabled={busy}>
-              {t('coachQuestionnaire.standard')}
-            </Button>
-          </div>
-          <p className="text-sm text-neutral-400">{t('coachQuestionnaire.fromShortHint')}</p>
-          {versions.map(v => (
-            <div key={v.id} className="border border-neutral-800 rounded p-3 space-y-2">
-              <p data-testid={`questionnaire-card-${v.id}`}>{v.definition.name.fr} / {v.definition.name.en} · v{v.definition.version}{defaultId === v.id ? ' ✓' : ''}</p>
-              <Button data-testid={`questionnaire-edit-${v.id}`} disabled={busy} onClick={() => {
-                const d = structuredClone(v.definition);
-                d.version = nextVersion(versions, d.id);
-                setSelected(d);
-                setPreview(false);
-              }}>{t('common.edit')}</Button>
-              <Button disabled={busy} onClick={() => {
-                const d = structuredClone(v.definition);
-                d.id = crypto.randomUUID();
-                d.version = 1;
-                setSelected(d);
-              }}>{t('coachQuestionnaire.duplicate')}</Button>
-              <Button disabled={busy} onClick={() => void chooseDefault(v.id)}>{t('coachQuestionnaire.useDefault')}</Button>
+            <p className="text-sm text-neutral-400">{t('coachQuestionnaire.fromShortHint')}</p>
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant="secondary" onClick={() => newDefinition('empty')} disabled={busy}>
+                {t('coachQuestionnaire.emptyQuestionnaire')}
+              </Button>
+              <Button size="sm" variant="secondary" onClick={() => newDefinition('standard')} disabled={busy}>
+                {t('coachQuestionnaire.fromStandard')}
+              </Button>
             </div>
-          ))}
+          </section>
         </>
       ) : (
         <fieldset disabled={busy} className="space-y-4">

@@ -63,6 +63,12 @@ const workout = {
     sessionGone: 'Cette séance n’est plus là.',
     sessionGoneHint: 'Elle a été supprimée, ou tu n’y as pas accès. Rien n’a été inventé.',
     finishWorkout: 'Terminer la séance',
+    legend: {
+      setTypes: 'Le numéro de série montre son type : S = série de travail, W = échauffement, D = dégressive. Touche-le pour changer de type.',
+      rir: 'RIR = répétitions en réserve : combien tu aurais encore pu en faire.',
+      gotIt: 'Compris',
+    },
+    finishShort: 'Terminer',
     createFailed: 'Impossible de créer la séance. Réessaie.',
     goBack: 'Retour',
     prescribedVsLogged: '{{prescribed}} prescrit · {{logged}} réalisé',

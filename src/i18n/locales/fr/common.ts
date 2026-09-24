@@ -72,6 +72,7 @@ const common = {
 
   entryIntention: {
     title: 'Pourquoi es-tu ici ?',
+    changeLater: 'Tu pourras changer plus tard : ce choix ouvre un parcours, il ne t’enferme pas.',
     solo: 'Je me gère seul',
     soloHint: 'Enregistre tes séances, suis ta nutrition et ta progression.',
     soloCta: 'Commencer en solo',

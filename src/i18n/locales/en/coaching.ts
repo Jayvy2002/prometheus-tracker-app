@@ -1,7 +1,14 @@
 const coaching = {
   coachQuestionnaire: {
+    currentDefault: 'New clients receive: {{name}}',
+    standardName: 'the standard Prometheus questionnaire',
+    listTitle: 'My questionnaires',
+    listEmpty: 'No custom questionnaire yet.',
+    defaultBadge: 'Default',
+    defaultBadgeOlder: 'Default (v{{version}})',
+    createTitle: 'New questionnaire',
     fromStandard: 'Create from standard',
-    fromShort: 'Start from a short template',
+    fromShort: 'Start from a short template (recommended)',
     fromShortHint: 'Five questions, one screen. No medical jargon.',
     emptyQuestionnaire: 'Start from a blank page',
     effort: '{{screens}} screen(s) · {{questions}} question(s) · {{required}} required',
@@ -260,6 +267,7 @@ const coaching = {
       readyBody: 'The questionnaire is complete. Review the answers, choose the program and tracking, then confirm.',
       review: 'Onboarding answers',
       none: 'None',
+      noneFeminine: 'None',
       fields: {
         goal: 'Goal',
         experience: 'Experience',
@@ -1075,6 +1083,7 @@ const coaching = {
       drop: 'Drop your file',
       dropHint: 'CSV only, up to 2,000 rows.',
       subject: 'Import for',
+      chooseSubject: 'Choose a client (or yourself)',
       subjectPeople: 'Accounts',
       subjectDossiers: 'Provisional dossiers',
       myself: 'Myself',

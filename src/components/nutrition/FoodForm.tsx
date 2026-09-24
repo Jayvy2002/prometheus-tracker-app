@@ -20,6 +20,7 @@ import { useFoodCatalogSearch } from '../../lib/useFoodCatalogSearch';
 import { kcalFromEnergyValue, productLogDraft, rescaleNutritionMacros } from '../../lib/foodEnergy';
 import { foodProvenanceKey, foodProvenanceKind } from '../../lib/foodProvenance';
 import { optionLabel } from '../../lib/optionLabels';
+import { formatDateShort, todayStr } from '../../lib/utils';
 
 type Tab = 'search' | 'recent' | 'favorites' | 'recipes';
 
@@ -44,7 +45,8 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
   const tracking = useClientTracking();
   const { recipes, fetchRecipes } = useRecipeStore();
 
-  const [tab, setTab] = useState<Tab>('recent');
+  // A new user has no recent food: open on search, not on an empty list.
+  const [tab, setTab] = useState<Tab>(() => (recentProducts.length > 0 ? 'recent' : 'search'));
   const [portionOpen, setPortionOpen] = useState(Boolean(prefill));
   const catalog = useFoodCatalogSearch(tab === 'search', i18n.language);
   // D04 : état initial cohérent avec le contrat produit → saisie (pas de flash per-100g).
@@ -264,7 +266,15 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
     <div className="fixed inset-0 z-50 bg-black overflow-y-auto animate-fade-in">
       <div className="max-w-lg mx-auto px-4 py-6 animate-fade-in-up">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-xl font-bold text-white">{t('nutrition.foodForm.title')}</h2>
+          <div className="min-w-0">
+            <h2 className="text-xl font-bold text-white">{t('nutrition.foodForm.title')}</h2>
+            {/* Which meal (and which day) this food goes to, before anything is picked. */}
+            <p className="text-sm text-neutral-400" data-testid="food-form-meal">
+              {date === todayStr()
+                ? t('nutrition.foodForm.forMeal', { meal: optionLabel(t, 'meals', activeCategory, activeCategory) })
+                : t('nutrition.foodForm.forMealOn', { meal: optionLabel(t, 'meals', activeCategory, activeCategory), date: formatDateShort(date, i18n.language) })}
+            </p>
+          </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowScanner(true)}

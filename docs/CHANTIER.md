@@ -880,6 +880,20 @@ Vision §26. Migration pending `20260924090000_offline_session_start` ; preuve S
 - Limite connue : si le plan a changé côté serveur pendant la séance hors ligne, les séries sans jumeau serveur tombent en dead-letter visible, jamais ailleurs.
 
 Écarts Vision restant hors de cette PR (chantiers à ouvrir, pas de code spéculatif) : cycle de vie des objectifs (§6), habitudes (§10), constructeur de check-in et fréquence (§11), « bloquer » distinct de « signaler » (§31), recherche globale (§33), vidéos de technique (§20). L’export JSON « Télécharger mes journaux » reste en place en attendant une décision portabilité légale ≠ fonctionnalité (§24.4).
+
+## Finitions de l’audit 2 (branche `agent/p5-7-finitions`, en revue)
+
+Migration pending `20260924100000_exercise_catalog_accents` ; preuve SQL `supabase/tests/exercise_catalog_accents.sql`.
+
+- Nombres et heures dans la langue de l’app (`formatNumber`, `formatClock`) : 78,3 kg, 0,5 L, 7,5 h, 22:26 en français. Poids et sommeil se saisissent avec une virgule ; une valeur de sommeil invalide est refusée avec un message, jamais perdue en silence.
+- Absent ≠ 0 : Stats n’affiche plus « 0 g » ni « 0,0 L » sans saisie et masque un objectif inexistant ; la mise en place client montre la dernière pesée réelle, « — » sinon.
+- Catalogue : noms, consignes et conseils français accentués ; l’identité, les alias et la recherche sans accents ne changent pas. L’historique d’un exercice du catalogue suit son `catalog_exercise_id` : « Developpe couche » d’hier et « Développé couché » d’aujourd’hui restent la même courbe.
+- Séance en direct : nom sur sa ligne (plus de « L… »), « Terminer » compact, légende S / W / D / RIR au premier usage.
+- Aujourd’hui sur ordinateur : deux colonnes (priorités à gauche, vue d’ensemble à droite) ; un seul point de reprise (la barre globale s’efface quand la carte affiche « Continuer »).
+- Coach : onglets de la fiche client toujours visibles sur mobile ; liste des programmes avec statut (brouillon / version / version prévue) et nombre de clients ; « Mes routines » au lieu de « Gérer les modèles » ; bouton Enregistrer de l’éditeur toujours accessible ; page Questionnaires en trois temps (ce que reçoivent les nouveaux clients, mes questionnaires, créer) ; import sans « Moi » implicite ; valeurs d’intake traduites et « Contraintes : Aucune ».
+- Athlète : l’ajout d’aliment s’ouvre sur la recherche quand il n’y a pas de récents et indique le repas visé ; le choix d’intention dit « Tu pourras changer plus tard » (§5.1).
+
+Reste pour l’onboarding (§5.3, chantier suivant) : objectifs eau et pas encore préremplis par défaut en base (2 500 ml, 10 000 pas).
 ---
 
 # P6 — Architecture économique de bêta

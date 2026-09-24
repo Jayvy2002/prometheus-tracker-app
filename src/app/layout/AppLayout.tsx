@@ -56,7 +56,8 @@ export default function AppLayout() {
       <SideNav />
 
       <main className="flex-1 min-w-0 pb-24 md:pb-8 md:ml-64">
-        <div className={`mx-auto w-full ${isCoach ? 'max-w-6xl' : 'max-w-3xl'}`}>
+        {/* Today uses the desktop width in two columns; reading pages stay narrow. */}
+        <div className={`mx-auto w-full ${isCoach ? 'max-w-6xl' : location.pathname === '/dashboard' ? 'max-w-3xl lg:max-w-6xl' : 'max-w-3xl'}`}>
           <AssignedQuestionnaireBanner />
           <Outlet />
         </div>

@@ -6,7 +6,7 @@ import { Sparkles, X } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { useProgramStore } from '../../stores/programStore';
-import { formatWeight, issnTargetsFromProfile, todayStr } from '../../lib/utils';
+import { formatNumber, formatWeight, issnTargetsFromProfile, todayStr } from '../../lib/utils';
 import { useProfileStore } from '../../stores/profileStore';
 import { clientFileHref } from '../../lib/coachSituation';
 import {
@@ -64,6 +64,13 @@ function labelOf(options: readonly { value: string; label: string }[], value: st
   return options.find(o => o.value === value)?.label || value || '—';
 }
 
+/** Absent ≠ 0: an empty weight or target shows « — », never « 0 kg ». */
+function setupWeightLabel(currentKg: number | null | undefined, targetKg: number | null | undefined, unit: 'kg' | 'lbs'): string {
+  const current = currentKg && currentKg > 0 ? formatWeight(currentKg, unit) : '—';
+  if (!targetKg || targetKg <= 0) return current;
+  return `${current} → ${formatWeight(targetKg, unit)}`;
+}
+
 function ReviewRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between gap-3 py-1.5 border-b border-neutral-800/60 last:border-0">
@@ -82,7 +89,7 @@ export default function ClientSetupPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const {
-     clients, fetchClients, fetchClientProfile, fetchTrackingConfig,
+     clients, fetchClients, fetchClientProfile, fetchTrackingConfig, fetchClientWeight,
     fetchOnboardingPlanDraft, fetchIntervention, resolveIntervention,
     applyIntervention,
     pendingInterventions, askCoachAgent, fetchCoachSettings, fetchCoachOps,
@@ -90,6 +97,7 @@ export default function ClientSetupPage() {
   const { programs, programsError, fetchPrograms } = useProgramStore();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [latestWeighInKg, setLatestWeighInKg] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [tracking, setTracking] = useState(EMPTY_TRACKING);
@@ -146,8 +154,12 @@ export default function ClientSetupPage() {
       fetchClientProfile(id),
       fetchTrackingConfig(id),
       draftParam ? fetchIntervention(draftParam) : fetchOnboardingPlanDraft(id),
-    ]).then(([p, cfg, stored]) => {
+      fetchClientWeight(id),
+    ]).then(([p, cfg, stored, weighIns]) => {
       setProfile(p);
+      // The last real weigh-in wins over the profile field, which may be empty.
+      const lastKg = weighIns[0]?.weight_kg;
+      setLatestWeighInKg(lastKg != null && lastKg > 0 ? lastKg : null);
       if (cfg) {
         setTracking(parseResolvedTracking(cfg));
       } else if (useCoachingStore.getState().coachSettings?.default_tracking) {
@@ -380,17 +392,17 @@ export default function ClientSetupPage() {
             label={t('coaching.setup.fields.goal')}
             value={t(`coaching.goalLabels.${profile.goal === 'gain' ? 'bulk' : profile.goal || 'maintain'}`, { defaultValue: labelOf(GOALS, profile.goal) })}
           />
-          <ReviewRow label={t('coaching.setup.fields.experience')} value={labelOf(TRAINING_EXPERIENCES, profile.training_experience)} />
-          <ReviewRow label={t('coaching.setup.fields.focus')} value={labelOf(TRAINING_FOCUSES, profile.training_focus)} />
-          <ReviewRow label={t('coaching.setup.fields.frequency')} value={`${profile.training_frequency}x`} />
-          <ReviewRow label={t('coaching.setup.fields.injuries')} value={profile.injuries_limitations || t('coaching.setup.none')} />
+          <ReviewRow label={t('coaching.setup.fields.experience')} value={optionLabel(t, 'trainingExperience', profile.training_experience, labelOf(TRAINING_EXPERIENCES, profile.training_experience))} />
+          <ReviewRow label={t('coaching.setup.fields.focus')} value={optionLabel(t, 'trainingFocus', profile.training_focus, labelOf(TRAINING_FOCUSES, profile.training_focus))} />
+          <ReviewRow label={t('coaching.setup.fields.frequency')} value={profile.training_frequency ? `${profile.training_frequency}×` : '—'} />
+          <ReviewRow label={t('coaching.setup.fields.injuries')} value={profile.injuries_limitations || t('coaching.setup.noneFeminine')} />
           <ReviewRow label={t('coaching.setup.fields.diet')} value={optionLabel(t, 'diet', profile.diet_type, labelOf(DIET_TYPES, profile.diet_type))} />
           <ReviewRow
             label={t('coaching.setup.fields.allergies')}
             value={(profile.food_allergies ?? []).map(a => optionLabel(t, 'allergies', a, labelOf(FOOD_ALLERGIES, a))).join(', ') || t('coaching.setup.none')}
           />
-          <ReviewRow label={t('coaching.setup.fields.weight')} value={`${formatWeight(profile.weight_kg, unit)} → ${formatWeight(profile.target_weight_kg, unit)}`} />
-          <ReviewRow label={t('coaching.setup.fields.sleep')} value={`${profile.sleep_hours_average} h`} />
+          <ReviewRow label={t('coaching.setup.fields.weight')} value={setupWeightLabel(latestWeighInKg ?? profile.weight_kg, profile.target_weight_kg, unit)} />
+          <ReviewRow label={t('coaching.setup.fields.sleep')} value={profile.sleep_hours_average ? `${formatNumber(profile.sleep_hours_average)} h` : '—'} />
         </Card>
       )}
     </>
