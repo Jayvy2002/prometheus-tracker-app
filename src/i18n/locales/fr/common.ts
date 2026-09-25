@@ -895,6 +895,12 @@ const common = {
       autoStartRestHint: 'Jamais au préremplissage. Tu peux toujours ouvrir le minuteur à la main.',
       displayOnlyHint: 'Changer d’unité change l’affichage, pas ce qui est enregistré.',
       savePreferences: 'Enregistrer les préférences',
+      appearance: 'Apparence',
+      theme: 'Thème',
+      themeDark: 'Sombre',
+      themeLight: 'Clair',
+      themeSystem: 'Automatique',
+      themeHint: 'Automatique suit le réglage de ton téléphone. Ce choix reste sur cet appareil.',
     },
     password: {
       title: 'Changer le mot de passe',

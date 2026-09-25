@@ -40,7 +40,7 @@ export default function FAB({ raised = false }: { raised?: boolean }) {
                 <button
                   key={action.label}
                   onClick={action.onClick}
-                  className="flex items-center gap-3 bg-neutral-900 border border-neutral-700 rounded-full pl-4 pr-5 py-3 shadow-xl hover:bg-neutral-800 hover:border-[#525252] transition-all active:scale-95"
+                  className="flex items-center gap-3 bg-neutral-900 border border-neutral-700 rounded-full pl-4 pr-5 py-3 shadow-xl hover:bg-neutral-800 hover:border-line-strong transition-all active:scale-95"
                   style={{ animationDelay: `${i * 40}ms` }}
                 >
                   <div className="w-7 h-7 rounded-full bg-blue-600/20 flex items-center justify-center">
@@ -59,7 +59,7 @@ export default function FAB({ raised = false }: { raised?: boolean }) {
           aria-expanded={open}
           onClick={() => setOpen(o => !o)}
           className={`w-14 h-14 rounded-full shadow-2xl flex items-center justify-center transition-all duration-200 active:scale-95
-            ${open ? 'bg-neutral-800 border border-[#525252] rotate-45' : 'bg-blue-600 hover:bg-blue-500 shadow-blue-900/40'}`}
+            ${open ? 'bg-neutral-800 border border-line-strong rotate-45' : 'bg-blue-600 hover:bg-blue-500 shadow-blue-900/40'}`}
         >
           <Plus size={22} className="text-white" aria-hidden="true" />
         </button>

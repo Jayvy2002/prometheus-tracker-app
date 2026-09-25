@@ -19,9 +19,11 @@ import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'rec
 import Card from '../ui/Card';
 import CardLink from '../ui/CardLink';
 import PageTransition from '../ui/PageTransition';
+import { useChartColors } from '../../shared/theme/chartColors';
 
 export default function ExerciseProgressPage({ embedded = false }: { embedded?: boolean }) {
   const { t, i18n } = useTranslation();
+  const chart = useChartColors();
   const navigate = useNavigate();
   const { exerciseName } = useParams();
   const selectedExercise = exerciseName ? decodeURIComponent(exerciseName) : null;
@@ -174,10 +176,10 @@ export default function ExerciseProgressPage({ embedded = false }: { embedded?: 
                       if (href) navigate(href);
                     }}
                   >
-                    <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#949494' }} axisLine={false} tickLine={false} />
-                    <YAxis domain={['dataMin - 5', 'dataMax + 5']} tick={{ fontSize: 10, fill: '#949494' }} axisLine={false} tickLine={false} width={35} />
-                    <Tooltip contentStyle={{ background: '#0a0a0a', border: '1px solid #262626', borderRadius: '12px', fontSize: 11 }} />
-                    <Line type="monotone" dataKey="1RM" stroke="#2563eb" strokeWidth={2} dot={{ r: 4, fill: '#2563eb' }} />
+                    <XAxis dataKey="date" tick={{ fontSize: 10, fill: chart.tick }} axisLine={false} tickLine={false} />
+                    <YAxis domain={['dataMin - 5', 'dataMax + 5']} tick={{ fontSize: 10, fill: chart.tick }} axisLine={false} tickLine={false} width={35} />
+                    <Tooltip contentStyle={{ background: chart.tooltipBg, border: `1px solid ${chart.tooltipBorder}`, borderRadius: '12px', fontSize: 11 }} />
+                    <Line type="monotone" dataKey="1RM" stroke={chart.primary} strokeWidth={2} dot={{ r: 4, fill: chart.primary }} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -350,7 +352,7 @@ export default function ExerciseProgressPage({ embedded = false }: { embedded?: 
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
                     placeholder={t('progress.searchPlaceholder')}
-                    className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-9 pr-3 py-2.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-[#525252] transition-colors"
+                    className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-9 pr-3 py-2.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-line-strong transition-colors"
                   />
                 </div>
 

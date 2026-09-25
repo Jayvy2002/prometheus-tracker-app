@@ -3,7 +3,10 @@ import { StrictMode, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import { ErrorBoundary } from './components/ErrorBoundary.tsx';
+import { startThemeSync } from './app/bootstrap/themeSync.ts';
 import './index.css';
+
+startThemeSync();
 
 // Register service worker for PWA support
 if ('serviceWorker' in navigator) {

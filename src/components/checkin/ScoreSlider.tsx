@@ -128,7 +128,7 @@ export default function ScoreSlider({
             </>
           ) : (
             // Not answered: a neutral dashed track and no thumb, so nothing reads as « 0 ».
-            <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-2 rounded-full border border-dashed border-[#525252]" />
+            <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-2 rounded-full border border-dashed border-line-strong" />
           )}
         </div>
       </div>

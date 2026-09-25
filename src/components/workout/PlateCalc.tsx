@@ -62,13 +62,13 @@ export default function PlateCalc({
 
       <div
         data-plate-sleeve="true"
-        className="mb-4 overflow-x-auto rounded-2xl border border-neutral-800 bg-neutral-950 px-3 py-5"
+        className="theme-dark mb-4 overflow-x-auto rounded-2xl border border-neutral-800 bg-neutral-950 px-3 py-5"
       >
         <div className="flex min-h-[7.5rem] items-center">
           <span className="mr-2 shrink-0 text-[11px] font-medium uppercase tracking-wider text-neutral-600 [writing-mode:vertical-rl] rotate-180">
             {t('workout.plates.barSide')}
           </span>
-          <div className="h-3 w-8 shrink-0 rounded-l-full bg-gradient-to-b from-neutral-300 to-[#525252]" />
+          <div className="h-3 w-8 shrink-0 rounded-l-full bg-gradient-to-b from-neutral-300 to-line-strong" />
           <div className="h-8 w-2.5 shrink-0 rounded-sm bg-neutral-400 ring-1 ring-neutral-200" />
           {sleeve.length === 0 ? (
             <p className="px-4 text-xs text-neutral-500">{t('workout.plates.emptySleeve')}</p>
@@ -90,14 +90,14 @@ export default function PlateCalc({
               );
             })
           )}
-          <div className="h-2.5 w-10 shrink-0 rounded-r-full bg-gradient-to-b from-neutral-300 to-[#525252]" />
+          <div className="h-2.5 w-10 shrink-0 rounded-r-full bg-gradient-to-b from-neutral-300 to-line-strong" />
         </div>
       </div>
 
       <p className="mb-2 text-[11px] font-medium uppercase tracking-wider text-neutral-500">
         {t('workout.plates.add')}
       </p>
-      <div data-plate-palette="true" className="mb-3 grid grid-cols-4 gap-2 sm:grid-cols-7">
+      <div data-plate-palette="true" className="theme-dark mb-3 grid grid-cols-4 gap-2 sm:grid-cols-7">
         {plateInventory(unit).map(plate => {
           const style = plateStyle(plate, unit);
           return (

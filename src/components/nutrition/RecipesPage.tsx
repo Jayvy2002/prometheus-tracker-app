@@ -93,7 +93,7 @@ export default function RecipesPage() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder={t('nutrition.recipes.searchPlaceholder')}
-            className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-[#525252]"
+            className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-line-strong"
           />
         </div>
 

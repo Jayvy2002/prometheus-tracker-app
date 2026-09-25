@@ -6,6 +6,7 @@ import { useProfileStore } from '../../stores/profileStore';
 import { usePreferencesStore } from '../../stores/preferencesStore';
 import Button from '../ui/Button';
 import UnitToggle from '../ui/UnitToggle';
+import ThemeChoice from './ThemeChoice';
 import { toast } from '../ui/Toast';
 import { userFacingError } from '../../lib/userFacingError';
 
@@ -54,6 +55,11 @@ export default function UnitsForm({ onBack, inline }: { onBack: () => void; inli
         </p>
 
         <div className="pt-3 mt-1 border-t border-neutral-800/60">
+          <p className="text-[11px] font-semibold text-neutral-600 uppercase tracking-wider mb-3">{t('profile.units.appearance')}</p>
+          <ThemeChoice />
+        </div>
+
+        <div className="pt-3 mt-3 border-t border-neutral-800/60">
           <p className="text-[11px] font-semibold text-neutral-600 uppercase tracking-wider mb-3">{t('profile.units.workoutDisplay')}</p>
           <div className="flex items-center justify-between py-1">
             <div>

@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { DARK_NEUTRAL, DARK_TOKENS } from '../shared/theme/palette';
+import { contrastRatio } from '../shared/theme/contrast';
 
 const root = process.cwd();
 const src = (rel: string) => readFileSync(resolve(root, rel), 'utf8');
@@ -15,10 +17,19 @@ function tsxFiles(dir: string): string[] {
 }
 
 test('audit 3 (F): greys are readable on the black background', () => {
-  const tailwind = src('tailwind.config.js');
-  assert.match(tailwind, /500: '#949494'/);
-  assert.match(tailwind, /600: '#858585'/);
-  assert.match(tailwind, /muted: '#949494'/);
+  // The dark greys now live in the theme palette (CSS variables, dark by default).
+  const palette = src('src/shared/theme/palette.ts');
+  assert.match(palette, /500: '#949494'/);
+  assert.match(palette, /600: '#858585'/);
+  assert.match(palette, /'ink-muted': '#949494'/);
+  assert.equal(DARK_NEUTRAL[500], '#949494');
+  assert.equal(DARK_NEUTRAL[600], '#858585');
+  assert.equal(DARK_TOKENS['ink-muted'], '#949494');
+  // AA small text on the black page and on the #171717 cards.
+  for (const grey of [DARK_NEUTRAL[500], DARK_NEUTRAL[600], DARK_TOKENS['ink-muted']]) {
+    assert.ok(contrastRatio(grey, '#000000') >= 4.5, grey);
+    assert.ok(contrastRatio(grey, '#171717') >= 4.5, grey);
+  }
   const all = tsxFiles(resolve(root, 'src')).map(f => readFileSync(f, 'utf8')).join('\n');
   // No 9 px text; chart ticks follow the same floor.
   assert.doesNotMatch(all, /text-\[9px\]/);

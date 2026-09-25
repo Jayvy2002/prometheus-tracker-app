@@ -895,6 +895,12 @@ const common = {
       autoStartRestHint: 'Never on a simple fill. You can still open the timer yourself.',
       displayOnlyHint: 'Changing unit changes the display, not the stored value.',
       savePreferences: 'Save Preferences',
+      appearance: 'Appearance',
+      theme: 'Theme',
+      themeDark: 'Dark',
+      themeLight: 'Light',
+      themeSystem: 'Automatic',
+      themeHint: 'Automatic follows your phone’s setting. This choice stays on this device.',
     },
     password: {
       title: 'Change Password',

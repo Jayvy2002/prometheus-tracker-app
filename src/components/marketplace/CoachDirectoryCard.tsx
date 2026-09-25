@@ -20,7 +20,7 @@ export default function CoachDirectoryCard({ profile, verified, filters, query, 
   const reasons = matchingReasons(profile, filters);
   const where = [profile.area_city || profile.area, profile.area_country].filter(Boolean).join(', ');
   return (
-    <article className="relative flex min-w-0 flex-col gap-3 rounded-2xl border border-neutral-800 bg-neutral-900/50 p-4 transition-colors hover:border-[#525252]">
+    <article className="relative flex min-w-0 flex-col gap-3 rounded-2xl border border-neutral-800 bg-neutral-900/50 p-4 transition-colors hover:border-line-strong">
       <div className="flex min-w-0 items-start gap-3">
         <span aria-hidden="true" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-500/10 text-lg font-semibold text-blue-300">
           {profile.public_name.trim().slice(0, 1).toLocaleUpperCase()}
@@ -70,7 +70,7 @@ export default function CoachDirectoryCard({ profile, verified, filters, query, 
           disabled={!compared && comparisonFull}
           onClick={() => onCompare(!compared)}
           className={`relative z-10 inline-flex min-h-11 shrink-0 items-center gap-1 rounded-full border px-3 text-xs transition-colors disabled:opacity-40 ${
-            compared ? 'border-blue-500 bg-blue-600/20 text-white' : 'border-neutral-700 text-neutral-300 hover:border-[#737373]'
+            compared ? 'border-blue-500 bg-blue-600/20 text-white' : 'border-neutral-700 text-neutral-300 hover:border-line-stronger'
           }`}
         >
           {compared ? <Check size={13} aria-hidden="true" /> : <Plus size={13} aria-hidden="true" />}

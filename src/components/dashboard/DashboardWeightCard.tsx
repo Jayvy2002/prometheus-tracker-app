@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { Area, AreaChart, ResponsiveContainer, YAxis } from 'recharts';
 import { Scale } from 'lucide-react';
 import CardLink from '../ui/CardLink';
+import { useChartColors } from '../../shared/theme/chartColors';
 import { formatNumber, formatSignedNumber } from '../../lib/utils';
 
 export interface DashboardWeightPoint {
@@ -22,6 +23,7 @@ interface Props {
  */
 export default function DashboardWeightCard({ points, unit, latest, delta }: Props) {
   const { t } = useTranslation();
+  const chart = useChartColors();
   const showChart = points.length >= 2;
 
   return (
@@ -49,7 +51,7 @@ export default function DashboardWeightCard({ points, unit, latest, delta }: Pro
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={points}>
                 <YAxis hide domain={['dataMin - 0.5', 'dataMax + 0.5']} />
-                <Area type="monotone" dataKey="weight" stroke="#34d399" fill="#34d39922" strokeWidth={2} isAnimationActive={false} />
+                <Area type="monotone" dataKey="weight" stroke={chart.successSoft} fill={chart.successSoftArea} strokeWidth={2} isAnimationActive={false} />
               </AreaChart>
             </ResponsiveContainer>
           </div>

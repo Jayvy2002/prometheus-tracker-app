@@ -133,7 +133,7 @@ function ChoiceGrid({
             className={`p-3 rounded-xl border text-left text-sm font-semibold transition-colors duration-200 ${
               selected
                 ? 'border-blue-400 bg-blue-600 text-white shadow-[inset_0_0_0_1px_rgba(96,165,250,0.9)]'
-                : 'border-neutral-800 bg-neutral-900 text-neutral-200 [@media(hover:hover)]:hover:border-[#525252]'
+                : 'border-neutral-800 bg-neutral-900 text-neutral-200 [@media(hover:hover)]:hover:border-line-strong'
             }`}
           >
             {label(opt)}
