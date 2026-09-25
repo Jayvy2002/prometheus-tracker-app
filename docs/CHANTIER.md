@@ -32,7 +32,7 @@ Prometheus dispose déjà d’un socle important :
 
 Le travail restant n’est pas une reconstruction. Le principal enjeu est désormais de **faire converger les contrats métier et l’architecture vers la Vision de référence**.
 
-> **CURRENT IMPLEMENTATION GATE — P5, passage d’audit, audit 2 et P6.1 mergés et déployés en production ; audit 3 frontend en revue (PR empilées `p5-20` à `p5-29`, section « Audit 3 ») ; ensuite P6.2 — bêta bypass, sur une branche dédiée et uniquement avec le feu vert de Jean-Vincent.** Production/lock **154** (dernière version `20260924205000_p6_entitlements`). `supabase/migrations.pending.json` : `20260924210000_constraint_backfill_quiet` (appliquée au merge de la PR `#237`), puis `20260925090000_performance_goal_energy_basis` (`p5-26`) et `20260925100000_exercise_measurement` (`p5-27`), appliquées par l’intégration GitHub Supabase à leur merge ; toutes à transférer dans le lock au prochain rafraîchissement vérifié. Action manuelle restante : le secret `ACCOUNT_PURGE_CRON_SECRET` (voir « Déploiement de l’audit 2 et de P6.1 »). Jobs actifs : `coach-import-preview-purge` (`15 * * * *`), `account-deletion-purge` (`40 * * * *`). Watch n’applique pas.
+> **CURRENT IMPLEMENTATION GATE — P5, passage d’audit, audit 2 et P6.1 mergés et déployés en production ; audit 3 frontend en revue (PR empilées `p5-20` à `p5-30`, section « Audit 3 ») ; ensuite P6.2 — bêta bypass, sur une branche dédiée et uniquement avec le feu vert de Jean-Vincent.** Production/lock **154** (dernière version `20260924205000_p6_entitlements`). `supabase/migrations.pending.json` : `20260924210000_constraint_backfill_quiet` (appliquée au merge de la PR `#237`), puis `20260925090000_performance_goal_energy_basis` (`p5-26`), `20260925100000_exercise_measurement` (`p5-27`) et `20260925110000_start_workout_catalog_link` (`p5-30`), appliquées par l’intégration GitHub Supabase à leur merge ; toutes à transférer dans le lock au prochain rafraîchissement vérifié. Action manuelle restante : le secret `ACCOUNT_PURGE_CRON_SECRET` (voir « Déploiement de l’audit 2 et de P6.1 »). Jobs actifs : `coach-import-preview-purge` (`15 * * * *`), `account-deletion-purge` (`40 * * * *`). Watch n’applique pas.
 >
 > Watch reste une surface d’observation, d’explicabilité, de correction de contexte et de décision humaine. Accepter, modifier ou refuser depuis Watch n’applique pas automatiquement une cible ou un programme. `commit_solo_weekly_review_decision` et `apply_intervention` restent les chemins d’effet durable. Aucune auto-application. Aucune réécriture des mesures sources. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
 
@@ -933,9 +933,9 @@ Suite de l’audit 2 du 23 septembre (parcours non visités + sections Vision no
 
 **Technique** — `start_workout_from_template` ne lit pas encore `catalog_exercise_id` ; remplacement global des couleurs par les tokens du design system (sans bénéfice fonctionnel, non prioritaire).
 
-## Audit 3 — ergonomie frontend (PR empilées `p5-20` à `p5-29`)
+## Audit 3 — ergonomie frontend (PR empilées `p5-20` à `p5-30`)
 
-Audit purement frontend du 24 septembre 2026 : rendre l’app la plus simple possible sans rien retirer du service. PR empilées, chacune mergeable seule dans l’ordre. `p5-20` à `p5-25` : frontend seul. `p5-26` à `p5-29` traitent ensuite ce que la première passe avait laissé (« Non fait ») ; `p5-26` et `p5-27` ajoutent chacune une migration. Aucune Edge Function.
+Audit purement frontend du 24 septembre 2026 : rendre l’app la plus simple possible sans rien retirer du service. PR empilées, chacune mergeable seule dans l’ordre. `p5-20` à `p5-25` : frontend seul. `p5-26` à `p5-30` traitent ensuite ce que la première passe avait laissé (« Non fait ») ; `p5-26`, `p5-27` et `p5-30` ajoutent chacune une migration. Aucune Edge Function.
 
 | Sous-tâche | Capacité | Statut |
 |---|---|---|
