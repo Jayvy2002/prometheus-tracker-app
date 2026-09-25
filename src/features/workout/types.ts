@@ -101,7 +101,11 @@ export interface Exercise {
   video_url: string | null;
   aliases?: string[];
   merged_into_id?: string | null;
+  /** How the catalog measures it: reps (default) or time (a hold in seconds). */
+  measurement?: ExerciseMeasurement;
 }
+
+export type ExerciseMeasurement = 'reps' | 'time';
 
 export type ExerciseRequestStatus = 'pending' | 'processing' | 'approved' | 'rejected';
 

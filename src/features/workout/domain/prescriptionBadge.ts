@@ -10,6 +10,8 @@ export interface PrescriptionFields {
   rir?: number | null;
   restSeconds?: number | null;
   weightKg?: number | null;
+  /** A timed hold: its reps are not a target (the duration is on each set). */
+  timed?: boolean;
 }
 
 export interface PrescriptionVisibility {
@@ -56,7 +58,7 @@ export function prescriptionBadgeParts(
   const top = positive(fields.reps);
   const min = positive(fields.repsMin);
   let reps: string | null = null;
-  if (visible.reps !== 'hidden' && top != null) {
+  if (visible.reps !== 'hidden' && !fields.timed && top != null) {
     reps = visible.reps !== 'single' && min != null && min < top ? `${min}–${top}` : String(top);
   }
   if (sets != null && reps != null) parts.push({ key: 'setsReps', params: { sets, reps } });

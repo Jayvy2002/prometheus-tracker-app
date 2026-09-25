@@ -63,6 +63,9 @@ interface Props {
   onPhasesChange?: (phases: ProgramPhaseDraft[]) => void;
 }
 
+/** A hold prescribed without a duration still starts with one the coach can change. */
+const DEFAULT_ISOMETRIC_SECONDS = 30;
+
 function emptyDay(weekday: number | null): AiProgramDayDraft {
   return { weekday, name: '', exercises: [] };
 }
@@ -717,6 +720,10 @@ export default function ProgramSessionEditor({
                               ...(set_type === 'drop'
                                 ? { drop_count: ex.drop_count ?? 2, default_sets: Math.min(ex.default_sets || 1, 1) }
                                 : {}),
+                              // The duration shown is the one saved (it was shown but left empty).
+                              ...(set_type === 'isometric'
+                                ? { isometric_seconds: ex.isometric_seconds ?? DEFAULT_ISOMETRIC_SECONDS }
+                                : {}),
                             });
                           }}
                           className={fieldClass}
@@ -755,7 +762,7 @@ export default function ProgramSessionEditor({
                           {t('coaching.programEditor.isoSeconds')}
                           <input
                             type="number"
-                            value={ex.isometric_seconds ?? 20}
+                            value={ex.isometric_seconds ?? DEFAULT_ISOMETRIC_SECONDS}
                             onChange={e => updateExercise(ei, { isometric_seconds: Math.max(1, +e.target.value || 1) })}
                             className={fieldClass}
                           />
@@ -912,11 +919,29 @@ export default function ProgramSessionEditor({
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
         onSelect={(exName, catalogId) => {
+          // A timed catalog exercise (plank) is prescribed as a hold; the coach can change it.
+          const timed = catalogId
+            ? exercisesLib.find(row => row.id === catalogId)?.measurement === 'time'
+            : false;
+          const timedDefaults = { set_type: 'isometric' as const, isometric_seconds: DEFAULT_ISOMETRIC_SECONDS };
           if (pickerMode === 'replace' && selected != null && day) {
-            updateExercise(selected, { name: exName, catalog_exercise_id: catalogId ?? null });
+            const current = day.exercises[selected];
+            const keepsType = !timed || (current?.set_type && current.set_type !== 'working');
+            updateExercise(selected, {
+              name: exName,
+              catalog_exercise_id: catalogId ?? null,
+              ...(keepsType ? {} : { ...timedDefaults, isometric_seconds: current?.isometric_seconds ?? DEFAULT_ISOMETRIC_SECONDS }),
+            });
           } else if (day) {
             const nextIndex = day.exercises.length;
-            updateDay(safeIndex, { exercises: [...day.exercises, { ...emptyEx(), name: exName, catalog_exercise_id: catalogId ?? null }] });
+            updateDay(safeIndex, {
+              exercises: [...day.exercises, {
+                ...emptyEx(),
+                name: exName,
+                catalog_exercise_id: catalogId ?? null,
+                ...(timed ? timedDefaults : {}),
+              }],
+            });
             setSelected(nextIndex);
             setAnalyzed(null);
           }

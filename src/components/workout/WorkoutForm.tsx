@@ -30,6 +30,8 @@ import WorkoutRecap from './WorkoutRecap';
 import SessionTimer from './SessionTimer';
 import { useRoutineStore } from '../../stores/routineStore';
 import { startWorkoutFromTemplate } from '../../lib/startWorkout';
+import { routineStartExercises } from '../../features/workout/data/routineStart';
+import { newSetTypeFor } from '../../features/workout/domain/timedExercise';
 import { toWorkoutTemplateExercise } from '../../lib/programSetPrescription';
 import {
   loadSessionTimer, saveSessionTimer, clearSessionTimer,
@@ -162,12 +164,7 @@ function WorkoutFormInner() {
             const routine = await fetchRoutineWithExercises(routineId);
             if (routine) {
               name = routine.name;
-              exercises = (routine.exercises ?? []).map(ex => ({
-                name: ex.name,
-                default_sets: ex.default_sets,
-                default_reps: ex.default_reps,
-                order_index: ex.order_index,
-              }));
+              exercises = await routineStartExercises(routine.exercises);
             }
           }
           const workoutId = await startWorkoutFromTemplate({
@@ -348,7 +345,11 @@ function WorkoutFormInner() {
     const ex = await addExercise(workout.id, name, idx, {
       catalog_exercise_id: catalogId ?? null,
     });
-    if (ex) await addSet(ex.id, 0);
+    // A timed catalog exercise (plank) starts with a timed set, not kg × reps.
+    const measurement = catalogId
+      ? useExerciseStore.getState().exercises.find(row => row.id === catalogId)?.measurement
+      : null;
+    if (ex) await addSet(ex.id, 0, newSetTypeFor([], measurement));
   };
 
   const handleStartRestTimer = (overrideDuration?: number) => {

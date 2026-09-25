@@ -32,7 +32,7 @@ import { SetRow, SupersetLinkPicker } from './SetRow';
 import { getOverloadSuggestion, SUGGESTION_KEY } from '../../features/workout/domain/overloadSuggestion';
 import { useExerciseHistory } from '../../features/workout/hooks/useExerciseHistory';
 import { prescriptionBadgeParts } from '../../features/workout/domain/prescriptionBadge';
-import { repsColumnKind, timedExerciseShowsLoad } from '../../features/workout/domain/timedExercise';
+import { newSetTypeFor, repsColumnKind, timedExerciseShowsLoad } from '../../features/workout/domain/timedExercise';
 export type { OverloadSuggestionKind } from '../../features/workout/domain/overloadSuggestion';
 
 // --- Main ExerciseCard ---
@@ -84,6 +84,10 @@ export default function ExerciseCard({
   const catalogExercises = useExerciseStore(s => s.exercises);
   const fetchExercises = useExerciseStore(s => s.fetchExercises);
   const catalog = findCatalogExercise(catalogExercises, exercise.name);
+  // Only the linked catalog row says how the exercise is measured, never its name.
+  const catalogMeasurement = exercise.catalog_exercise_id
+    ? catalogExercises.find(row => row.id === exercise.catalog_exercise_id)?.measurement ?? null
+    : null;
 
   useEffect(() => {
     initExerciseDraft(exercise.id, exercise.notes || '');
@@ -103,7 +107,8 @@ export default function ExerciseCard({
   const handleAddSet = () => {
     const sets = exercise.sets ?? [];
     const idx = sets.length;
-    addSet(exercise.id, idx);
+    // A timed hold stays timed: the new set is isometric too.
+    addSet(exercise.id, idx, newSetTypeFor(sets, catalogMeasurement));
   };
 
   const reusePayload = (sourceSet: WorkoutSet) => ({
@@ -153,7 +158,9 @@ export default function ExerciseCard({
 
   const completedCount = exercise.sets?.filter(s => s.completed).length ?? 0;
   const totalSets = exercise.sets?.length ?? 0;
+  const repsColumn = repsColumnKind(exercise.sets);
   const prescriptionText = prescriptionBadgeParts({
+    timed: repsColumn === 'duration',
     sets: exercise.prescribed_sets,
     reps: exercise.prescribed_reps,
     repsMin: exercise.prescribed_reps_min,
@@ -171,7 +178,6 @@ export default function ExerciseCard({
       ? formatWeight(part.params.kg, weightUnit)
       : t(`workout.prescription.${part.key}`, part.params)))
     .join(' · ');
-  const repsColumn = repsColumnKind(exercise.sets);
   const plateKg = exercise.sets?.find(s => s.weight_kg > 0)?.weight_kg
     ?? exercise.prescribed_weight_kg
     ?? 0;

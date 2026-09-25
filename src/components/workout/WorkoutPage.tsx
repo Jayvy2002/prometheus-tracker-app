@@ -30,7 +30,8 @@ import Card from '../ui/Card';
 import Button from '../ui/Button';
 import Modal from '../ui/Modal';
 import { canUndoWorkoutDelete } from '../../features/workout/domain/workoutUndo';
-import { pickNextRoutine, routineTemplateExercises } from '../../features/workout/domain/nextRoutine';
+import { pickNextRoutine } from '../../features/workout/domain/nextRoutine';
+import { routineStartExercises } from '../../features/workout/data/routineStart';
 import { useRoutineStore } from '../../stores/routineStore';
 import PageTransition from '../ui/PageTransition';
 import SessionReadout from './SessionReadout';
@@ -106,7 +107,7 @@ export default function WorkoutPage() {
         userId: user.id,
         name: routine.name,
         routineId,
-        exercises: routineTemplateExercises(routine.exercises),
+        exercises: await routineStartExercises(routine.exercises),
       });
       if (workoutId) navigate(`/workout/${workoutId}`);
       else toast(t('workout.startRoutineFailed'), 'error');
