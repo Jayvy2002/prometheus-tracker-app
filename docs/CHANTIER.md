@@ -933,9 +933,9 @@ Suite de l’audit 2 du 23 septembre (parcours non visités + sections Vision no
 
 **Technique** — `start_workout_from_template` ne lit pas encore `catalog_exercise_id` ; remplacement global des couleurs par les tokens du design system (sans bénéfice fonctionnel, non prioritaire).
 
-## Audit 3 — ergonomie frontend (PR empilées `p5-20` à `p5-25`)
+## Audit 3 — ergonomie frontend (PR empilées `p5-20` à `p5-28`)
 
-Audit purement frontend du 24 septembre 2026 : rendre l’app la plus simple possible sans rien retirer du service. Aucune migration, aucune Edge Function. Six PR empilées, chacune mergeable seule dans l’ordre.
+Audit purement frontend du 24 septembre 2026 : rendre l’app la plus simple possible sans rien retirer du service. PR empilées, chacune mergeable seule dans l’ordre. `p5-20` à `p5-25` : frontend seul. `p5-26` à `p5-28` traitent ensuite ce que la première passe avait laissé (« Non fait ») ; `p5-26` et `p5-27` ajoutent chacune une migration. Aucune Edge Function.
 
 | Sous-tâche | Capacité | Statut |
 |---|---|---|
@@ -947,11 +947,12 @@ Audit purement frontend du 24 septembre 2026 : rendre l’app la plus simple pos
 | `p5-25` Accessibilité et performance | Boutons icône nommés et de 44 px (routines, scanner, invitations, chrono, logger…) ; gris lisibles sur fond noir (neutral-500 ≈ 6,9:1, neutral-600 ≈ 5,7:1, bordures inchangées) ; plus de texte à 9 px (10 → 11 px) ; mouvement réduit déjà global (vérifié et verrouillé par un test) ; seul le français est dans le bundle principal, l'anglais se charge à la demande (bundle 1,46 → 1,34 Mo, 444 → 408 Ko compressé) | En revue |
 | `p5-26` Objectif performance à l'accueil | L'onboarding propose « Performance » : l'objectif est démarré dans le cycle (`start_goal`) avant l'enregistrement du profil, qui garde « maintenir » comme base énergétique (aucun déficit ni surplus inventé). Migration `20260925090000_performance_goal_energy_basis` : écrire cette base dans le profil n'est plus un nouvel objectif ; les autres changements d'objectif du profil restent enregistrés. Test `performance_goal_energy_basis.sql` (CI) | En revue |
 | `p5-27` Exercices chronométrés | Le catalogue dit comment un exercice se mesure (`measurement` : `reps` par défaut, `time` pour un maintien ; migration `20260925100000_exercise_measurement`, seul le gainage passe en `time`, Farmer Walk reste libre). Un exercice chronométré du catalogue démarre en séries isométriques (séance libre, routine, série ajoutée) et se prescrit en maintien de 30 s dans l'éditeur de programme, modifiable ; le badge n'affiche plus « × 10 » sur un maintien ; la durée affichée dans l'éditeur est celle enregistrée (elle restait vide). Rien de déjà enregistré ne change, le nom n'est jamais utilisé pour deviner. Test `exercise_measurement.sql` (CI) | En revue |
+| `p5-28` « Aujourd’hui » et dates | La page d’accueil s’appelle « Aujourd’hui » / « Today » partout (onglet, menu, titre de fenêtre, Dashboard Coach) ; l’en-tête ne répète plus le nom, seulement la date. Les 11 champs date passent par `DateField` : affichage et saisie dans la langue de l’app, saisie tolérante (`/`, `-`, `.`, 8 chiffres, ISO collé, `/` automatique sur pavé numérique), bouton calendrier natif de 44 px, erreur accessible sans jamais envoyer une date impossible ou hors bornes ; la date de séance du logger aussi (`DateInput` s’appuie dessus). Un test interdit tout nouveau `type="date"` hors `DateField` | En revue |
 
 Décisions de cette passe :
 
-- « Dashboard » reste le nom de la page : c’est le terme de `docs/VISION.md` (§12, §15.1).
-- Les champs date restent natifs : ils suivent la langue du téléphone et restent les plus accessibles ; un sélecteur maison ferait perdre plus qu’il ne gagne.
+- La page d’accueil s’appelle « Aujourd’hui » / « Today » dans l’app (onglet, menu, titre, Coach compris) ; « Dashboard » reste le terme de conception de `docs/VISION.md` (§12, §15.1) et la route reste `/dashboard` (`p5-28`, revient sur la décision de `p5-22`).
+- Les dates s’écrivent dans la langue de l’app (FR jj/mm/aaaa, EN mm/dd/yyyy), plus celle du téléphone : `DateField` garde le calendrier natif derrière un bouton, pour son accessibilité, et échange toujours de l’ISO (`p5-28`, revient sur la première décision de garder les champs natifs).
 - Les textes des notifications envoyées par les Edge Functions (« séances non loggées ») ne changent pas dans cette passe frontend.
 
 ---
