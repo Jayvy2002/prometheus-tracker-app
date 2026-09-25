@@ -68,8 +68,11 @@ export function exerciseDisplayName(
   const written = stored ?? '';
   if (!catalogRow || !written.trim()) return written;
   const key = catalogKey(written);
+  const target = localizedCatalogName(catalogRow, lang);
+  // Already the name of this language (« Leg curl » for « Leg Curl »): kept as written.
+  if (key === catalogKey(target)) return written;
   const isCatalogName = key === catalogKey(catalogRow.name)
     || Boolean(catalogRow.name_fr && key === catalogKey(catalogRow.name_fr));
   // A linked exercise the person renamed (« Gainage lesté ») keeps their words.
-  return isCatalogName ? localizedCatalogName(catalogRow, lang) : written;
+  return isCatalogName ? target : written;
 }

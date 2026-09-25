@@ -50,6 +50,9 @@ test('rows without a link (history, snapshots) match the catalog by its own name
   // Accents and case are not a different exercise.
   assert.equal(shown('developpe couche', null, 'en'), 'Bench Press');
   assert.equal(shown('BENCH PRESS', null, 'fr'), 'Développé couché');
+  // Already in the shown language: the person's casing and accents stay.
+  assert.equal(shown('bench press', null, 'en'), 'bench press');
+  assert.equal(shown('developpe couche', null, 'fr'), 'developpe couche');
   // A merged catalog row is not a display source.
   assert.equal(shown('Plank hold', null, 'fr'), 'Plank hold');
   // Just replaced: the stored name is the new exercise, the old link has not caught up yet.
