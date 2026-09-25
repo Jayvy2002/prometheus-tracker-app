@@ -126,7 +126,8 @@ try {
   await group.getByRole('button', { name: 'Personal', exact: true, pressed: true }).waitFor();
   await dualPage.goto(origin + '/stats');
   await dualPage.getByTestId('stats-page').waitFor();
-  await dualPage.getByRole('link', { name: 'Stats', exact: true }).first().waitFor();
+  // p5-22: the personal stats page is « Summary » in the Progress group (mobile and desktop menus alike).
+  await dualPage.getByRole('link', { name: 'Summary', exact: true }).filter({ visible: true }).first().waitFor();
   await dualPage.screenshot({
     path: 'artifacts/p12/coach-coached-personal-stats.png',
     fullPage: true,
