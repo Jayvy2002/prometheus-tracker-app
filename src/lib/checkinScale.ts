@@ -15,6 +15,31 @@ export function scoreFromTrackRatio(ratio: number): number {
   return Math.round(CHECKIN_SCORE_MIN + clamped * (CHECKIN_SCORE_MAX - CHECKIN_SCORE_MIN));
 }
 
+/**
+ * Keyboard on a 0–10 score. `undefined` = key not handled; `null` = back to
+ * « not answered » (Delete / Backspace). From « not answered », the first
+ * arrow picks an explicit value: nothing is ever stored before a gesture.
+ */
+export function scoreFromKey(current: number | null, key: string): number | null | undefined {
+  switch (key) {
+    case 'ArrowRight':
+    case 'ArrowUp':
+      return current == null ? CHECKIN_SCORE_MIN : Math.min(CHECKIN_SCORE_MAX, current + 1);
+    case 'ArrowLeft':
+    case 'ArrowDown':
+      return current == null ? CHECKIN_SCORE_MIN : Math.max(CHECKIN_SCORE_MIN, current - 1);
+    case 'Home':
+      return CHECKIN_SCORE_MIN;
+    case 'End':
+      return CHECKIN_SCORE_MAX;
+    case 'Delete':
+    case 'Backspace':
+      return null;
+    default:
+      return undefined;
+  }
+}
+
 /** ~3/5 on the old scale. */
 export const PAIN_WATCH_ON_TEN = 6;
 /** ~4/5 on the old scale. */

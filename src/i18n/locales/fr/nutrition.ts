@@ -21,6 +21,13 @@ const nutrition = {
     itemRemoved: '{{name}} supprimé',
     copyFromYesterday: 'Copier depuis hier',
     copyWholeDay: 'Copier toute la journée d’hier',
+    // Meal actions: a visible short label for reuse, and a spoken name for every icon.
+    reuseShort: 'Réutiliser',
+    reuseMealFor: 'Réutiliser un repas — {{meal}}',
+    addFoodTo: 'Ajouter un aliment — {{meal}}',
+    editItem: 'Modifier « {{name}} »',
+    deleteItem: 'Supprimer « {{name}} »',
+    kcalPerServing: '{{value}} kcal / portion',
     foodForm: {
       forMeal: 'Repas : {{meal}}',
       forMealOn: 'Repas : {{meal}} · {{date}}',
@@ -72,6 +79,8 @@ const nutrition = {
       lowConfidence: "Faible confiance IA — vérifier les valeurs nutritionnelles avant d'enregistrer",
       removedFromFavorites: 'Retiré des favoris',
       addedToFavorites: 'Ajouté aux favoris',
+      addFavorite: 'Ajouter aux favoris',
+      removeFavorite: 'Retirer des favoris',
       showMore: 'Afficher plus ({{count}} restants)',
       errors: {
         quantityPositive: 'La quantité doit être supérieure à 0.',
@@ -108,6 +117,7 @@ const nutrition = {
       perServing: 'Par portion ({{n}} portions au total)',
       ingredients: 'Ingrédients',
       noIngredients: 'Pas encore d\'ingrédients',
+      removeIngredient: 'Retirer « {{name}} »',
       updated: 'Recette mise à jour',
       created: 'Recette créée',
     },
@@ -131,6 +141,7 @@ const nutrition = {
       save: 'Enregistrer',
       saved: 'Pas enregistrés',
       invalid: 'Nombre de pas invalide (0–100 000).',
+      reset: 'Remettre les pas du jour à zéro',
     },
   },
 

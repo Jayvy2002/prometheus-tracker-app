@@ -403,6 +403,8 @@ const common = {
     steps: {
       goalTitle: 'Your goal',
       goalSub: 'What matters to you now. You can change it.',
+      welcomeTitle: 'Let’s get to know you',
+      welcomeSub: 'Your first name, then what matters to you now. You can change everything later.',
       trainingSubMinimal: 'So the sessions fit you.',
       measuresTitle: 'Your measurements (optional)',
       measuresSub: 'Without measurements, no invented calorie target: you can add them later.',
@@ -426,6 +428,8 @@ const common = {
     },
     fields: {
       firstName: 'First name',
+      firstNameQuestion: 'What’s your first name?',
+      bodyGoalHint: 'For your body weight. A performance, strength or health goal is set afterwards in Profile › Goals & Targets.',
       equipment: 'Available equipment',
       constraints: 'Pain or constraints (optional)',
       sex: 'Sex (to estimate your needs)',
@@ -486,6 +490,20 @@ const common = {
       bodyweightHint: 'No equipment.',
       mixed: 'A bit of both',
       mixedHint: 'Gym sometimes, home otherwise.',
+    },
+    // Said next to « Continue » as soon as something blocks it.
+    missing: {
+      intro: 'To continue, still missing: {{list}}.',
+      and: 'and',
+      measures: 'A measurement is not valid: fix it or clear it (they are optional).',
+      items: {
+        firstName: 'your first name',
+        goal: 'your goal',
+        experience: 'your level',
+        frequency: 'your sessions per week',
+        equipment: 'your equipment',
+        modules: 'at least one module to track',
+      },
     },
     summary: {
       yourStats: 'Your Stats',
