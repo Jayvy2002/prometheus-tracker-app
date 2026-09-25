@@ -8,6 +8,7 @@ const navigation = {
     profile: 'Profile',
     dashboard: 'Dashboard',
     workouts: 'Workouts',
+    sessions: 'Sessions',
     exerciseProgress: 'Progress',
     progressSummary: 'Summary',
     progressTraining: 'Exercises',

@@ -20,6 +20,8 @@ import {
   BarChart2,
   Flame,
   ListFilter,
+  Ruler,
+  Eye,
 } from 'lucide-react';
 import type { AccountContext } from '../../lib/accountContext';
 import type { ResolvedTrackingConfig } from '../../lib/clientTracking';
@@ -58,31 +60,51 @@ export type QuickAddDef = {
 
 const today: NavItemDef = { id: 'today', path: '/dashboard', labelKey: 'nav.today', icon: LayoutDashboard, end: true };
 const workout: NavItemDef = { id: 'train', path: '/workout', labelKey: 'nav.workout', icon: Dumbbell };
-const progress: NavItemDef = { id: 'progress', path: '/exercise-progress', labelKey: 'nav.exerciseProgress', icon: TrendingUp };
-/** Corps : ce qu'on logge sur soi (nutrition, poids, check-in, photos). */
+/** The training page itself, listed under the « Entraînement » section on desktop. */
+const sessions: NavItemDef = { id: 'sessions', path: '/workout', labelKey: 'nav.sessions', icon: Dumbbell };
+const routines: NavItemDef = { id: 'routines', path: '/routines', labelKey: 'nav.routines', icon: ListFilter };
+const myProgram: NavItemDef = { id: 'myProgram', path: '/programs', labelKey: 'nav.myProgram', icon: CalendarRange };
+
+/*
+ * Corps and Suivi sub-pages. One list, read by the mobile hub tabs (BodyHub,
+ * SuiviHub) and by the desktop sections: same groups, same names, same order.
+ */
+const nutrition: NavItemDef = { id: 'nutrition', path: '/nutrition', match: ['/nutrition', '/recipes'], labelKey: 'nav.nutrition', icon: Apple };
+const weight: NavItemDef = { id: 'weight', path: '/weight', labelKey: 'nav.weight', icon: Scale };
+const measurements: NavItemDef = { id: 'measurements', path: '/measurements', labelKey: 'nav.measurements', icon: Ruler };
+const checkin: NavItemDef = { id: 'checkin', path: '/checkin', labelKey: 'nav.checkin', icon: ClipboardCheck };
+const photos: NavItemDef = { id: 'photos', path: '/photos', labelKey: 'nav.photos', icon: Camera };
+const calendar: NavItemDef = { id: 'calendar', path: '/calendar', labelKey: 'nav.calendar', icon: CalendarDays };
+const exercises: NavItemDef = {
+  id: 'exercises',
+  path: '/exercise-progress',
+  match: ['/exercise-progress', '/progress/exercise'],
+  labelKey: 'nav.progressTraining',
+  icon: TrendingUp,
+};
+const stats: NavItemDef = { id: 'trends', path: '/stats', labelKey: 'nav.progressSummary', icon: BarChart2 };
+const watch: NavItemDef = { id: 'watch', path: '/watch', labelKey: 'prometheusWatch.title', icon: Eye };
+
+/** Corps : ce qu'on logge sur soi (nutrition, poids, mensurations, check-in, photos). */
 const body: NavItemDef = {
   id: 'body',
   path: '/body',
-  match: ['/body', '/nutrition', '/weight', '/checkin', '/recipes', '/photos'],
+  match: ['/body', '/nutrition', '/recipes', '/weight', '/measurements', '/checkin', '/photos'],
   labelKey: 'nav.sectionBody',
   icon: Apple,
 };
-/** Suivi : le Calendrier d'abord (Vision §13), puis progression et tendances. */
+/** Suivi : le Calendrier d'abord (Vision §13), puis exercices, résumé et ce que Prometheus surveille. */
 const suivi: NavItemDef = {
   id: 'suivi',
   path: '/suivi',
-  match: ['/suivi', '/exercise-progress', '/progress', '/calendar', '/stats', '/watch'],
+  match: ['/suivi', '/calendar', '/exercise-progress', '/progress', '/stats', '/watch'],
   labelKey: 'nav.suivi',
   icon: TrendingUp,
 };
-const routines: NavItemDef = { id: 'routines', path: '/routines', labelKey: 'nav.routines', icon: ListFilter };
-const nutrition: NavItemDef = { id: 'nutrition', path: '/nutrition', labelKey: 'nav.nutrition', icon: Apple };
 const profile: NavItemDef = { id: 'you', path: '/profile', labelKey: 'nav.profile', icon: User };
-const checkin: NavItemDef = { id: 'checkin', path: '/checkin', labelKey: 'nav.checkin', icon: ClipboardCheck };
 const messages: NavItemDef = { id: 'messages', path: '/messages', labelKey: 'nav.messages', icon: MessageSquare, badge: 'unreadMessages' };
 const clients: NavItemDef = { id: 'clients', path: '/clients', labelKey: 'nav.clients', icon: Users };
 const programs: NavItemDef = { id: 'programs', path: '/programs', labelKey: 'nav.programs', icon: CalendarRange };
-const myProgram: NavItemDef = { id: 'myProgram', path: '/programs', labelKey: 'nav.myProgram', icon: CalendarRange };
 const copilot: NavItemDef = { id: 'copilot', path: '/prometheus', labelKey: 'nav.copilot', icon: Sparkles };
 const coachOffer: NavItemDef = { id: 'coachOffer', path: '/coach/profile', labelKey: 'marketplace.profile', icon: User };
 const requests: NavItemDef = { id: 'requests', path: '/coaching-requests', labelKey: 'marketplace.requests', icon: Inbox };
@@ -90,10 +112,6 @@ const directory: NavItemDef = { id: 'directory', path: '/coaches', labelKey: 'ma
 const coachMatch: NavItemDef = { id: 'coachMatch', path: '/coaches/match', labelKey: 'marketplace.match', icon: ListFilter };
 const coachImport: NavItemDef = { id: 'coachImport', path: '/coach/import', labelKey: 'nav.importCsv', icon: Upload };
 const coachDossiers: NavItemDef = { id: 'coachDossiers', path: '/coach/dossiers', labelKey: 'nav.provisionalDossiers', icon: FolderOpen };
-const weight: NavItemDef = { id: 'weight', path: '/weight', labelKey: 'nav.weight', icon: Scale };
-const photos: NavItemDef = { id: 'photos', path: '/photos', labelKey: 'nav.photos', icon: Camera };
-const calendar: NavItemDef = { id: 'calendar', path: '/calendar', labelKey: 'nav.calendar', icon: CalendarDays };
-const stats: NavItemDef = { id: 'stats', path: '/stats', labelKey: 'nav.stats', icon: BarChart2 };
 
 export function navPersona(context: AccountContext): NavPersona {
   if (context.activeWorkspace === 'coaching') return 'coaching';
@@ -107,10 +125,10 @@ export function tracksBody(tracking: NavTracking): boolean {
 
 /**
  * Pas de 6ᵉ onglet : cinq au plus, jamais un « Plus ».
- * Solo : Dashboard · Séance · Corps · Suivi · Profil.
- * Coaché : Dashboard · Séance · Corps · Suivi · Messages — le Calendrier est une
+ * Solo : Dashboard · Entraînement · Corps · Suivi · Profil.
+ * Coaché : Dashboard · Entraînement · Corps · Suivi · Messages — le Calendrier est une
  * page principale pour le Coaché aussi (Vision §13) ; le Profil s'ouvre depuis
- * l'avatar du Dashboard.
+ * l'avatar, en haut à gauche de chaque page principale (profileShortcutVisible).
  * Corps existe toujours : les photos de progression y vivent, quel que soit le suivi.
  */
 export function mobileTabs(persona: NavPersona, tracking: NavTracking): NavItemDef[] {
@@ -139,7 +157,72 @@ function nonempty(sections: NavSectionDef[]): NavSectionDef[] {
   return sections.filter(section => section.items.length > 0);
 }
 
-export function desktopSections(persona: NavPersona, tracking: NavTracking): NavSectionDef[] {
+/** What the viewer may open in Suivi (Vision §13: calendar and history are personal read surfaces). */
+export type SuiviAccess = { calendar: boolean; history: boolean };
+
+const FULL_SUIVI_ACCESS: SuiviAccess = { calendar: true, history: true };
+
+/**
+ * Corps sub-pages, in the mobile hub order. A module switched off (by the coach
+ * or by the Solo) is not an empty view: it does not exist. Measurements follow
+ * the weight module (Vision §14.4). Photos (private by default) always exist.
+ */
+export function bodyHubItems(tracking: NavTracking, options: { checkinHasFields?: boolean } = {}): NavItemDef[] {
+  const checkinHasFields = options.checkinHasFields ?? true;
+  return [
+    ...(tracking.track_nutrition ? [nutrition] : []),
+    ...(tracking.track_weight ? [weight, measurements] : []),
+    ...(tracking.track_checkins && checkinHasFields ? [checkin] : []),
+    photos,
+  ];
+}
+
+/** Suivi sub-pages: Calendrier · Exercices · Résumé. */
+export function suiviHubItems(access: SuiviAccess = FULL_SUIVI_ACCESS): NavItemDef[] {
+  return [
+    ...(access.calendar ? [calendar] : []),
+    exercises,
+    ...(access.history ? [stats] : []),
+  ];
+}
+
+/** « Ce que Prometheus surveille » sits beside the Suivi tabs, never as one more tab. */
+export const suiviWatchItem: NavItemDef = watch;
+
+/** Former `?view=` ids of the hubs, so old links (`/body?view=measurements`) keep landing right. */
+const LEGACY_HUB_VIEWS: Record<string, string> = {
+  nutrition: 'nutrition',
+  weight: 'weight',
+  measurements: 'measurements',
+  checkin: 'checkin',
+  photos: 'photos',
+  calendar: 'calendar',
+  exercises: 'exercises',
+  trends: 'trends',
+};
+
+/**
+ * `/body` and `/suivi` open a sub-page: the one asked by `?view=` when it is
+ * available, otherwise the first one. Never an empty hub.
+ */
+export function hubRedirectPath(items: NavItemDef[], requestedView: string | null): string | null {
+  if (items.length === 0) return null;
+  const id = requestedView ? LEGACY_HUB_VIEWS[requestedView] : undefined;
+  const wanted = id ? items.find(item => item.id === id) : undefined;
+  return (wanted ?? items[0]).path;
+}
+
+/**
+ * Desktop mirrors the mobile tabs: the same groups, names and sub-pages
+ * (Dashboard · Entraînement · Corps · Suivi · Messages/Profil). Only the
+ * discreet « Trouver un coach » is desktop-only for a Solo; on mobile it lives
+ * in the Profil tab. The coaching workspace keeps its own map.
+ */
+export function desktopSections(
+  persona: NavPersona,
+  tracking: NavTracking,
+  options: { checkinHasFields?: boolean; suivi?: SuiviAccess } = {},
+): NavSectionDef[] {
   if (persona === 'coaching') {
     return nonempty([
       { id: 'primary', items: [today, clients, messages, programs] },
@@ -152,62 +235,32 @@ export function desktopSections(persona: NavPersona, tracking: NavTracking): Nav
     ]);
   }
 
+  const personal: NavSectionDef[] = [
+    { id: 'today', items: [today] },
+    {
+      id: 'train',
+      labelKey: 'nav.workout',
+      // Routines stay available with a program, coached or not (Vision §7.1).
+      items: tracking.track_workouts ? [sessions, routines, myProgram] : [],
+    },
+    { id: 'body', labelKey: 'nav.sectionBody', items: bodyHubItems(tracking, options) },
+    { id: 'suivi', labelKey: 'nav.suivi', items: [...suiviHubItems(options.suivi), watch] },
+  ];
+
   if (persona === 'coached') {
+    // A coached athlete has his coach: no marketplace in his menu.
     return nonempty([
-      { id: 'today', items: [today] },
-      {
-        id: 'train',
-        labelKey: 'nav.sectionTrain',
-        items: [
-          // Routines personnelles : outil du solo. Un coaché suit le plan de son coach.
-          ...(tracking.track_workouts ? [workout, myProgram] : []),
-          progress,
-          stats,
-          calendar,
-        ],
-      },
-      {
-        id: 'body',
-        labelKey: 'nav.sectionBody',
-        items: [
-          ...(tracking.track_checkins ? [checkin] : []),
-          ...(tracking.track_nutrition ? [nutrition] : []),
-          ...(tracking.track_weight ? [weight] : []),
-          photos,
-        ],
-      },
+      ...personal,
       { id: 'inbox', items: [messages] },
       { id: 'account', items: [profile] },
     ]);
   }
 
   return nonempty([
-    { id: 'today', items: [today] },
-    {
-      id: 'train',
-      labelKey: 'nav.sectionTrain',
-      items: [
-        ...(tracking.track_workouts ? [workout, routines, myProgram] : []),
-      ],
-    },
-    {
-      id: 'body',
-      labelKey: 'nav.sectionBody',
-      items: [
-        ...(tracking.track_nutrition ? [nutrition] : []),
-        ...(tracking.track_checkins ? [checkin] : []),
-        ...(tracking.track_weight ? [weight] : []),
-        photos,
-      ],
-    },
-    {
-      id: 'understand',
-      labelKey: 'nav.sectionUnderstand',
-      items: [progress, stats, calendar],
-    },
-    // Solo sans coach : « Trouver un coach » vit dans l'espace personnel.
-    { id: 'findCoach', labelKey: 'nav.sectionFindCoach', tone: 'muted', items: [directory, coachMatch] },
+    ...personal,
     { id: 'account', items: [profile] },
+    // Solo sans coach : « Trouver un coach » vit dans l'espace personnel (dans Profil sur mobile).
+    { id: 'findCoach', labelKey: 'nav.sectionFindCoach', tone: 'muted', items: [directory, coachMatch] },
   ]);
 }
 
@@ -249,7 +302,7 @@ export function pathMatchesItem(pathname: string, item: NavItemDef): boolean {
   });
 }
 
-export function tabIndexForPath(pathname: string, tabs: NavItemDef[]): number {
+export function tabIndexForPath(pathname: string, tabs: readonly NavItemDef[]): number {
   let best = -1;
   let bestLen = -1;
   tabs.forEach((item, index) => {
@@ -260,4 +313,17 @@ export function tabIndexForPath(pathname: string, tabs: NavItemDef[]): number {
     }
   });
   return best;
+}
+
+/**
+ * The profile is reached the same way from every main page. Where Profil is a
+ * tab (Solo, Coach) the tab is the way. Where it is not (a coached athlete keeps
+ * Messages as his fifth tab), the avatar stands in, top-left, on every page of a
+ * tab; the Dashboard carries the same avatar in its own header. Messages is a
+ * full-height conversation and keeps its composer on screen instead.
+ */
+export function profileShortcutVisible(pathname: string, tabs: readonly NavItemDef[]): boolean {
+  if (tabs.some(tab => tab.path === '/profile')) return false;
+  if (pathname === '/dashboard' || pathname === '/messages' || pathname.startsWith('/messages/')) return false;
+  return tabIndexForPath(pathname, tabs) !== -1;
 }

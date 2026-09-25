@@ -529,6 +529,19 @@ const common = {
     viewProgress: 'Progression',
     progressDesc: 'Records et perfs',
     programHint: 'Tes plans et modèles',
+    planProgram: 'Planifier un programme',
+    planProgramHint: 'Tes séances sur plusieurs semaines, à ton rythme',
+    startHero: {
+      title: 'Aucune séance prévue pour l’instant',
+      body: 'Lance une séance libre maintenant, ou crée une routine à relancer en un geste.',
+      createRoutine: 'Créer ma première routine',
+    },
+    reviewCompact: {
+      insufficient: 'Pas encore assez de données pour conclure',
+      noChange: 'Rien à changer pour l’instant',
+      moreData: 'Encore quelques jours de données pour conclure',
+      guarded: 'Pas d’ajustement automatique pour ton profil',
+    },
     reminders: {
       weight: "Dernière pesée il y a {{days}} jours.",
       meal: "Déjeuner non renseigné.",

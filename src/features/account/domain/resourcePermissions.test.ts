@@ -280,10 +280,16 @@ test('stats, calendar and routines are personal surfaces, not persona-gated', ()
   assert.match(nav, /calendar/);
   assert.match(progress, /to="\/stats"/);
   assert.match(progress, /to="\/calendar"/);
+  // Suivi hosts the calendar and the summary as its own sub-pages (layout routes),
+  // shown only to who may open them; logging pages live in Corps.
   const suivi = src('src/components/navigation/SuiviHub.tsx');
-  assert.match(suivi, /CalendarPage/);
-  assert.match(suivi, /StatsPage/);
+  assert.match(suivi, /canOpenPersonalCalendarRoute/);
+  assert.match(suivi, /canReadOwnHistory/);
   assert.doesNotMatch(suivi, /NutritionPage/);
+  const suiviLayout = app.slice(app.indexOf('<Route element={<CoachTrackerRedirect><SuiviHub />'), app.indexOf('<Route path="/profile"'));
+  assert.match(suiviLayout, /<CalendarPage/);
+  assert.match(suiviLayout, /<StatsPage/);
+  assert.doesNotMatch(suiviLayout, /NutritionPage/);
   assert.doesNotMatch(src('src/components/profile/ProfilePage.tsx'), /to="\/stats"/);
   const program = src('src/components/programs/ClientProgramPage.tsx');
   assert.match(program, /canUpdateOwnAssignedProgram/);
