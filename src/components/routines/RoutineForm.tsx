@@ -8,6 +8,7 @@ import type { Routine, RoutineExercise } from '../../lib/types';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import ExercisePicker from '../workout/ExercisePicker';
+import { useExerciseDisplayName } from '../../features/workout/hooks/useExerciseDisplayName';
 
 interface Props {
   routine: Routine | null;
@@ -16,6 +17,7 @@ interface Props {
 
 export default function RoutineForm({ routine, onClose }: Props) {
   const { t } = useTranslation();
+  const exerciseName = useExerciseDisplayName();
   const { user } = useAuthStore();
   const { createRoutine, updateRoutine, addRoutineExercise, deleteRoutineExercise, updateRoutineExercise, fetchRoutineWithExercises } = useRoutineStore();
   const [name, setName] = useState(routine?.name ?? '');
@@ -175,15 +177,15 @@ export default function RoutineForm({ routine, onClose }: Props) {
                 <div key={ex.id} className="bg-neutral-900/60 border border-neutral-800/50 rounded-xl p-3">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="flex flex-col">
-                      <button type="button" onClick={() => moveEx(index, -1)} disabled={index === 0} aria-label={`${t('common.moveUp')} · ${ex.name}`} className="min-h-6 min-w-11 inline-flex items-center justify-center text-neutral-400 hover:text-white disabled:opacity-30">
+                      <button type="button" onClick={() => moveEx(index, -1)} disabled={index === 0} aria-label={`${t('common.moveUp')} · ${exerciseName(ex.name, ex.catalog_exercise_id)}`} className="min-h-6 min-w-11 inline-flex items-center justify-center text-neutral-400 hover:text-white disabled:opacity-30">
                         <ChevronUp size={16} aria-hidden="true" />
                       </button>
-                      <button type="button" onClick={() => moveEx(index, 1)} disabled={index === exercises.length - 1} aria-label={`${t('common.moveDown')} · ${ex.name}`} className="min-h-6 min-w-11 inline-flex items-center justify-center text-neutral-400 hover:text-white disabled:opacity-30">
+                      <button type="button" onClick={() => moveEx(index, 1)} disabled={index === exercises.length - 1} aria-label={`${t('common.moveDown')} · ${exerciseName(ex.name, ex.catalog_exercise_id)}`} className="min-h-6 min-w-11 inline-flex items-center justify-center text-neutral-400 hover:text-white disabled:opacity-30">
                         <ChevronDown size={16} aria-hidden="true" />
                       </button>
                     </div>
-                    <span className="text-sm font-medium text-white flex-1">{ex.name}</span>
-                    <button type="button" onClick={() => removeEx(ex)} aria-label={`${t('common.delete')} · ${ex.name}`} className="min-h-11 min-w-11 inline-flex items-center justify-center text-neutral-400 hover:text-rose-400 transition-colors">
+                    <span className="text-sm font-medium text-white flex-1">{exerciseName(ex.name, ex.catalog_exercise_id)}</span>
+                    <button type="button" onClick={() => removeEx(ex)} aria-label={`${t('common.delete')} · ${exerciseName(ex.name, ex.catalog_exercise_id)}`} className="min-h-11 min-w-11 inline-flex items-center justify-center text-neutral-400 hover:text-rose-400 transition-colors">
                       <Trash2 size={16} aria-hidden="true" />
                     </button>
                   </div>

@@ -155,6 +155,7 @@ function WorkoutFormInner() {
               cluster_rest_seconds: (ex.cluster_rest_seconds as number | null) ?? null,
               cluster_reps_per_burst: (ex.cluster_reps_per_burst as number | null) ?? null,
               myo_activation: Boolean(ex.myo_activation),
+              catalog_exercise_id: (ex.catalog_exercise_id as string | null) ?? null,
             }, i));
             if (!name) {
               const { data: day } = await supabase.from('program_days').select('name').eq('id', state.programDayId).maybeSingle();

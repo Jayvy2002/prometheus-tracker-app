@@ -20,10 +20,12 @@ import Card from '../ui/Card';
 import CardLink from '../ui/CardLink';
 import PageTransition from '../ui/PageTransition';
 import { useChartColors } from '../../shared/theme/chartColors';
+import { useExerciseDisplayName } from '../../features/workout/hooks/useExerciseDisplayName';
 
 export default function ExerciseProgressPage({ embedded = false }: { embedded?: boolean }) {
   const { t, i18n } = useTranslation();
   const chart = useChartColors();
+  const displayExercise = useExerciseDisplayName();
   const navigate = useNavigate();
   const { exerciseName } = useParams();
   const selectedExercise = exerciseName ? decodeURIComponent(exerciseName) : null;
@@ -96,8 +98,9 @@ export default function ExerciseProgressPage({ embedded = false }: { embedded?: 
   const filteredExercises = useMemo(() => {
     if (!searchQuery.trim()) return allData;
     const q = searchQuery.toLowerCase();
-    return allData.filter(e => e.name.toLowerCase().includes(q));
-  }, [allData, searchQuery]);
+    // « gainage » finds sessions stored as « Plank »: the shown name is searched too.
+    return allData.filter(e => e.name.toLowerCase().includes(q) || displayExercise(e.name).toLowerCase().includes(q));
+  }, [allData, searchQuery, displayExercise]);
 
   const searching = searchQuery.trim().length > 0;
   const listedExercises = useMemo(
@@ -122,7 +125,7 @@ export default function ExerciseProgressPage({ embedded = false }: { embedded?: 
             <button type="button" onClick={() => navigate('/exercise-progress')} aria-label={t('common.back')} className="min-h-11 min-w-11 -ml-2 inline-flex items-center justify-center text-neutral-400 hover:text-white transition-colors">
               <ArrowLeft size={20} aria-hidden="true" />
             </button>
-            <h1 className="text-lg font-bold text-white flex-1 truncate">{detail.name}</h1>
+            <h1 className="text-lg font-bold text-white flex-1 truncate">{displayExercise(detail.name)}</h1>
             {hasCoach ? (
               <Link
                 to={objectRefHref('/messages', { kind: 'exercise', name: detail.name })}
@@ -311,7 +314,7 @@ export default function ExerciseProgressPage({ embedded = false }: { embedded?: 
                           <Dumbbell size={16} className="text-blue-400" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-white truncate">{ex.name}</p>
+                          <p className="text-sm font-semibold text-white truncate">{displayExercise(ex.name)}</p>
                           <p className="text-[11px] text-neutral-500">{ex.totalSessions} {t('progress.sessions')}</p>
                         </div>
                         <div className="text-right shrink-0">
@@ -368,7 +371,7 @@ export default function ExerciseProgressPage({ embedded = false }: { embedded?: 
                       <Card className="hover:border-neutral-700 transition-colors">
                         <div className="flex items-center gap-3">
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-white truncate">{ex.name}</p>
+                            <p className="text-sm font-medium text-white truncate">{displayExercise(ex.name)}</p>
                           </div>
                           <span className="text-sm font-semibold text-neutral-300">{showKg(ex.latest1RM)}</span>
                           <ChevronRight size={14} className="text-neutral-600 shrink-0" />

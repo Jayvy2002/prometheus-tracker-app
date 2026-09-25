@@ -16,7 +16,7 @@ export function findCatalogExercise(
  * Accents and case do not change an exercise: sessions logged as
  * « Developpe couche » keep matching the catalog's « Développé couché ».
  */
-function catalogKey(name: string): string {
+export function catalogKey(name: string): string {
   return name.trim().normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
 }
 

@@ -37,6 +37,7 @@ import {
   supersetPartners,
   unlinkFromNext,
 } from '../../features/programs/domain/programSupersets';
+import { useExerciseDisplayName } from '../../features/workout/hooks/useExerciseDisplayName';
 
 const WEEKDAYS = [1, 2, 3, 4, 5, 6, 0];
 
@@ -102,6 +103,7 @@ export default function ProgramSessionEditor({
   onPhasesChange,
 }: Props) {
   const { t, i18n } = useTranslation();
+  const exerciseName = useExerciseDisplayName();
   const athlete = presentation === 'athlete';
   const exercisesLib = useExerciseStore(s => s.exercises);
   const fetchExercises = useExerciseStore(s => s.fetchExercises);
@@ -542,7 +544,7 @@ export default function ProgramSessionEditor({
 
           {day.exercises.map((ex, ei) => {
             const open = selected === ei;
-            const label = ex.name || t('coaching.interventions.liftName');
+            const label = exerciseName(ex.name, ex.catalog_exercise_id) || t('coaching.interventions.liftName');
             const group = supersetGroupOf(ex);
             const linkedNext = isLinkedToNext(day.exercises, ei);
             const linkedPrev = isLinkedToPrevious(day.exercises, ei);
@@ -565,7 +567,7 @@ export default function ProgramSessionEditor({
               ...(onAsk && ex.name ? [{
                 id: 'ask',
                 label: t('coaching.programEditor.ask'),
-                onSelect: () => onAsk(t('coaching.ask.liftPrompt', { lift: ex.name })),
+                onSelect: () => onAsk(t('coaching.ask.liftPrompt', { lift: exerciseName(ex.name, ex.catalog_exercise_id) })),
               }] : []),
               {
                 id: 'remove',
@@ -819,7 +821,7 @@ export default function ProgramSessionEditor({
                         />
                         <span>
                           <span className="block text-xs text-white">
-                            {t('programs.editor.supersetLink', { name: nextExercise.name || t('coaching.interventions.liftName') })}
+                            {t('programs.editor.supersetLink', { name: exerciseName(nextExercise.name, nextExercise.catalog_exercise_id) || t('coaching.interventions.liftName') })}
                           </span>
                           <span className="block text-[11px] text-neutral-500">{t('programs.editor.supersetHint')}</span>
                         </span>
@@ -831,7 +833,7 @@ export default function ProgramSessionEditor({
                           {partners.length > 0
                             ? t('programs.editor.supersetElsewhere', {
                               group,
-                              names: partners.map(i => day.exercises[i]?.name || t('coaching.interventions.liftName')).join(', '),
+                              names: partners.map(i => exerciseName(day.exercises[i]?.name, day.exercises[i]?.catalog_exercise_id) || t('coaching.interventions.liftName')).join(', '),
                             })
                             : t('programs.editor.supersetAlone', { group })}
                         </span>

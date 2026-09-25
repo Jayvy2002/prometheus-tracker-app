@@ -7,6 +7,7 @@ import type { ProgramDay, ProgramDayExercise } from '../../lib/types';
 import Button from '../ui/Button';
 import ListRow from '../ui/ListRow';
 import { useRegisterInlineResume } from '../../features/workout/hooks/useResumableWorkout';
+import { useExerciseDisplayName } from '../../features/workout/hooks/useExerciseDisplayName';
 
 interface Props {
   card: GymCard;
@@ -141,6 +142,7 @@ function SessionPreview({
   onOpenProgram?: () => void;
 }) {
   const { t } = useTranslation();
+  const exerciseName = useExerciseDisplayName();
   void showPreviewHint;
   const [openList, setOpenList] = useState(false);
   const exercises = [...(day.exercises ?? [])].sort((a, b) => a.order_index - b.order_index);
@@ -208,7 +210,7 @@ function SessionPreview({
             <li key={ex.id} className="flex items-start gap-1.5 text-sm text-neutral-300">
               <Dumbbell size={14} className="text-blue-400/70 mt-0.5 shrink-0" aria-hidden="true" />
               <span className="min-w-0">
-                <span className="text-white">{ex.name}</span>
+                <span className="text-white">{exerciseName(ex.name, ex.catalog_exercise_id)}</span>
                 <span className="text-neutral-500"> · {ex.default_sets}×{repsLabel(ex)}</span>
               </span>
             </li>

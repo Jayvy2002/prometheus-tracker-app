@@ -12,6 +12,7 @@ import ReminderPermissionPrompt from '../profile/ReminderPermissionPrompt';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import IconButton from '../ui/IconButton';
+import { useExerciseDisplayName } from '../../features/workout/hooks/useExerciseDisplayName';
 
 interface Props {
   workout: Workout;
@@ -20,6 +21,7 @@ interface Props {
 
 export default function WorkoutRecap({ workout, onEdit }: Props) {
   const { t, i18n } = useTranslation();
+  const exerciseName = useExerciseDisplayName();
   const unit = useProfileStore(s => s.profile?.unit_weight) === 'lbs' ? 'lbs' : 'kg';
   const navigate = useNavigate();
   const sessionLabel = usePlanSessionLabel(workout.program_day_id, workout.name || t('workout.title'));
@@ -53,7 +55,7 @@ export default function WorkoutRecap({ workout, onEdit }: Props) {
           return (
             <Card key={ex.id} padding={false} className="p-3">
               <div className="flex items-baseline justify-between gap-2 mb-2">
-                <p className="text-sm font-semibold text-white">{ex.name}</p>
+                <p className="text-sm font-semibold text-white">{exerciseName(ex.name, ex.catalog_exercise_id)}</p>
                 {ex.prescribed_sets ? (
                   <p className="text-[11px] text-neutral-500">
                     {t('workout.prescribedVsLogged', {

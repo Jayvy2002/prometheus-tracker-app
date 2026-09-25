@@ -9,6 +9,7 @@ import { needsProfessionalAdvice, splitConstraints, type AthleteConstraint } fro
 import { formatDate } from '../../lib/utils';
 import { userFacingError } from '../../lib/userFacingError';
 import DeclareConstraintForm from './DeclareConstraintForm';
+import { useExerciseDisplayName } from '../../features/workout/hooks/useExerciseDisplayName';
 
 /**
  * Vision §7.6 — what the athlete declared: open first, resolved kept below.
@@ -16,6 +17,7 @@ import DeclareConstraintForm from './DeclareConstraintForm';
  */
 export default function ConstraintsPanel({ userId, viewer }: { userId: string; viewer: 'athlete' | 'coach' }) {
   const { t, i18n } = useTranslation();
+  const exerciseName = useExerciseDisplayName();
   const { rows, loading, error, busy, reload, setStatus, update } = useConstraints(userId);
   const [declaring, setDeclaring] = useState(false);
   const [advice, setAdvice] = useState(false);
@@ -32,7 +34,7 @@ export default function ConstraintsPanel({ userId, viewer }: { userId: string; v
     c.body_area !== 'none' ? t(`constraints.areas.${c.body_area}`) : null,
     c.kind === 'pain' && c.severity ? t('constraints.severityValue', { n: c.severity }) : null,
     t(`constraints.persistence.${c.persistence}`),
-    c.exercise_name ? t('constraints.onExerciseShort', { name: c.exercise_name }) : null,
+    c.exercise_name ? t('constraints.onExerciseShort', { name: exerciseName(c.exercise_name) }) : null,
   ].filter(Boolean).join(' · ');
 
   if (loading && rows.length === 0) {

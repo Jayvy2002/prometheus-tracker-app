@@ -10,6 +10,7 @@ import { optionLabel } from '../../lib/optionLabels';
 import { applySetPlaceholders, parseDecimalInput } from '../../lib/workoutSetComplete';
 import { parseDropSegments, emptyDropSegments } from '../../lib/programSetPrescription';
 import { placeholderLoadKg, placeholderReps, prescriptionAppliesToSet } from '../../features/workout/domain/setPlaceholders';
+import { useExerciseDisplayName } from '../../features/workout/hooks/useExerciseDisplayName';
 
 // --- Set Type Picker ---
 
@@ -588,6 +589,7 @@ export function SetRow({
 
 export function SupersetLinkPicker({ currentExerciseId, onClose }: { currentExerciseId: string; onClose: () => void }) {
   const { t } = useTranslation();
+  const exerciseName = useExerciseDisplayName();
   const { currentWorkout, linkSuperset } = useWorkoutStore();
   const pickerRef = useRef<HTMLDivElement>(null);
   const exercises = currentWorkout?.exercises?.filter(e => e.id !== currentExerciseId && !e.superset_group_id) ?? [];
@@ -617,7 +619,7 @@ export function SupersetLinkPicker({ currentExerciseId, onClose }: { currentExer
             onClick={() => handleSelect(ex.id)}
             className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-neutral-300 hover:bg-neutral-800 hover:text-white transition-colors"
           >
-            {ex.name}
+            {exerciseName(ex.name, ex.catalog_exercise_id)}
           </button>
         ))}
       </div>

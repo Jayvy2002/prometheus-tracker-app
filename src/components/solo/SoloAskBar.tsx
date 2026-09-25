@@ -5,6 +5,7 @@ import type { SoloAskProposal } from '../../lib/soloAsk';
 import { proposeSoloAsk, type SoloAskContext } from '../../lib/soloAsk';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
+import { useExerciseDisplayName } from '../../features/workout/hooks/useExerciseDisplayName';
 
 interface Props {
   context: Omit<SoloAskContext, 'question'>;
@@ -15,6 +16,7 @@ interface Props {
 
 export default function SoloAskBar({ context, onApplyOnce, onSave, compact = false }: Props) {
   const { t } = useTranslation();
+  const exerciseName = useExerciseDisplayName();
   const [question, setQuestion] = useState('');
   const [proposal, setProposal] = useState<SoloAskProposal | null>(null);
   const [dayName, setDayName] = useState('');
@@ -55,7 +57,7 @@ export default function SoloAskBar({ context, onApplyOnce, onSave, compact = fal
           {proposal.exercises.length > 0 && (
             <ul className="space-y-1 text-xs text-neutral-400">
               {proposal.exercises.map(ex => (
-                <li key={ex.name}>{ex.default_sets}×{ex.default_reps} {ex.name}</li>
+                <li key={ex.name}>{ex.default_sets}×{ex.default_reps} {exerciseName(ex.name)}</li>
               ))}
             </ul>
           )}

@@ -21,6 +21,7 @@ import ProgramSessionEditor from '../coaching/ProgramSessionEditor';
 import SoloProgramProposal from '../dashboard/SoloProgramProposal';
 import { toast } from '../ui/Toast';
 import { mapProgramWriteError } from '../../lib/programWrite';
+import { useExerciseDisplayName } from '../../features/workout/hooks/useExerciseDisplayName';
 
 const WEEKDAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
@@ -364,6 +365,7 @@ function DayCard({
 }
 
 function ExerciseList({ exercises, emptyLabel }: { exercises: ProgramDayExercise[]; emptyLabel: string }) {
+  const exerciseName = useExerciseDisplayName();
   if (exercises.length === 0) {
     return <p className="text-xs text-neutral-500 mt-1">{emptyLabel}</p>;
   }
@@ -373,7 +375,7 @@ function ExerciseList({ exercises, emptyLabel }: { exercises: ProgramDayExercise
         <li key={ex.id} className="flex items-start gap-2 text-xs text-neutral-300">
           <Dumbbell size={11} className="text-blue-400/70 mt-0.5 shrink-0" />
           <span className="min-w-0">
-            <span className="text-white">{ex.name}</span>
+            <span className="text-white">{exerciseName(ex.name, ex.catalog_exercise_id)}</span>
             <span className="text-neutral-500"> · {ex.default_sets}×{repsLabel(ex)}</span>
           </span>
         </li>

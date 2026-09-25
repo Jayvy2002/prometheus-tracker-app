@@ -33,6 +33,7 @@ import { getOverloadSuggestion, SUGGESTION_KEY } from '../../features/workout/do
 import { useExerciseHistory } from '../../features/workout/hooks/useExerciseHistory';
 import { prescriptionBadgeParts } from '../../features/workout/domain/prescriptionBadge';
 import { newSetTypeFor, repsColumnKind, timedExerciseShowsLoad } from '../../features/workout/domain/timedExercise';
+import { useExerciseDisplayName } from '../../features/workout/hooks/useExerciseDisplayName';
 export type { OverloadSuggestionKind } from '../../features/workout/domain/overloadSuggestion';
 
 // --- Main ExerciseCard ---
@@ -71,6 +72,8 @@ export default function ExerciseCard({
   const [showNotes, setShowNotes] = useState(!!exercise.notes);
   const [localNotes, setLocalNotes] = useState('');
   const [localName, setLocalName] = useState(exercise.name);
+  const exerciseName = useExerciseDisplayName();
+  const shownName = exerciseName(localName, exercise.catalog_exercise_id);
   const history = useExerciseHistory(exercise.name, currentWorkout?.id, exercise.catalog_exercise_id);
   const [showLinkPicker, setShowLinkPicker] = useState(false);
   const [showMedia, setShowMedia] = useState(false);
@@ -255,13 +258,13 @@ export default function ExerciseCard({
           onClick={() => setExpanded(!expanded)}
           className="min-h-11 min-w-11 shrink-0 inline-flex items-center justify-center text-neutral-400 hover:text-white"
           aria-expanded={expanded}
-          aria-label={`${t(expanded ? 'common.collapse' : 'common.expand')} · ${localName || t('workout.exerciseCard.exerciseNamePlaceholder')}`}
+          aria-label={`${t(expanded ? 'common.collapse' : 'common.expand')} · ${shownName || t('workout.exerciseCard.exerciseNamePlaceholder')}`}
         >
           {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
         </button>
         <div className="flex-1 min-w-0 pt-2">
           {/* Long names wrap on two lines instead of « Soulevé de terre ro… ». */}
-          <p className="text-white font-semibold leading-snug line-clamp-2 break-words">{localName || t('workout.exerciseCard.exerciseNamePlaceholder')}</p>
+          <p className="text-white font-semibold leading-snug line-clamp-2 break-words">{shownName || t('workout.exerciseCard.exerciseNamePlaceholder')}</p>
           <div className="mt-1 flex flex-wrap items-center gap-1">
             {prescriptionText ? (
               <span className="text-xs text-blue-300/90 bg-blue-500/10 px-1.5 py-0.5 rounded" data-prescription-badge="true">
@@ -483,7 +486,7 @@ export default function ExerciseCard({
           // Today only: the program is untouched; the note keeps the trace.
           const note = [
             exercise.notes?.trim(),
-            t('workout.exerciseCard.replacedNote', { from: exercise.name }),
+            t('workout.exerciseCard.replacedNote', { from: exerciseName(exercise.name, exercise.catalog_exercise_id) }),
           ].filter(Boolean).join('\n');
           setLocalNotes(note);
           void updateExercise(exercise.id, { name, catalog_exercise_id: catalogId ?? null, notes: note });

@@ -11,6 +11,10 @@
     {
       "version": "20260925100000",
       "name": "exercise_measurement"
+    },
+    {
+      "version": "20260925110000",
+      "name": "start_workout_catalog_link"
     }
   ]
 }

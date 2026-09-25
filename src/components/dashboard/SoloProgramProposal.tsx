@@ -20,6 +20,7 @@ import ProgramSessionEditor from '../coaching/ProgramSessionEditor';
 import Button from '../ui/Button';
 import ListRow from '../ui/ListRow';
 import { toast } from '../ui/Toast';
+import { useExerciseDisplayName } from '../../features/workout/hooks/useExerciseDisplayName';
 
 /**
  * Solo copilot — program proposal: same coach-agent draft as a coach sees.
@@ -35,6 +36,7 @@ export default function SoloProgramProposal({
   onSettled?: () => void;
 }) {
   const { t } = useTranslation();
+  const exerciseName = useExerciseDisplayName();
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const pendingInterventions = useCoachingStore(s => s.pendingInterventions);
@@ -253,7 +255,7 @@ export default function SoloProgramProposal({
                     <li key={`${ex.name}-${j}`} className="flex items-start gap-1.5 text-[11px] text-neutral-300">
                       <Dumbbell size={10} className="text-blue-400/70 mt-0.5 shrink-0" />
                       <span>
-                        <span className="text-white">{ex.name}</span>
+                        <span className="text-white">{exerciseName(ex.name, ex.catalog_exercise_id)}</span>
                         <span className="text-neutral-500"> · {ex.default_sets}×{ex.default_reps}</span>
                       </span>
                     </li>

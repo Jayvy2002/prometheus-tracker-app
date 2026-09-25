@@ -36,9 +36,11 @@ import { useRoutineStore } from '../../stores/routineStore';
 import PageTransition from '../ui/PageTransition';
 import SessionReadout from './SessionReadout';
 import ClientGymCard from '../dashboard/ClientGymCard';
+import { useExerciseDisplayName } from '../../features/workout/hooks/useExerciseDisplayName';
 
 export default function WorkoutPage() {
   const { t, i18n } = useTranslation();
+  const exerciseName = useExerciseDisplayName();
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { workouts, loading, workoutsExhausted, fetchWorkouts, fetchOlderWorkouts, fetchWorkout, peekWorkout, deleteWorkout, restoreExercise } = useWorkoutStore();
@@ -599,7 +601,7 @@ export default function WorkoutPage() {
           {displayed.map((w) => {
             const summary = summaries[w.id];
             const names = summary?.names ?? [];
-            const preview = names.slice(0, 3).join(', ');
+            const preview = names.slice(0, 3).map(name => exerciseName(name)).join(', ');
             const extra = names.length > 3 ? t('workout.historyMore', { count: names.length - 3 }) : '';
             return (
             <Card key={w.id} className="flex items-center gap-3">

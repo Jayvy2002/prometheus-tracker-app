@@ -6,6 +6,7 @@ import Card from '../ui/Card';
 import { formatLoad } from '../../lib/utils';
 import { useProfileStore } from '../../stores/profileStore';
 import { namedSetType } from '../../features/workout/domain/timedExercise';
+import { useExerciseDisplayName } from '../../features/workout/hooks/useExerciseDisplayName';
 
 function setLabel(set: LiftSetSnapshot, typeLabel: (value: string) => string, unit: 'kg' | 'lbs'): string {
   const load = set.set_type === 'isometric'
@@ -26,6 +27,7 @@ export default function SessionReadout({
   onExercise?: (name: string) => void;
 }) {
   const { t } = useTranslation();
+  const exerciseName = useExerciseDisplayName();
   const typeLabel = (value: string) => optionLabel(t, 'setTypes', value);
   const unit = useProfileStore(s => s.profile?.unit_weight === 'lbs' ? 'lbs' : 'kg');
   return (
@@ -39,7 +41,7 @@ export default function SessionReadout({
             className="p-3"
             onClick={onExercise ? () => onExercise(ex.name) : undefined}
           >
-            <p className="text-sm font-medium text-white mb-1">{ex.name}</p>
+            <p className="text-sm font-medium text-white mb-1">{exerciseName(ex.name)}</p>
             {ex.notes?.trim() ? (
               <p className="text-xs text-neutral-500 mb-1" data-session-notes="true">{ex.notes.trim()}</p>
             ) : null}
