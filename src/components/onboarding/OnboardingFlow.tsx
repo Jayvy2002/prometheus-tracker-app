@@ -9,6 +9,8 @@ import { useAuthStore } from '../../stores/authStore';
 import WallSignOut from '../auth/WallSignOut';
 import { useCoachingStore, clearOnboardingDeferred, setOnboardingDeferred } from '../../stores/coachingStore';
 import { GOALS, TRAINING_EXPERIENCES } from '../../lib/constants';
+import { fetchGoals, startGoal } from '../../features/goals/api/goalsApi';
+
 import { todayStr } from '../../lib/utils';
 import { isCoachedAthlete } from '../../lib/coachRole';
 import { stripSelfServeNutritionTargets } from '../../lib/coachOwnedTargets';
@@ -17,6 +19,7 @@ import {
   EQUIPMENT_OPTIONS,
   SOLO_ONBOARDING_STEPS,
   buildSoloOnboardingPayload,
+  onboardingGoalToStart,
   canContinueSoloOnboarding,
   emptySoloOnboardingForm,
   measureErrors,
@@ -27,6 +30,12 @@ import {
 import PersonalModulesPicker from '../profile/PersonalModulesPicker';
 import Button from '../ui/Button';
 import { toast } from '../ui/Toast';
+
+// The three body goals plus performance (maintenance calories, goal kept in the goal cycle).
+const ONBOARDING_GOALS = [
+  ...GOALS,
+  { value: 'performance', label: 'Performance', description: 'Get stronger or improve results' },
+] as const;
 
 type SetForm = (next: SoloOnboardingForm) => void;
 
@@ -126,8 +135,8 @@ function StepGoal({ form, setForm }: { form: SoloOnboardingForm; setForm: SetFor
         <p id="onboarding-goal-label" className={`${labelClass} flex items-center gap-1.5`}>
           <Target size={14} className="text-blue-400" aria-hidden="true" /> {t('onboarding.fields.bodyGoal')}
         </p>
-        <OptionGrid group="goals" options={GOALS} value={form.goal} onChange={v => setForm({ ...form, goal: v as SoloOnboardingForm['goal'] })} columns={3} />
-        {/* Performance / strength / health goals live in the goal cycle (Profile), not in this body-weight choice. */}
+        <OptionGrid group="goals" options={ONBOARDING_GOALS} value={form.goal} onChange={v => setForm({ ...form, goal: v as SoloOnboardingForm['goal'] })} />
+        {/* Performance keeps maintenance calories; health or other goals are set later in Profile. */}
         <p id="onboarding-goal-hint" className="mt-2 text-xs text-neutral-400">{t('onboarding.fields.bodyGoalHint')}</p>
       </div>
     </div>
@@ -305,6 +314,25 @@ export default function OnboardingFlow() {
       coached,
       fallbackName: user.email?.split('@')[0] || t('profile.fallbackName'),
     });
+    // A performance goal is started first; the profile then only carries its energy basis.
+    const goalKind = onboardingGoalToStart(form.goal);
+    if (goalKind) {
+      const current = await fetchGoals(user.id);
+      if (current.error) {
+        setSaving(false);
+        toast(t('errors.generic'), 'error');
+        return;
+      }
+      const already = current.goals.some(g => g.kind === goalKind && (g.status === 'active' || g.status === 'maintenance'));
+      if (!already) {
+        const started = await startGoal({ userId: user.id, kind: goalKind, reason: 'onboarding' });
+        if (started.error) {
+          setSaving(false);
+          toast(t('errors.generic'), 'error');
+          return;
+        }
+      }
+    }
     const saved = await updateProfile(user.id, stripSelfServeNutritionTargets(profile, coached));
     if (saved.error) {
       setSaving(false);

@@ -119,3 +119,27 @@ test('lot D: the first name opens the flow, the blocked button explains itself, 
     }
   }
 });
+
+test('audit 3: performance can be chosen at onboarding, with maintenance as the energy basis', async () => {
+  const src = (rel: string) => readFileSync(resolve(process.cwd(), rel), 'utf8');
+  const { profileGoalFor, onboardingGoalToStart } = await import('./soloOnboarding');
+  assert.equal(profileGoalFor('performance'), 'maintain');
+  assert.equal(profileGoalFor('cut'), 'cut');
+  assert.equal(profileGoalFor('bulk'), 'bulk');
+  assert.equal(profileGoalFor(''), 'maintain');
+  assert.equal(onboardingGoalToStart('performance'), 'performance');
+  assert.equal(onboardingGoalToStart('cut'), null);
+  const payload = buildSoloOnboardingPayload(
+    { ...emptySoloOnboardingForm(), full_name: 'Noé', goal: 'performance', training_experience: 'beginner', training_frequency: 3, training_equipment: 'gym' },
+    { coached: false, fallbackName: 'x' },
+  );
+  assert.equal(payload.profile.goal, 'maintain');
+  const flow = src('src/components/onboarding/OnboardingFlow.tsx');
+  // The goal is started before the profile save, never twice.
+  assert.ok(flow.indexOf('startGoal(') < flow.indexOf('await updateProfile('));
+  assert.match(flow, /g\.kind === goalKind && \(g\.status === 'active' \|\| g\.status === 'maintenance'\)/);
+  assert.match(flow, /value: 'performance'/);
+  for (const lang of ['fr', 'en']) {
+    assert.match(src(`src/i18n/locales/${lang}/common.ts`), /performanceHint: '/);
+  }
+});

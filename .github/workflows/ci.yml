@@ -569,6 +569,14 @@ jobs:
         run: |
           set -euo pipefail
           grep -F 'goal lifecycle: replace keeps context, pause/resume/reach/maintain, closed stays closed, goal_at, coach scope, profile changes recorded once' /tmp/goal-lifecycle.txt
+      - name: Test performance goal energy basis
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/performance_goal_energy_basis.sql | tee /tmp/performance-goal.txt
+      - name: Confirm performance goal energy basis echo
+        run: |
+          set -euo pipefail
+          grep -F 'performance goal energy basis: onboarding performance kept, profile basis not a goal, later body goals still recorded' /tmp/performance-goal.txt
       - name: Test athlete constraints
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
