@@ -4,6 +4,13 @@ export default {
   theme: {
     extend: {
       colors: {
+        // Readable greys on the black app background (WCAG AA for small text):
+        // 500 ≈ 6.9:1 and 600 ≈ 5.7:1 on #000, ≥ 4.8:1 on the #171717 cards.
+        // Borders and fills that need the old darker greys use explicit values.
+        neutral: {
+          500: '#949494',
+          600: '#858585',
+        },
         page: '#000000',
         surface: {
           DEFAULT: '#0a0a0a',
@@ -16,7 +23,7 @@ export default {
         ink: {
           DEFAULT: '#f8fafc',
           secondary: '#a3a3a3',
-          muted: '#737373',
+          muted: '#949494',
           disabled: '#525252',
         },
         line: {

@@ -323,7 +323,7 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
               >
                 {t('marketplace.tabMyRequests')}
                 {mode === 'directory' && openMine.length > 0 && (
-                  <span className="rounded-full bg-blue-600 px-1.5 text-[10px] font-medium text-white">{openMine.length}</span>
+                  <span className="rounded-full bg-blue-600 px-1.5 text-[11px] font-medium text-white">{openMine.length}</span>
                 )}
               </Link>
             </nav>

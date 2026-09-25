@@ -352,7 +352,7 @@ function DayCard({
           {namedSessionLine(label, day.name)}
         </p>
         {isToday && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-600/20 text-blue-300">{todayLabel}</span>
+          <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-blue-600/20 text-blue-300">{todayLabel}</span>
         )}
       </div>
       {phaseName ? (

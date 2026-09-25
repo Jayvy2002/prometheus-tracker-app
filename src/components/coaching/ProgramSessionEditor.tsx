@@ -443,14 +443,14 @@ export default function ProgramSessionEditor({
                       : 'border-neutral-800 bg-neutral-900/70'
                 }`}
               >
-                <p className={`text-[10px] font-semibold uppercase tracking-wider ${active || isToday ? 'text-blue-300' : 'text-neutral-500'}`}>
+                <p className={`text-[11px] font-semibold uppercase tracking-wider ${active || isToday ? 'text-blue-300' : 'text-neutral-500'}`}>
                   {tabLabel}
                   {isToday ? ` · ${t('programs.todayBadge')}` : ''}
                 </p>
                 <p className="text-xs font-semibold text-white truncate mt-0.5" data-testid={active || isToday ? 'ux22-session-label' : undefined}>
                   {d.name.trim() || t('programs.sessionFallback')}
                 </p>
-                <p className="text-[10px] text-neutral-500 mt-0.5">{t('programs.sessionLifts', { n: count })}</p>
+                <p className="text-[11px] text-neutral-500 mt-0.5">{t('programs.sessionLifts', { n: count })}</p>
               </button>
             );
           }
@@ -603,7 +603,7 @@ export default function ProgramSessionEditor({
                       <span className="block text-[11px] text-neutral-400">{summary || '—'}</span>
                     </span>
                     {group ? (
-                      <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/15 text-blue-200">
+                      <span className="shrink-0 text-[11px] px-1.5 py-0.5 rounded-full bg-blue-500/15 text-blue-200">
                         {t('programs.editor.supersetBadge', { group })}
                       </span>
                     ) : null}

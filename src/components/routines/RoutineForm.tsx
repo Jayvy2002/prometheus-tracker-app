@@ -128,8 +128,8 @@ export default function RoutineForm({ routine, onClose }: Props) {
       <div className="relative bg-neutral-950 border border-neutral-800/60 rounded-2xl w-full max-w-lg mx-4 max-h-[85vh] flex flex-col shadow-2xl z-10">
         <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-800/60 shrink-0">
           <h2 className="text-lg font-bold text-white">{routine ? t('routines.form.editTitle') : t('routines.form.newTitle')}</h2>
-          <button onClick={onClose} className="p-1.5 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-lg transition-colors">
-            <X size={18} />
+          <button type="button" onClick={onClose} aria-label={t('common.close')} className="min-h-11 min-w-11 inline-flex items-center justify-center text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-lg transition-colors">
+            <X size={18} aria-hidden="true" />
           </button>
         </div>
 
@@ -164,7 +164,7 @@ export default function RoutineForm({ routine, onClose }: Props) {
                   </button>
                 ))}
               </div>
-              <p className="text-[10px] text-neutral-600 mt-1.5">{t('routines.form.scheduledDaysHint')}</p>
+              <p className="text-[11px] text-neutral-600 mt-1.5">{t('routines.form.scheduledDaysHint')}</p>
             </div>
           </div>
 
@@ -175,21 +175,21 @@ export default function RoutineForm({ routine, onClose }: Props) {
                 <div key={ex.id} className="bg-neutral-900/60 border border-neutral-800/50 rounded-xl p-3">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="flex flex-col">
-                      <button type="button" onClick={() => moveEx(index, -1)} disabled={index === 0} className="text-neutral-500 hover:text-white disabled:opacity-30">
-                        <ChevronUp size={14} />
+                      <button type="button" onClick={() => moveEx(index, -1)} disabled={index === 0} aria-label={`${t('common.moveUp')} · ${ex.name}`} className="min-h-6 min-w-11 inline-flex items-center justify-center text-neutral-400 hover:text-white disabled:opacity-30">
+                        <ChevronUp size={16} aria-hidden="true" />
                       </button>
-                      <button type="button" onClick={() => moveEx(index, 1)} disabled={index === exercises.length - 1} className="text-neutral-500 hover:text-white disabled:opacity-30">
-                        <ChevronDown size={14} />
+                      <button type="button" onClick={() => moveEx(index, 1)} disabled={index === exercises.length - 1} aria-label={`${t('common.moveDown')} · ${ex.name}`} className="min-h-6 min-w-11 inline-flex items-center justify-center text-neutral-400 hover:text-white disabled:opacity-30">
+                        <ChevronDown size={16} aria-hidden="true" />
                       </button>
                     </div>
                     <span className="text-sm font-medium text-white flex-1">{ex.name}</span>
-                    <button onClick={() => removeEx(ex)} className="text-neutral-600 hover:text-rose-400 transition-colors">
-                      <Trash2 size={14} />
+                    <button type="button" onClick={() => removeEx(ex)} aria-label={`${t('common.delete')} · ${ex.name}`} className="min-h-11 min-w-11 inline-flex items-center justify-center text-neutral-400 hover:text-rose-400 transition-colors">
+                      <Trash2 size={16} aria-hidden="true" />
                     </button>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <div>
-                      <label className="text-[10px] text-neutral-500 uppercase">{t('routines.form.sets')}</label>
+                      <label className="text-[11px] text-neutral-500 uppercase">{t('routines.form.sets')}</label>
                       <input
                         type="number" inputMode="numeric" value={ex.default_sets || ''}
                         onChange={e => updateLocal(ex.id, 'default_sets', +e.target.value || 0)}
@@ -197,7 +197,7 @@ export default function RoutineForm({ routine, onClose }: Props) {
                       />
                     </div>
                     <div>
-                      <label className="text-[10px] text-neutral-500 uppercase">{t('routines.form.reps')}</label>
+                      <label className="text-[11px] text-neutral-500 uppercase">{t('routines.form.reps')}</label>
                       <input
                         type="number" inputMode="numeric" value={ex.default_reps || ''}
                         onChange={e => updateLocal(ex.id, 'default_reps', +e.target.value || 0)}
@@ -205,7 +205,7 @@ export default function RoutineForm({ routine, onClose }: Props) {
                       />
                     </div>
                     <div>
-                      <label className="text-[10px] text-neutral-500 uppercase">{t('routines.form.rest')}</label>
+                      <label className="text-[11px] text-neutral-500 uppercase">{t('routines.form.rest')}</label>
                       <input
                         type="number" inputMode="numeric" value={ex.default_rest_seconds || ''}
                         onChange={e => updateLocal(ex.id, 'default_rest_seconds', +e.target.value || 0)}

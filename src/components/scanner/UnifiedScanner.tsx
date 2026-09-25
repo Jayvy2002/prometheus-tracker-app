@@ -354,17 +354,21 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
       <div className="flex flex-col" style={{ minHeight: 'calc(100vh - 80px)' }}>
         <div className="flex items-center justify-between px-4 pt-4 pb-3">
           <button
+            type="button"
             onClick={() => { stopCamera(); setPhase('idle'); }}
-            className="p-2 rounded-xl text-neutral-400 hover:text-white transition-colors"
+            aria-label={t('common.back')}
+            className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-xl text-neutral-400 hover:text-white transition-colors"
           >
-            <ArrowLeft size={20} />
+            <ArrowLeft size={20} aria-hidden="true" />
           </button>
           <h2 className="text-base font-semibold text-white">{t('scanner.scanBarcode')}</h2>
           <button
+            type="button"
             onClick={() => { stopCamera(); onClose(); }}
-            className="p-2 rounded-xl text-neutral-400 hover:text-white transition-colors"
+            aria-label={t('common.close')}
+            className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-xl text-neutral-400 hover:text-white transition-colors"
           >
-            <X size={20} />
+            <X size={20} aria-hidden="true" />
           </button>
         </div>
 
@@ -456,8 +460,8 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
             <h2 className="text-xl font-bold text-white">{t('scanner.notFoundHuman')}</h2>
             <p className="text-sm text-neutral-400 mt-0.5">{t('scanner.takePhotoHint')}</p>
           </div>
-          <button onClick={reset} className="p-2 text-neutral-400 hover:text-white rounded-xl transition-colors">
-            <X size={20} />
+          <button type="button" onClick={reset} aria-label={t('common.close')} className="min-h-11 min-w-11 inline-flex items-center justify-center text-neutral-400 hover:text-white rounded-xl transition-colors">
+            <X size={20} aria-hidden="true" />
           </button>
         </div>
 
@@ -488,31 +492,37 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
         <div className="grid grid-cols-3 gap-2.5 mb-4">
           {photoSlots.map(slot => (
             <div key={slot.key} className="flex flex-col gap-1.5">
-              <p className="text-[10px] font-semibold text-neutral-400 text-center uppercase tracking-wide truncate">
+              <p className="text-[11px] font-semibold text-neutral-400 text-center uppercase tracking-wide truncate">
                 {slot.label}
               </p>
               {slot.photo ? (
                 <div className="relative rounded-xl overflow-hidden aspect-square bg-neutral-900">
                   <img src={slot.photo.preview} alt={slot.label} className="w-full h-full object-cover" />
                   <button
+                    type="button"
                     onClick={slot.onRemove}
-                    className="absolute top-1.5 right-1.5 p-1 rounded-lg bg-black/70 text-white hover:bg-rose-500/80 transition-colors"
+                    aria-label={t('common.removePhoto')}
+                    className="absolute top-1 right-1 min-h-9 min-w-9 inline-flex items-center justify-center rounded-lg bg-black/70 text-white hover:bg-rose-500/80 transition-colors"
                   >
-                    <X size={10} />
+                    <X size={14} aria-hidden="true" />
                   </button>
                   {/* Retake buttons */}
                   <div className="absolute bottom-1.5 left-1.5 right-1.5 flex gap-1">
                     <button
+                      type="button"
                       onClick={() => slot.cameraRef.current?.click()}
-                      className="flex-1 flex items-center justify-center py-1 rounded-md bg-black/70 hover:bg-black/90 transition-colors"
+                      aria-label={t('common.takePhoto')}
+                      className="flex-1 min-h-9 flex items-center justify-center rounded-md bg-black/70 hover:bg-black/90 transition-colors"
                     >
-                      <Camera size={10} className="text-white" />
+                      <Camera size={14} className="text-white" aria-hidden="true" />
                     </button>
                     <button
+                      type="button"
                       onClick={() => slot.galleryRef.current?.click()}
-                      className="flex-1 flex items-center justify-center py-1 rounded-md bg-black/70 hover:bg-black/90 transition-colors"
+                      aria-label={t('common.choosePhoto')}
+                      className="flex-1 min-h-9 flex items-center justify-center rounded-md bg-black/70 hover:bg-black/90 transition-colors"
                     >
-                      <ImageIcon size={10} className="text-white" />
+                      <ImageIcon size={14} className="text-white" aria-hidden="true" />
                     </button>
                   </div>
                 </div>
@@ -520,24 +530,30 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
                 <div className="flex flex-col gap-1">
                   {/* Main area → camera */}
                   <button
+                    type="button"
                     onClick={() => slot.cameraRef.current?.click()}
+                    aria-label={t('common.takePhoto')}
                     className="w-full aspect-square rounded-xl border-2 border-dashed border-neutral-700 hover:border-blue-500/40 hover:bg-blue-500/5 transition-all flex items-center justify-center bg-neutral-900/50"
                   >
-                    <Camera size={20} className="text-neutral-600" />
+                    <Camera size={20} className="text-neutral-400" aria-hidden="true" />
                   </button>
                   {/* Sub-row: camera + gallery */}
                   <div className="flex gap-1">
                     <button
+                      type="button"
                       onClick={() => slot.cameraRef.current?.click()}
-                      className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg border border-neutral-800 hover:bg-neutral-800 transition-colors"
+                      aria-label={t('common.takePhoto')}
+                      className="flex-1 min-h-11 flex items-center justify-center gap-1 rounded-lg border border-neutral-800 hover:bg-neutral-800 transition-colors"
                     >
-                      <Camera size={10} className="text-neutral-500" />
+                      <Camera size={14} className="text-neutral-400" aria-hidden="true" />
                     </button>
                     <button
+                      type="button"
                       onClick={() => slot.galleryRef.current?.click()}
-                      className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg border border-neutral-800 hover:bg-neutral-800 transition-colors"
+                      aria-label={t('common.choosePhoto')}
+                      className="flex-1 min-h-11 flex items-center justify-center gap-1 rounded-lg border border-neutral-800 hover:bg-neutral-800 transition-colors"
                     >
-                      <ImageIcon size={10} className="text-neutral-500" />
+                      <ImageIcon size={14} className="text-neutral-400" aria-hidden="true" />
                     </button>
                   </div>
                 </div>
@@ -621,10 +637,12 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
     <div className="px-4 pt-6 pb-24">
       <div className="flex items-center gap-3 mb-6">
         <button
+          type="button"
           onClick={onClose}
-          className="p-2 -ml-2 rounded-xl text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors"
+          aria-label={t('common.back')}
+          className="min-h-11 min-w-11 -ml-2 inline-flex items-center justify-center rounded-xl text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors"
         >
-          <ArrowLeft size={20} />
+          <ArrowLeft size={20} aria-hidden="true" />
         </button>
         <h1 className="text-xl font-bold text-white">{t('scanner.title')}</h1>
       </div>

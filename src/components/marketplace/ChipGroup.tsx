@@ -54,7 +54,7 @@ export default function ChipGroup(props: Props) {
               className={`inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border px-4 text-sm transition-colors ${
                 on
                   ? 'border-blue-500 bg-blue-600/20 text-white'
-                  : 'border-neutral-800 bg-neutral-900 text-neutral-300 hover:border-neutral-600'
+                  : 'border-neutral-800 bg-neutral-900 text-neutral-300 hover:border-[#525252]'
               }`}
             >
               {on && <Check size={14} aria-hidden="true" />}

@@ -332,20 +332,20 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
             {catalog.results.length > 0 && (
               <div className="mt-2 animate-fade-in-down">
                 {catalog.phase === 'openfoodfacts' && (
-                  <p className="text-[10px] text-neutral-500 mb-1.5 px-1">{t('nutrition.foodForm.searchingOpenFoodFacts')}</p>
+                  <p className="text-[11px] text-neutral-500 mb-1.5 px-1">{t('nutrition.foodForm.searchingOpenFoodFacts')}</p>
                 )}
                 {catalog.offStatus === 'rate_limited' && (
-                  <p className="text-[10px] text-amber-400/80 mb-1.5 px-1" role="status">{t('nutrition.foodForm.offRateLimited')}</p>
+                  <p className="text-[11px] text-amber-400/80 mb-1.5 px-1" role="status">{t('nutrition.foodForm.offRateLimited')}</p>
                 )}
                 {catalog.offStatus === 'error' && (
-                  <p className="text-[10px] text-neutral-500 mb-1.5 px-1" role="status">{t('nutrition.foodForm.offError')}</p>
+                  <p className="text-[11px] text-neutral-500 mb-1.5 px-1" role="status">{t('nutrition.foodForm.offError')}</p>
                 )}
                 <FoodSearchHits results={catalog.results} onSelect={selectProduct} />
               </div>
             )}
 
             {catalog.query.trim().length >= 2 && catalog.offStatus === 'idle' && catalog.results.length > 0 && (
-              <p className="text-[10px] text-neutral-600 mt-1.5 px-1">{t('nutrition.foodForm.offHint')}</p>
+              <p className="text-[11px] text-neutral-600 mt-1.5 px-1">{t('nutrition.foodForm.offHint')}</p>
             )}
 
             {!catalog.searching && catalog.searched && catalog.results.length === 0 && (

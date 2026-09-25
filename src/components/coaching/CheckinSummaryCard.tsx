@@ -62,7 +62,7 @@ export default function CheckinSummaryCard({
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-3">
         {rows.map(row => (
           <div key={row.key} className="rounded-xl bg-neutral-950/60 px-2 py-2">
-            <p className="text-[10px] text-neutral-500 uppercase tracking-wide">
+            <p className="text-[11px] text-neutral-500 uppercase tracking-wide">
               {t(`coaching.checkin.kpis.${row.key}`)}
             </p>
             <p className="text-sm text-white mt-0.5">{formatCheckinScore(row.value, summary.latest)}</p>

@@ -248,7 +248,7 @@ export default function MessageThread({
                   mine ? 'bg-blue-600 text-white' : 'bg-neutral-900 text-neutral-100 border border-neutral-800'
                 }`} data-testid="message-bubble">
                   {msg.reply_to_id ? (
-                    <p data-testid="message-reply-quote" className={`mb-1 border-l-2 pl-2 text-xs ${mine ? 'border-blue-200/60 text-blue-100' : 'border-neutral-600 text-neutral-400'}`}>
+                    <p data-testid="message-reply-quote" className={`mb-1 border-l-2 pl-2 text-xs ${mine ? 'border-blue-200/60 text-blue-100' : 'border-[#525252] text-neutral-400'}`}>
                       {replyExcerpt(byId.get(msg.reply_to_id), { attachment: t('messages.attachments.one'), missing: t('messages.reply.earlier') })}
                     </p>
                   ) : null}
@@ -278,7 +278,7 @@ export default function MessageThread({
           <div className="flex justify-end">
             <div className="max-w-[85%] rounded-2xl px-3 py-2 bg-blue-600/50 text-white opacity-70">
               <p className="text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{pendingBody}</p>
-              <p className="text-[10px] mt-1 text-blue-100">{t('coaching.messages.sending')}</p>
+              <p className="text-[11px] mt-1 text-blue-100">{t('coaching.messages.sending')}</p>
             </div>
           </div>
         ) : null}
@@ -474,7 +474,7 @@ function BilanCard({
       }`}
     >
       <p data-testid="ux27-bilan-chip" className={`font-medium ${chipClass}`}>{label}</p>
-      <p className={`text-[10px] mt-0.5 ${mine ? 'text-blue-100/80' : 'text-neutral-500'}`}>
+      <p className={`text-[11px] mt-0.5 ${mine ? 'text-blue-100/80' : 'text-neutral-500'}`}>
         {openLabel}
       </p>
     </Link>
@@ -513,7 +513,7 @@ function RefCard({
   return (
     <Link to={href} data-testid="message-ref" data-ref-kind={label.ref.kind} className={`mt-2 block rounded-xl px-2.5 py-2 ${tone}`}>
       <p className="text-[11px] font-medium">{text}</p>
-      <p className="text-[10px] opacity-80">{t('messages.refs.open')}</p>
+      <p className="text-[11px] opacity-80">{t('messages.refs.open')}</p>
     </Link>
   );
 }

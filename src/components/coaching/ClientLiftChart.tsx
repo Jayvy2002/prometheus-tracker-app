@@ -108,7 +108,7 @@ export default function ClientLiftChart({
           )}
         </div>
         {hasRecentPr(selected) && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 shrink-0">
+          <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 shrink-0">
             {t('coaching.trainingLift.pr')}
           </span>
         )}

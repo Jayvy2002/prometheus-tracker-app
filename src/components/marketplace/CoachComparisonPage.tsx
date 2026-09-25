@@ -41,7 +41,7 @@ export default function CoachComparisonPage() {
       {rows.length < ids.split(',').length && <p role="status">{t('marketplace.comparisonUnavailable')}</p>}
       {!!rows.length && <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {rows.map(row => (
-          <article key={row.coach_id} className="relative rounded-2xl border border-neutral-800 bg-neutral-900/50 p-5 space-y-3 hover:border-neutral-600">
+          <article key={row.coach_id} className="relative rounded-2xl border border-neutral-800 bg-neutral-900/50 p-5 space-y-3 hover:border-[#525252]">
             <h2 className="text-lg font-semibold text-white">
               <Link to={`/coaches/${row.coach_id}?${params}`} className="after:absolute after:inset-0 after:rounded-2xl">{row.public_name}</Link>
             </h2>

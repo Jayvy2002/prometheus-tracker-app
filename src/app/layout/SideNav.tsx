@@ -47,7 +47,7 @@ export default function SideNav() {
         >
           <Search size={16} aria-hidden="true" />
           <span className="flex-1 text-left">{t('search.title')}</span>
-          <kbd className="text-[10px] text-neutral-600">⌘K</kbd>
+          <kbd className="text-[11px] text-neutral-600">⌘K</kbd>
         </button>
       </div>
 
@@ -55,7 +55,7 @@ export default function SideNav() {
         {sections.map(section => (
           <div key={section.id}>
             {section.labelKey && (
-              <p className="text-[10px] font-semibold text-neutral-600 uppercase tracking-widest mb-1 px-4">
+              <p className="text-[11px] font-semibold text-neutral-600 uppercase tracking-widest mb-1 px-4">
                 {t(section.labelKey)}
               </p>
             )}
@@ -106,7 +106,7 @@ export default function SideNav() {
 
         {quickActions.length > 0 && (
           <div className="border-t border-neutral-800/60 pt-3">
-            <p className="text-[10px] font-semibold text-neutral-600 uppercase tracking-widest mb-2 px-2">
+            <p className="text-[11px] font-semibold text-neutral-600 uppercase tracking-widest mb-2 px-2">
               {t('nav.quickAdd')}
             </p>
             <div className="space-y-1">

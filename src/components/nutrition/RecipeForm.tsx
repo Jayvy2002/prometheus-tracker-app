@@ -134,19 +134,19 @@ export default function RecipeForm({ recipe, onClose, onSaved }: Props) {
             <div className="grid grid-cols-4 gap-2 text-center">
               <div>
                 <p className="text-base font-bold text-white">{perServing.calories}</p>
-                <p className="text-[10px] text-neutral-500">{t('common.kcal')}</p>
+                <p className="text-[11px] text-neutral-500">{t('common.kcal')}</p>
               </div>
               <div>
                 <p className="text-base font-bold text-blue-400">{perServing.protein}g</p>
-                <p className="text-[10px] text-neutral-500">{t('common.protein')}</p>
+                <p className="text-[11px] text-neutral-500">{t('common.protein')}</p>
               </div>
               <div>
                 <p className="text-base font-bold text-amber-400">{perServing.carbs}g</p>
-                <p className="text-[10px] text-neutral-500">{t('common.carbs')}</p>
+                <p className="text-[11px] text-neutral-500">{t('common.carbs')}</p>
               </div>
               <div>
                 <p className="text-base font-bold text-rose-400">{perServing.fat}g</p>
-                <p className="text-[10px] text-neutral-500">{t('common.fat')}</p>
+                <p className="text-[11px] text-neutral-500">{t('common.fat')}</p>
               </div>
             </div>
           </Card>

@@ -32,7 +32,7 @@ function Metric({
 }) {
   return (
     <div className="rounded-xl bg-neutral-950/60 px-3 py-2 min-w-0">
-      <p className="text-[10px] text-neutral-500 uppercase tracking-wide truncate">{label}</p>
+      <p className="text-[11px] text-neutral-500 uppercase tracking-wide truncate">{label}</p>
       <p className={`text-sm font-medium mt-0.5 truncate ${tone || 'text-white'}`}>{value}</p>
       {trend.length >= 2 ? (
         <div className="mt-1">

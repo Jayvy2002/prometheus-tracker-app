@@ -23,12 +23,12 @@ export default function SupersetGroup({ exercises, onStartRestTimer }: Props) {
       <div className="flex items-center gap-2 mb-2 px-1">
         <div className="flex items-center gap-1.5 text-green-400">
           <Zap size={12} />
-          <span className="text-[10px] font-bold uppercase tracking-wider">Superset</span>
+          <span className="text-[11px] font-bold uppercase tracking-wider">Superset</span>
         </div>
         <div className="flex-1 h-px bg-green-500/20" />
         <button
           onClick={() => exercises.forEach(e => handleUnlink(e.id))}
-          className="flex items-center gap-1 text-[10px] text-neutral-500 hover:text-neutral-300 transition-colors"
+          className="flex items-center gap-1 text-[11px] text-neutral-500 hover:text-neutral-300 transition-colors"
         >
           <Link2Off size={10} />
           {t('common.remove')}

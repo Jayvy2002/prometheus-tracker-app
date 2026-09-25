@@ -49,12 +49,12 @@ export default function ExerciseMedia({ exercise, compact = false }: Props) {
         />
         <div className="mt-2 flex flex-wrap gap-1.5">
           {exercise.primary_muscles.map(m => (
-            <span key={`p-${m}`} className="rounded bg-rose-500/15 px-1.5 py-0.5 text-[10px] text-rose-300">
+            <span key={`p-${m}`} className="rounded bg-rose-500/15 px-1.5 py-0.5 text-[11px] text-rose-300">
               {muscleLabel(m, i18n.language)}
             </span>
           ))}
           {exercise.secondary_muscles.map(m => (
-            <span key={`s-${m}`} className="rounded bg-rose-500/10 px-1.5 py-0.5 text-[10px] text-rose-200/70">
+            <span key={`s-${m}`} className="rounded bg-rose-500/10 px-1.5 py-0.5 text-[11px] text-rose-200/70">
               {muscleLabel(m, i18n.language)}
             </span>
           ))}

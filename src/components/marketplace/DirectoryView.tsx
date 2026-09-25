@@ -82,7 +82,7 @@ export default function DirectoryView({
 
       <Link
         to="/coaches/match"
-        className="flex items-center gap-3 rounded-2xl border border-neutral-800 bg-neutral-900/50 p-4 hover:border-neutral-600"
+        className="flex items-center gap-3 rounded-2xl border border-neutral-800 bg-neutral-900/50 p-4 hover:border-[#525252]"
       >
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-500/15 text-blue-300" aria-hidden="true">
           <ListChecks size={18} />

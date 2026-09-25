@@ -127,7 +127,7 @@ export default function GlobalSearchPalette() {
 
           {answer?.hits.length ? (
             <div>
-              <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-neutral-600">{t('search.groups.attention')}</p>
+              <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-widest text-neutral-600">{t('search.groups.attention')}</p>
               {answer.hits.map(hit => (
                 <button
                   key={`${hit.clientId}-${hit.href}`}
@@ -144,7 +144,7 @@ export default function GlobalSearchPalette() {
 
           {groups.map(group => (
             <div key={group.category} role="group" aria-label={t(`search.groups.${group.category}`)}>
-              <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-neutral-600">{t(`search.groups.${group.category}`)}</p>
+              <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-widest text-neutral-600">{t(`search.groups.${group.category}`)}</p>
               {group.items.map(item => {
                 const index = flat.indexOf(item);
                 const selected = index === active && index >= 0;

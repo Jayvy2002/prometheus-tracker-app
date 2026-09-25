@@ -125,21 +125,21 @@ export default function ExercisePicker({ open, onClose, onSelect, multiple = fal
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5">
               <p className="text-sm font-medium text-neutral-200 truncate">{title}</p>
-              <span className="text-[10px] font-medium text-neutral-100 bg-neutral-800 px-1.5 py-0.5 rounded shrink-0">
+              <span className="text-[11px] font-medium text-neutral-100 bg-neutral-800 px-1.5 py-0.5 rounded shrink-0">
                 {t(`workout.exercisePicker.equipment.${ex.equipment}`, { defaultValue: ex.equipment })}
               </span>
             </div>
             {title !== ex.name && (
-              <p className="text-[10px] text-neutral-500 truncate">{ex.name}</p>
+              <p className="text-[11px] text-neutral-500 truncate">{ex.name}</p>
             )}
             <div className="flex items-center gap-1.5 mt-0.5">
               {recent && (
-                <span className="text-[10px] text-blue-300 bg-blue-500/10 px-1.5 py-0.5 rounded">
+                <span className="text-[11px] text-blue-300 bg-blue-500/10 px-1.5 py-0.5 rounded">
                   {t('workout.exercisePicker.recent')}
                 </span>
               )}
               {ex.primary_muscles.slice(0, 2).map(m => (
-                <span key={m} className="text-[10px] text-blue-400/80 bg-blue-500/10 px-1.5 py-0.5 rounded">
+                <span key={m} className="text-[11px] text-blue-400/80 bg-blue-500/10 px-1.5 py-0.5 rounded">
                   {muscleLabel(m, i18n.language)}
                 </span>
               ))}
@@ -149,7 +149,7 @@ export default function ExercisePicker({ open, onClose, onSelect, multiple = fal
         <button
           type="button"
           onClick={() => setDetail(ex)}
-          className="p-1.5 text-neutral-600 hover:text-blue-400 shrink-0"
+          className="min-h-11 min-w-11 inline-flex items-center justify-center text-neutral-400 hover:text-blue-400 shrink-0"
           aria-label={t('workout.exercisePicker.details')}
         >
           <Info size={14} />

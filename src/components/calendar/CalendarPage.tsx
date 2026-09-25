@@ -428,7 +428,7 @@ export default function CalendarPage() {
 
         <div className="grid grid-cols-7 gap-1">
           {DAY_LABELS.map(l => (
-            <div key={l} className="text-center text-[10px] font-medium text-neutral-500 mb-1">{l}</div>
+            <div key={l} className="text-center text-[11px] font-medium text-neutral-500 mb-1">{l}</div>
           ))}
           {viewMode === 'week'
             ? weekDayData.map(renderDayButton)
@@ -602,15 +602,15 @@ export default function CalendarPage() {
               <div className="grid grid-cols-3 gap-2">
                 <div className="bg-neutral-800/50 rounded-lg px-2 py-1.5 text-center">
                   <p className="text-xs font-bold text-blue-400">{daySummary.nutrition.protein}g</p>
-                  <p className="text-[10px] text-neutral-500">{t('common.protein')}</p>
+                  <p className="text-[11px] text-neutral-500">{t('common.protein')}</p>
                 </div>
                 <div className="bg-neutral-800/50 rounded-lg px-2 py-1.5 text-center">
                   <p className="text-xs font-bold text-amber-400">{daySummary.nutrition.carbs}g</p>
-                  <p className="text-[10px] text-neutral-500">{t('common.carbs')}</p>
+                  <p className="text-[11px] text-neutral-500">{t('common.carbs')}</p>
                 </div>
                 <div className="bg-neutral-800/50 rounded-lg px-2 py-1.5 text-center">
                   <p className="text-xs font-bold text-rose-400">{daySummary.nutrition.fat}g</p>
-                  <p className="text-[10px] text-neutral-500">{t('common.fat')}</p>
+                  <p className="text-[11px] text-neutral-500">{t('common.fat')}</p>
                 </div>
               </div>
             </Card>

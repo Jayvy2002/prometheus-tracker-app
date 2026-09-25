@@ -17,7 +17,7 @@ export default function ProfileAvatarLink() {
       to="/profile"
       aria-label={t('nav.profile')}
       aria-current={pathname === '/profile' ? 'page' : undefined}
-      className="block w-11 h-11 rounded-xl overflow-hidden flex-shrink-0 ring-2 ring-neutral-800 hover:ring-neutral-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400"
+      className="block w-11 h-11 rounded-xl overflow-hidden flex-shrink-0 ring-2 ring-neutral-800 hover:ring-[#525252] focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400"
       data-testid="profile-avatar-link"
     >
       {profile?.avatar_url ? (

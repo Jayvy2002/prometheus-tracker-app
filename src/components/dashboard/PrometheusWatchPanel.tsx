@@ -607,7 +607,7 @@ function WatchDecisionModal({
 function WatchField({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-[10px] uppercase tracking-wide text-neutral-500">{label}</dt>
+      <dt className="text-[11px] uppercase tracking-wide text-neutral-500">{label}</dt>
       <dd className="text-neutral-200">{value}</dd>
     </div>
   );
