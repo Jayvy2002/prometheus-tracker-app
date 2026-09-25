@@ -3,6 +3,10 @@
     {
       "version": "20260924210000",
       "name": "constraint_backfill_quiet"
+    },
+    {
+      "version": "20260925090000",
+      "name": "performance_goal_energy_basis"
     }
   ]
 }

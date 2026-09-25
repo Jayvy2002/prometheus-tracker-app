@@ -18,7 +18,8 @@ export const EQUIPMENT_OPTIONS: readonly Equipment[] = ['gym', 'home', 'bodyweig
 
 export interface SoloOnboardingForm {
   full_name: string;
-  goal: '' | 'cut' | 'maintain' | 'bulk';
+  /** Body goals feed the calorie calculators; « performance » keeps maintenance as its energy basis. */
+  goal: '' | 'cut' | 'maintain' | 'bulk' | 'performance';
   training_experience: string;
   training_frequency: number | null;
   training_equipment: '' | Equipment;
@@ -131,6 +132,24 @@ export interface SoloOnboardingResult {
   weighInKg: number | null;
 }
 
+/**
+ * The profile goal is the energy basis of the calculators: a performance goal
+ * keeps « maintain » (no invented deficit or surplus). The goal itself is
+ * recorded in the goal cycle (athlete_goals) — see onboardingGoalToStart.
+ */
+export function profileGoalFor(goal: SoloOnboardingForm['goal']): 'cut' | 'maintain' | 'bulk' {
+  return goal === 'cut' || goal === 'bulk' ? goal : 'maintain';
+}
+
+/**
+ * A goal the profile cannot hold is started explicitly, before the profile is
+ * saved (the database then keeps it: « maintain » in the profile is only its
+ * energy basis). Body goals are recorded from the profile as before.
+ */
+export function onboardingGoalToStart(goal: SoloOnboardingForm['goal']): 'performance' | null {
+  return goal === 'performance' ? 'performance' : null;
+}
+
 export function buildSoloOnboardingPayload(
   form: SoloOnboardingForm,
   opts: { coached: boolean; fallbackName: string },
@@ -142,7 +161,7 @@ export function buildSoloOnboardingPayload(
 
   const profile: Partial<UserProfile> = {
     full_name: form.full_name.trim() || opts.fallbackName,
-    goal: form.goal || 'maintain',
+    goal: profileGoalFor(form.goal),
     training_experience: form.training_experience,
     training_frequency: form.training_frequency ?? undefined,
     training_equipment: form.training_equipment || null,

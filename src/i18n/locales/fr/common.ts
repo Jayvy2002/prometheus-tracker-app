@@ -438,7 +438,7 @@ const common = {
     fields: {
       firstName: 'Prénom',
       firstNameQuestion: 'Comment tu t’appelles ?',
-      bodyGoalHint: 'Pour ton poids. Un objectif de performance, de force ou de santé se définit ensuite dans Profil › Objectifs & cibles.',
+      bodyGoalHint: 'Performance : tes calories restent celles du maintien. Tu pourras changer d’objectif dans Profil › Objectifs & cibles.',
       equipment: 'Matériel disponible',
       constraints: 'Douleurs ou contraintes (facultatif)',
       sex: 'Sexe (pour estimer tes besoins)',
@@ -468,7 +468,7 @@ const common = {
       cooking: 'Cuisine',
       supplements: 'Compléments actuels',
       hydration: 'Hydratation',
-      bodyGoal: 'Objectif physique',
+      bodyGoal: 'Ton objectif',
       motivation: 'Motivation principale',
       dailyTargets: 'Cibles quotidiennes',
       coachOwnsTargets: 'Ton coach définira tes cibles.',
@@ -1147,6 +1147,8 @@ const common = {
       maintainHint: 'Rester au poids actuel',
       bulk: 'Prendre du muscle',
       bulkHint: 'Manger un peu plus que tes besoins',
+      performance: 'Performance',
+      performanceHint: 'Progresser en force ou en résultats',
     },
     cooking: {
       none: 'Aucune',
