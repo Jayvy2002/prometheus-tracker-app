@@ -210,6 +210,8 @@ export interface CoachingState {
   sentMessages: CoachMessage[];
   latestCoachMessage: CoachMessage | null;
   unreadMessageCount: number;
+  /** The last message load failed: « no unread message » cannot be claimed. */
+  messagesFetchError: boolean;
   /** C02 : fils épuisés (plus rien à charger) par client_id. */
   threadExhausted: Record<string, boolean>;
   coachSettings: CoachSettings | null;
@@ -389,7 +391,7 @@ export function initialCoachingState(): Pick<
   | 'coachingRole' | 'roleReady' | 'coachingRoleError' | 'accountSnapshot' | 'accountWorkspace'
   | 'loading' | 'clients' | 'clientsFetchError' | 'invites' | 'myCoach' | 'notes' | 'opsRows'
   | 'opsLoading' | 'opsPartialError' | 'pendingInterventions' | 'sentMessages' | 'latestCoachMessage'
-  | 'unreadMessageCount' | 'threadExhausted' | 'coachSettings' | 'myTrackingConfig' | 'trackingReady'
+  | 'unreadMessageCount' | 'messagesFetchError' | 'threadExhausted' | 'coachSettings' | 'myTrackingConfig' | 'trackingReady'
   | 'queueDismissedIds' | 'priorities' | 'rosterSignals' | 'commandStats' | 'fleetRunning'
   | 'lastFleetRound' | 'progressPhotosEpoch'
 > {
@@ -412,6 +414,7 @@ export function initialCoachingState(): Pick<
     sentMessages: [],
     latestCoachMessage: null,
     unreadMessageCount: 0,
+    messagesFetchError: false,
     threadExhausted: {},
     coachSettings: null,
     myTrackingConfig: cloneTracking(ALL_ON_TRACKING),

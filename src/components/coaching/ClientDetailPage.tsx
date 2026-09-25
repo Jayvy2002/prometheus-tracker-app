@@ -5,7 +5,7 @@ import ClientCheckinPlanCard from '../checkin/ClientCheckinPlanCard';
 import ConstraintsPanel from '../constraints/ConstraintsPanel';
 import MeasurementsPage from '../measurements/MeasurementsPage';
 import { objectRefHref } from '../../features/messages/domain/messageContent';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useClientDossier } from '../../features/coaching/hooks/useClientDossier';
 import { useClientPhotoSharing } from '../../features/coaching/hooks/useClientPhotoSharing';
 import { useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
@@ -13,6 +13,7 @@ import { useTranslation } from 'react-i18next';
 import {
   ArrowLeft,
   CalendarDays,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Dumbbell,
@@ -71,7 +72,9 @@ import Button from '../ui/Button';
 import EmptyState from '../ui/EmptyState';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
-import TabList from '../ui/TabList';
+import ScrollHintTabs from './ScrollHintTabs';
+import { useClientGoalKinds } from '../../features/coaching/hooks/useClientGoalKinds';
+import { goalKindLabelKey } from '../../features/coaching/domain/clientGoal';
 import PrometheusWatchPanel from '../dashboard/PrometheusWatchPanel';
 import { toast } from '../ui/Toast';
 import CheckinSummaryCard from './CheckinSummaryCard';
@@ -154,6 +157,41 @@ function SituationCards({
   );
 }
 
+/** A closed section of the file: what it holds is said before it is opened. */
+function DossierSection({
+  title,
+  hint,
+  open,
+  onToggle,
+  testId,
+  children,
+}: {
+  title: string;
+  hint: string;
+  open: boolean;
+  onToggle: () => void;
+  testId: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="rounded-xl border border-neutral-800 bg-neutral-950" data-testid={testId}>
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={onToggle}
+        className="w-full min-h-11 flex items-center gap-3 p-4 text-left"
+      >
+        <span className="flex-1 min-w-0">
+          <span className="block text-sm font-medium text-white">{title}</span>
+          <span className="block text-xs text-neutral-500 mt-0.5">{hint}</span>
+        </span>
+        <ChevronDown size={16} aria-hidden="true" className={`shrink-0 text-neutral-500 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open ? <div className="px-4 pb-4">{children}</div> : null}
+    </div>
+  );
+}
+
 function Kpi({ label, value, tone }: { label: string; value: string; tone?: string }) {
   return (
     <div className="rounded-xl bg-neutral-900/70 px-3 py-2 min-w-0">
@@ -208,6 +246,12 @@ export default function ClientDetailPage() {
     setClientProfile,
   } = dossier;
 
+  // Same goal as the client list and the goal panel (Vision §6).
+  const goalClients = useMemo(() => (client ? [{ id: client.id, goal: client.goal }] : []), [client]);
+  const { kinds: goalKinds, reload: reloadGoal } = useClientGoalKinds(goalClients);
+  useEffect(() => { if (dossierFetchedAt) void reloadGoal(); }, [dossierFetchedAt]); // eslint-disable-line react-hooks/exhaustive-deps
+  const goalKind = client ? goalKinds[client.id] ?? null : null;
+
   const checkinId = parseCheckinQuery(searchParams.get('checkin'));
   const tab = resolveClientTab(searchParams.get('tab'), checkinId);
   const openNeighbor = (neighborId: string) => {
@@ -228,6 +272,8 @@ export default function ClientDetailPage() {
   const [askingCalories, setAskingCalories] = useState(false);
   const [openingProgram, setOpeningProgram] = useState(false);
   const [ficheOpen, setFicheOpen] = useState(false);
+  const [openSection, setOpenSection] = useState<'intake' | 'questionnaires' | 'history' | null>(null);
+  const toggleSection = (key: 'intake' | 'questionnaires' | 'history') => setOpenSection(v => (v === key ? null : key));
   const [adoptingId, setAdoptingId] = useState<string | null>(null);
 
   const setTab = (next: CoachClientTab, extra?: Record<string, string>) => {
@@ -521,41 +567,40 @@ export default function ClientDetailPage() {
           )}
         </div>
 
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-12 h-12 rounded-xl overflow-hidden bg-blue-600/20 flex items-center justify-center text-blue-400 font-bold">
+        <div className="flex items-start gap-3 mb-2">
+          <div className="w-12 h-12 shrink-0 rounded-xl overflow-hidden bg-blue-600/20 flex items-center justify-center text-blue-400 font-bold">
             {client?.avatar_url
               ? <img src={client.avatar_url} alt="" className="w-full h-full object-cover" />
               : (client?.full_name?.[0] || '?').toUpperCase()}
           </div>
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 min-w-0">
-              <h1 className="text-xl font-bold text-white truncate">{client ? displayName(client, t('coaching.unnamed')) : t('coaching.unnamed')}</h1>
+            <div className="flex items-start gap-2 min-w-0">
+              <h1 className="text-xl font-bold leading-tight text-white line-clamp-2 break-words min-w-0" data-testid="client-file-name">{client ? displayName(client, t('coaching.unnamed')) : t('coaching.unnamed')}</h1>
               {medicalFlagIds(parseIntake(clientProfile?.kinesiology_intake)).length > 0 && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-rose-500/15 text-rose-300 shrink-0">
+                <span className="mt-1 text-[10px] px-1.5 py-0.5 rounded-full bg-rose-500/15 text-rose-300 shrink-0">
                   {t('coaching.badgeMedical')}
                 </span>
               )}
             </div>
-            <p className="text-xs text-neutral-500 truncate">
-              {ops && shouldOpenSetup(ops) ? t('coaching.badgeSetup') : t('coaching.client360.active')}
-              {' · '}
-              {client?.goal
-                ? t(`coaching.goalLabels.${client.goal === 'gain' ? 'bulk' : client.goal === 'lose' ? 'cut' : client.goal}`, { defaultValue: client.goal })
-                : '—'}
-              {week ? ` · ${t('programs.weekOf', { current: week.current, total: week.total })}` : ''}
-              {rosterSignals.scheduledDays[id ?? '']
-                ? ` · ${rosterSignals.scheduledDays[id ?? '']}x`
-                : client?.training_frequency ? ` · ${client.training_frequency}x` : ''}
+            <p className="text-xs text-neutral-400 mt-0.5 break-words" data-testid="client-file-subtitle">
+              {[
+                ops && shouldOpenSetup(ops) ? t('coaching.badgeSetup') : t('coaching.client360.active'),
+                goalKind ? t(goalKindLabelKey(goalKind)) : null,
+                week ? t('programs.weekOf', { current: week.current, total: week.total }) : null,
+                rosterSignals.scheduledDays[id ?? '']
+                  ? t('coaching.client360.sessionsPerWeek', { n: rosterSignals.scheduledDays[id ?? ''] })
+                  : client?.training_frequency ? t('coaching.client360.sessionsPerWeek', { n: client.training_frequency }) : null,
+              ].filter(Boolean).join(' · ')}
             </p>
           </div>
           <button
             type="button"
             onClick={() => id && navigate(`/messages/${id}`)}
-            className="min-h-11 min-w-11 px-3 rounded-xl bg-neutral-900 border border-neutral-800 text-blue-400 hover:text-white inline-flex items-center gap-2"
+            className="shrink-0 min-h-11 min-w-11 px-3 rounded-xl bg-neutral-900 border border-neutral-800 text-blue-400 hover:text-white inline-flex items-center justify-center gap-2"
             aria-label={t('coaching.client360.message')}
           >
-            <MessageSquare size={18} />
-            <span className="text-sm font-medium">{t('coaching.client360.message')}</span>
+            <MessageSquare size={18} aria-hidden="true" />
+            <span className="hidden sm:inline text-sm font-medium" aria-hidden="true">{t('coaching.client360.message')}</span>
           </button>
         </div>
 
@@ -605,7 +650,7 @@ export default function ClientDetailPage() {
           </button>
         )}
 
-        <TabList
+        <ScrollHintTabs
           tabs={visibleTabs.map(key => ({ id: key, label: t(`coaching.tabs360.${key}`) }))}
           value={tab}
           onChange={setTab}
@@ -693,23 +738,32 @@ export default function ClientDetailPage() {
               </Card>
             )}
 
-            {isIntakeAlreadyFilled(clientProfile) ? (
-              <details className="rounded-xl border border-neutral-800 bg-neutral-950 p-4">
-                <summary className="cursor-pointer text-sm font-medium text-white min-h-11 flex items-center">
-                  {t('coaching.client360.intakeSummary')}
-                </summary>
-                <div className="mt-3 space-y-4">
-                  <MedicalFlagsCard raw={clientProfile?.kinesiology_intake} />
-                  <KinesiologyIntakeReview raw={clientProfile?.kinesiology_intake} />
-                </div>
-              </details>
-            ) : null}
-            {id && (
-              <details className="rounded-xl border border-neutral-800 bg-neutral-950 p-4">
-                <summary className="cursor-pointer text-sm font-medium text-white min-h-11 flex items-center">
-                  {t('coaching.client360.questionnaire')}
-                </summary>
-                <div className="mt-3">
+            <section className="space-y-2" aria-labelledby="client-file-more" data-testid="client-file-more">
+              <h2 id="client-file-more" className="text-xs font-semibold text-neutral-500 uppercase tracking-widest pt-2">
+                {t('coaching.client360.moreTitle')}
+              </h2>
+              {isIntakeAlreadyFilled(clientProfile) ? (
+                <DossierSection
+                  testId="client-file-intake"
+                  title={t('coaching.client360.intakeSummary')}
+                  hint={t('coaching.client360.intakeHint')}
+                  open={openSection === 'intake'}
+                  onToggle={() => toggleSection('intake')}
+                >
+                  <div className="space-y-4">
+                    <MedicalFlagsCard raw={clientProfile?.kinesiology_intake} />
+                    <KinesiologyIntakeReview raw={clientProfile?.kinesiology_intake} />
+                  </div>
+                </DossierSection>
+              ) : null}
+              {id && (
+                <DossierSection
+                  testId="client-file-questionnaires"
+                  title={t('coaching.client360.questionnaire')}
+                  hint={t('coaching.client360.questionnaireHint')}
+                  open={openSection === 'questionnaires'}
+                  onToggle={() => toggleSection('questionnaires')}
+                >
                   <ClientQuestionnairePanel key={id} clientId={id} emptyFallback={
                     isIntakeAlreadyFilled(clientProfile) ? null : (
                       <Card className="border-amber-500/20">
@@ -717,79 +771,80 @@ export default function ClientDetailPage() {
                       </Card>
                     )
                   }/>
-                </div>
-              </details>
-            )}
+                </DossierSection>
+              )}
 
-            <details className="rounded-xl border border-neutral-800 bg-neutral-950 p-4">
-              <summary className="cursor-pointer text-sm font-medium text-white min-h-11 flex items-center">
-                {t('coaching.client360.moreDetails')}
-              </summary>
-              <div className="mt-4 space-y-4">
-                {!sessionGap && tracking.track_workouts && (
-                  <ClientLiftChart
-                    compact
-                    lifts={lifts}
-                    selectedName={exerciseHint}
-                    notes={notes}
-                    relanceHref={trainingRelanceHref}
-                    onSelect={name => setTab('training', { exercise: name })}
-                  />
-                )}
-
-                {showKpis && kpis && (
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                    <Kpi label={t('coaching.kpis.progression')} value={progressionLabel} />
-                    <Kpi label={t('coaching.kpis.adherence')} value={formatCheckinScore(kpis.trainingAdherence)} />
-                    <Kpi label={t('coaching.kpis.recovery')} value={kpis.recovery == null ? '—' : formatCheckinScore(kpis.recovery)} />
-                    <Kpi
-                      label={t('coaching.kpis.weight')}
-                      value={kpis.weightDelta == null ? '—' : formatWeightDelta(kpis.weightDelta, unit)}
+              <DossierSection
+                testId="client-file-history"
+                title={t('coaching.client360.moreDetails')}
+                hint={t('coaching.client360.moreDetailsHint')}
+                open={openSection === 'history'}
+                onToggle={() => toggleSection('history')}
+              >
+                <div className="space-y-4">
+                  {!sessionGap && tracking.track_workouts && (
+                    <ClientLiftChart
+                      compact
+                      lifts={lifts}
+                      selectedName={exerciseHint}
+                      notes={notes}
+                      relanceHref={trainingRelanceHref}
+                      onSelect={name => setTab('training', { exercise: name })}
                     />
-                    <Kpi
-                      label={t('coaching.kpis.pain')}
-                      value={formatCheckinScore(kpis.pain, checkins[0])}
-                      tone={(scoreOnTen(kpis.pain, checkins[0] ? isLegacyFiveScaleCheckin(checkins[0]) : (kpis.pain ?? 0) <= 5) ?? 0) >= PAIN_WATCH_ON_TEN ? 'text-rose-300' : undefined}
-                    />
-                  </div>
-                )}
+                  )}
 
-                {timeline.length > 0 && (
-                  <div>
-                    <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-2">
-                      {t('coaching.client360.timeline')}
-                    </p>
-                    <div className="space-y-2">
-                      {timeline.map((item, i) => (
-                        <Card key={`${item.kind}-${item.at}-${i}`} className="flex items-center gap-3 !py-2.5">
-                          {item.kind === 'workout' ? <Dumbbell size={14} className="text-blue-400" />
-                            : item.kind === 'weight' ? <Scale size={14} className="text-emerald-400" />
-                            : item.kind === 'note' ? <MessageSquare size={14} className="text-neutral-400" />
-                            : <CalendarDays size={14} className="text-amber-300" />}
-                          <div className="min-w-0">
-                            <p className="text-sm text-white truncate">{item.label}</p>
-                            <p className="text-xs text-neutral-500">{formatDate(item.at)}</p>
-                          </div>
-                        </Card>
-                      ))}
+                  {showKpis && kpis && (
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                      <Kpi label={t('coaching.kpis.progression')} value={progressionLabel} />
+                      <Kpi label={t('coaching.kpis.adherence')} value={formatCheckinScore(kpis.trainingAdherence)} />
+                      <Kpi label={t('coaching.kpis.recovery')} value={kpis.recovery == null ? '—' : formatCheckinScore(kpis.recovery)} />
+                      <Kpi
+                        label={t('coaching.kpis.weight')}
+                        value={kpis.weightDelta == null ? '—' : formatWeightDelta(kpis.weightDelta, unit)}
+                      />
+                      <Kpi
+                        label={t('coaching.kpis.pain')}
+                        value={formatCheckinScore(kpis.pain, checkins[0])}
+                        tone={(scoreOnTen(kpis.pain, checkins[0] ? isLegacyFiveScaleCheckin(checkins[0]) : (kpis.pain ?? 0) <= 5) ?? 0) >= PAIN_WATCH_ON_TEN ? 'text-rose-300' : undefined}
+                      />
                     </div>
-                  </div>
-                )}
-              </div>
-            </details>
+                  )}
 
-            {id ? (
-              <Card>
-                <button
-                  type="button"
-                  onClick={() => setFicheOpen(v => !v)}
-                  className="w-full text-left flex items-center justify-between"
+                  {timeline.length > 0 ? (
+                    <div>
+                      <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-2">
+                        {t('coaching.client360.timeline')}
+                      </p>
+                      <div className="space-y-2">
+                        {timeline.map((item, i) => (
+                          <Card key={`${item.kind}-${item.at}-${i}`} className="flex items-center gap-3 !py-2.5">
+                            {item.kind === 'workout' ? <Dumbbell size={14} className="text-blue-400" />
+                              : item.kind === 'weight' ? <Scale size={14} className="text-emerald-400" />
+                              : item.kind === 'note' ? <MessageSquare size={14} className="text-neutral-400" />
+                              : <CalendarDays size={14} className="text-amber-300" />}
+                            <div className="min-w-0">
+                              <p className="text-sm text-white truncate">{item.label}</p>
+                              <p className="text-xs text-neutral-500">{formatDate(item.at)}</p>
+                            </div>
+                          </Card>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-neutral-500">{t('coaching.client360.timelineEmpty')}</p>
+                  )}
+                </div>
+              </DossierSection>
+
+              {id ? (
+                <DossierSection
+                  testId="client-file-sheet"
+                  title={t('coaching.client360.sheetTitle')}
+                  hint={t('coaching.client360.sheetHint')}
+                  open={ficheOpen}
+                  onToggle={() => setFicheOpen(v => !v)}
                 >
-                  <p className="text-sm font-medium text-white">{t('coaching.tabs360.profile')}</p>
-                  <span className="text-xs text-blue-400">{ficheOpen ? t('common.close') : t('common.details')}</span>
-                </button>
-                {ficheOpen && (
-                  <div className="mt-4 border-t border-neutral-800 pt-4">
+                  <div className="border-t border-neutral-800 pt-4">
                     <ClientProfileEditor
                       clientId={id}
                       profile={clientProfile}
@@ -798,9 +853,9 @@ export default function ClientDetailPage() {
                       onSaved={setClientProfile}
                     />
                   </div>
-                )}
-              </Card>
-            ) : null}
+                </DossierSection>
+              ) : null}
+            </section>
           </div>
         ) : tab === 'training' && workspaceOpen && workspaceLift ? (
           <ExerciseWorkspace
@@ -1108,10 +1163,12 @@ export default function ClientDetailPage() {
         )}
         {!loading && client && user && client.id !== user.id && (
           <div className="mt-8 pt-6 border-t border-neutral-800/80">
+            <p className="text-xs text-neutral-500 mb-2">{t('coaching.removeClient.hint')}</p>
             <button
               type="button"
               onClick={() => setRemoveOpen(true)}
-              className="text-xs text-neutral-600 hover:text-rose-400"
+              className="min-h-11 px-4 rounded-xl border border-rose-500/30 text-sm text-rose-300 hover:bg-rose-500/10 hover:text-rose-200"
+              data-testid="client-file-remove"
             >
               {t('coaching.removeClient.action')}
             </button>

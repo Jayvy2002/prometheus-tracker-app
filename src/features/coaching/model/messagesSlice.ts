@@ -47,14 +47,14 @@ export function createMessagesSlice(set: CoachingSet, get: CoachingGet): Pick<Co
     const { data, error } = await query;
     if (!sessionCurrent() || get().accountWorkspace !== workspace) return;
     if (error || !data) {
-      set({ sentMessages: [] });
+      set({ sentMessages: [], messagesFetchError: true });
       return;
     }
     const messages = data
       .map(row => mapCoachMessage(row as Record<string, unknown>))
       .filter((row): row is CoachMessage => !!row);
     const unread = messages.filter(m => m.sender_id !== user.id && !m.read_at).length;
-    set({ sentMessages: messages, unreadMessageCount: unread });
+    set({ sentMessages: messages, unreadMessageCount: unread, messagesFetchError: false });
     // C02 : les compteurs exacts viennent du serveur (le chargement global est borné).
     void get().fetchUnreadCounts();
   },

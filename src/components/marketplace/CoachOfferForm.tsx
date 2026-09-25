@@ -1,4 +1,4 @@
-import type { FormEvent, ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Eye } from 'lucide-react';
@@ -17,6 +17,8 @@ import {
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import ChipGroup from './ChipGroup';
+import FixedActionBar from '../coaching/FixedActionBar';
+import { formatPriceInput, parsePriceInput } from './priceInput';
 
 const fieldStyle = 'w-full rounded-xl bg-neutral-900 border border-neutral-700 p-3 text-white';
 
@@ -67,17 +69,33 @@ export default function CoachOfferForm({
   onChange: (next: CoachPublicProfile) => void;
   onSave: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const formId = useId();
   const patch = (next: Partial<CoachPublicProfile>) => onChange({ ...profile, ...next });
+  // The field keeps what is typed (« 120, » while typing); the profile keeps exact cents.
+  const storedCents = profile.indicative_price_cents ?? null;
+  const [priceText, setPriceText] = useState(() => formatPriceInput(storedCents, i18n.language));
+  const [priceInvalid, setPriceInvalid] = useState(false);
+  const typedPrice = useRef(priceText);
+  useEffect(() => {
+    // A new stored value (load, save, reload) replaces the field, unless it is what was typed.
+    const parsed = parsePriceInput(typedPrice.current);
+    if (parsed.ok && parsed.cents === storedCents) return;
+    const next = formatPriceInput(storedCents, i18n.language);
+    typedPrice.current = next;
+    setPriceText(next);
+    setPriceInvalid(false);
+  }, [storedCents, i18n.language]);
   const options = (values: readonly string[]) => values.map(value => ({ value, label: t(`marketplace.${value}`) }));
   const inPerson = profile.formats.some(v => v !== 'online');
   const submit = (event: FormEvent) => {
     event.preventDefault();
+    if (priceInvalid) return;
     onSave();
   };
 
   return (
-    <form onSubmit={submit} className="space-y-4 pb-24">
+    <form id={formId} onSubmit={submit} className="space-y-4">
       <fieldset disabled={busy} className="space-y-4">
         <Section title={t('marketplace.offerVisibility')} hint={t('marketplace.publicDisclosure')}>
           <Toggle
@@ -134,10 +152,16 @@ export default function CoachOfferForm({
           <Input
             inputMode="decimal"
             label={t('marketplace.priceAmount')}
-            value={profile.indicative_price_cents ? (profile.indicative_price_cents / 100).toFixed(2) : ''}
+            value={priceText}
+            aria-invalid={priceInvalid || undefined}
+            error={priceInvalid ? t('marketplace.priceInvalid') : undefined}
             onChange={e => {
-              const n = Number(e.target.value.replace(',', '.'));
-              patch({ indicative_price_cents: e.target.value === '' || !Number.isFinite(n) || n <= 0 ? null : Math.round(n * 100) });
+              const raw = e.target.value;
+              typedPrice.current = raw;
+              setPriceText(raw);
+              const parsed = parsePriceInput(raw);
+              setPriceInvalid(!parsed.ok);
+              if (parsed.ok) patch({ indicative_price_cents: parsed.cents });
             }}
           />
           <ChipGroup label={t('marketplace.indicative_price_period')} options={options(MATCH_PRICE_PERIODS)} value={profile.indicative_price_period || 'on_request'} onChange={value => patch({ indicative_price_period: value })} />
@@ -145,11 +169,9 @@ export default function CoachOfferForm({
         </Section>
       </fieldset>
 
-      <div className="fixed inset-x-0 z-30 border-t border-neutral-800 bg-neutral-950/95 px-4 py-3 backdrop-blur bottom-[calc(4rem+env(safe-area-inset-bottom))] md:bottom-0 md:left-64">
-        <div className="mx-auto flex max-w-5xl justify-end">
-          <Button type="submit" loading={busy}>{t('common.save')}</Button>
-        </div>
-      </div>
+      <FixedActionBar testId="coach-profile-save">
+        <Button type="submit" form={formId} loading={busy} disabled={priceInvalid}>{t('common.save')}</Button>
+      </FixedActionBar>
     </form>
   );
 }

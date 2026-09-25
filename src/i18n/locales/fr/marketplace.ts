@@ -59,6 +59,7 @@ const marketplace = {
     sectionStyle: 'Ton accompagnement',
     sectionPrice: 'Tarif indicatif',
     priceAmount: 'Montant',
+    priceInvalid: 'Montant invalide. Exemple : 120 ou 120,50.',
     coachUnavailableName: 'Profil du coach indisponible',
     relationshipEnded: 'Ce suivi est terminé.',
     relationshipUnknown: 'Demande confirmée. Consulte ton profil pour vérifier le suivi actuel.',

@@ -59,6 +59,7 @@ const marketplace = {
     sectionStyle: 'Your coaching',
     sectionPrice: 'Listed rate',
     priceAmount: 'Amount',
+    priceInvalid: 'Invalid amount. Example: 120 or 120.50.',
     coachUnavailableName: 'Coach profile unavailable',
     relationshipEnded: 'This coaching relationship has ended.',
     relationshipUnknown: 'Request confirmed. Check your profile for the current coaching relationship.',

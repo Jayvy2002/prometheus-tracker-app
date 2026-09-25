@@ -85,6 +85,22 @@ export function resolveQueueAction(
     };
   }
 
+  if (priority.kind === 'unread_messages') {
+    return {
+      kind: 'open_thread',
+      href: priority.href,
+      ctaKey: 'coaching.queue.reply',
+    };
+  }
+
+  if (priority.kind === 'checkin_received') {
+    return {
+      kind: 'open_360',
+      href: priority.href,
+      ctaKey: 'coaching.queue.openCheckin',
+    };
+  }
+
   if (priority.kind === 'session_logged') {
     return {
       kind: 'open_360',
@@ -149,7 +165,9 @@ const KIND_PRIORITY: Partial<Record<CoachPriorityKind, number>> = {
   high_stress: 3,
   low_mood: 3,
   high_hunger: 3,
+  unread_messages: 3,
   session_logged: 4,
+  checkin_received: 4,
   missed_workout: 5,
   missed_checkin: 5,
   missed_nutrition: 5,

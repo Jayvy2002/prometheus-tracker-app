@@ -41,12 +41,22 @@ function saveHistory(items: string[]) {
 export default function AskPrometheusPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuthStore();
   const {
-    opsRows, priorities, rosterSignals,
+    opsRows, priorities, rosterSignals, clients,
     fetchCoachOps, askCoachAgent,
   } = useCoachingStore();
+  // Only an active client of this coach can be the subject (Vision §22).
+  const clientParam = searchParams.get('client');
+  const chosenClient = clientParam ? clients.find(c => c.id === clientParam) ?? null : null;
+  const chooseClient = (id: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (id) next.set('client', id);
+    else next.delete('client');
+    setSearchParams(next, { replace: true });
+    setPending(null);
+  };
   const [query, setQuery] = useState(searchParams.get('q') || '');
   const [history, setHistory] = useState<string[]>(loadHistory);
   const [sending, setSending] = useState(false);
@@ -150,35 +160,54 @@ export default function AskPrometheusPage() {
   };
 
   const askChips = useMemo(() => {
-    const chips: Array<{ key: string; always?: boolean; filter?: 'stalled' | 'pain' | 'adherence' }> = [
+    const chips: Array<{ key: string; always?: boolean; needsClient?: boolean; filter?: 'stalled' | 'pain' | 'adherence' }> = [
       { key: 'coaching.ask.examples.stalled', filter: 'stalled' },
       { key: 'coaching.ask.examples.pain', filter: 'pain' },
       { key: 'coaching.ask.examples.adherence', filter: 'adherence' },
       { key: 'coaching.ask.examples.priority', always: true },
-      { key: 'coaching.ask.examples.program', always: true },
-      { key: 'coaching.ask.examples.analyze', always: true },
+      // « Son programme », « ce client »: only once a client is chosen.
+      { key: 'coaching.ask.examples.program', needsClient: true },
+      { key: 'coaching.ask.examples.analyze', needsClient: true },
     ];
     return chips.filter(chip => (
       chip.always
+      || (chip.needsClient ? !!chosenClient : false)
       || (chip.filter ? rosterHitsForFilter(chip.filter, opsRows, priorities, rosterSignals).length > 0 : false)
     ));
-  }, [opsRows, priorities, rosterSignals]);
+  }, [opsRows, priorities, rosterSignals, chosenClient]);
 
   return (
     <PageTransition>
       <div className="px-4 pt-6 pb-28 md:px-6">
         <p className="text-xs uppercase tracking-wider text-blue-300 mb-1">Prometheus</p>
-        <h1 className="text-2xl font-bold text-white mb-1">
-          {searchParams.get('client')
-            ? t('coaching.ask.aboutClient', {
-              name: opsRows.find(r => r.client.id === searchParams.get('client'))?.client.full_name
-                || t('coaching.unnamed'),
-            })
+        <h1 className="text-2xl font-bold text-white mb-1 break-words">
+          {chosenClient
+            ? t('coaching.ask.aboutClient', { name: displayName(chosenClient, t('coaching.unnamed')) })
             : searchParams.get('program')
               ? t('coaching.ask.aboutProgram')
               : t('coaching.ask.prioritize')}
         </h1>
         <p className="text-sm text-neutral-500 mb-4">{t('coaching.ask.subtitle')}</p>
+
+        {clients.length > 0 && (
+          <div className="mb-4" data-testid="ask-client-picker">
+            <label htmlFor="ask-client" className="block text-xs text-neutral-400 mb-1">{t('coaching.ask.clientLabel')}</label>
+            <select
+              id="ask-client"
+              value={chosenClient?.id ?? ''}
+              onChange={e => chooseClient(e.target.value)}
+              className="w-full min-h-11 bg-neutral-900 border border-neutral-800 rounded-xl px-3 text-sm text-white"
+            >
+              <option value="">{t('coaching.ask.allClients')}</option>
+              {clients.map(c => (
+                <option key={c.id} value={c.id}>{displayName(c, t('coaching.unnamed'))}</option>
+              ))}
+            </select>
+            {!chosenClient && (
+              <p className="text-[11px] text-neutral-500 mt-1">{t('coaching.ask.pickClientHint')}</p>
+            )}
+          </div>
+        )}
 
         <form
           onSubmit={e => { e.preventDefault(); run(query); }}
@@ -233,7 +262,7 @@ export default function AskPrometheusPage() {
                 key={chip.key}
                 type="button"
                 onClick={() => run(t(chip.key))}
-                className="text-[11px] px-2.5 py-1 rounded-full bg-neutral-900 text-neutral-300 hover:text-white"
+                className="min-h-11 text-xs px-3 rounded-full bg-neutral-900 text-neutral-300 hover:text-white"
               >
                 {t(chip.key)}
               </button>

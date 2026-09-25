@@ -63,7 +63,9 @@ test('client setup is a four-step wizard', () => {
 
 test('client 360 tabs are a keyboard tablist', () => {
   const page = src('src/components/coaching/ClientDetailPage.tsx') + src('src/features/coaching/hooks/useClientDossier.ts');
-  assert.match(page, /TabList/);
+  // The file uses the shared keyboard TabList through its scroll-hint wrapper.
+  assert.match(page, /ScrollHintTabs/);
+  assert.match(src('src/components/coaching/ScrollHintTabs.tsx'), /<TabList/);
   assert.match(page, /role="tabpanel"/);
   assert.match(page, /coaching\.client360\.message/);
   assert.match(page, /coaching\.client360\.sinceVisit/);
