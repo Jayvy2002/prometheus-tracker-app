@@ -230,6 +230,17 @@ export function quickAddActions(tracking: NavTracking): QuickAddDef[] {
   ];
 }
 
+/**
+ * Pages where the mobile quick-add button is the natural way to log something.
+ * Everywhere else the page has its own main action (Ajouter, Peser, Enregistrer…)
+ * or is a form: a second floating button would cover it.
+ */
+const QUICK_ADD_PAGES = ['/dashboard', '/workout', '/calendar', '/suivi', '/stats', '/watch', '/exercise-progress'];
+
+export function quickAddVisible(pathname: string): boolean {
+  return QUICK_ADD_PAGES.includes(pathname) || pathname.startsWith('/progress/exercise/');
+}
+
 export function pathMatchesItem(pathname: string, item: NavItemDef): boolean {
   const paths = item.match ?? [item.path];
   return paths.some((path) => {

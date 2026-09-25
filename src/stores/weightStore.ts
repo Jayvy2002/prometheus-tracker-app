@@ -13,7 +13,8 @@ interface WeightState {
   fetchMeasurements: (userId: string) => Promise<void>;
   addMeasurement: (data: Partial<WeightMeasurement>) => Promise<{ error: string | null }>;
   updateMeasurement: (id: string, data: Partial<WeightMeasurement>) => Promise<void>;
-  deleteMeasurement: (id: string) => Promise<void>;
+  /** true once the row is really gone: the page never reports a deletion that failed. */
+  deleteMeasurement: (id: string) => Promise<boolean>;
   reset: () => void;
 }
 
@@ -69,8 +70,9 @@ export const useWeightStore = create<WeightState>((set) => ({
 
   deleteMeasurement: async (id) => {
     const { error } = await supabase.from('weight_measurements').delete().eq('id', id);
-    if (error) { console.error('deleteMeasurement failed:', error.message); return; }
+    if (error) { console.error('deleteMeasurement failed:', error.message); return false; }
     set(s => ({ measurements: s.measurements.filter(m => m.id !== id) }));
+    return true;
   },
 
   reset: () => set({ measurements: [], loading: false }),

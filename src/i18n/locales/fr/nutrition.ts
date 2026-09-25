@@ -2,12 +2,18 @@ const nutrition = {
 
   nutrition: {
     title: 'Nutrition',
+    // One way to write energy and macros everywhere: kcal, and P / G / L in French.
+    kcalValue: '{{value}} kcal',
+    kcalPer100g: '{{value}} kcal / 100 g',
+    macrosShort: 'P {{p}} g · G {{c}} g · L {{f}} g',
+    macrosPer100g: 'P {{p}} g · G {{c}} g · L {{f}} g / 100 g',
+    totalLine: 'Total {{cal}} kcal · P {{p}} g · G {{c}} g · L {{f}} g',
     today: "Aujourd'hui",
     add: 'Ajouter',
     addFood: 'Aliment',
     reuseMeal: 'Réutiliser un repas',
     addMenuHint: 'Choisis comment ajouter',
-    nothingLoggedYesterday: 'Rien de logué pour ce repas à cette date',
+    nothingLoggedYesterday: 'Rien d’enregistré pour ce repas à cette date',
     itemsCopied_one: '{{count}} aliment copié',
     itemsCopied_other: '{{count}} aliments copiés',
     reuseFromDate: 'Copier depuis ce jour',

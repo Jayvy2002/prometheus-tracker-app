@@ -28,6 +28,8 @@ import { loadMessageDraft, saveMessageDraft } from '../../lib/messageDrafts';
 
 import Card from '../ui/Card';
 import Button from '../ui/Button';
+import Modal from '../ui/Modal';
+import { canUndoWorkoutDelete } from '../../features/workout/domain/workoutUndo';
 import { useRoutineStore } from '../../stores/routineStore';
 import PageTransition from '../ui/PageTransition';
 import SessionReadout from './SessionReadout';
@@ -51,6 +53,7 @@ export default function WorkoutPage() {
 
   const [filter, setFilter] = useState<'all' | 'completed'>('all');
   const [askOpen, setAskOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<Workout | null>(null);
   const [summaries, setSummaries] = useState<Record<string, { volume: number; names: string[] }>>({});
   const routines = useRoutineStore(s => s.routines);
   const fetchRoutines = useRoutineStore(s => s.fetchRoutines);
@@ -138,6 +141,32 @@ export default function WorkoutPage() {
     }
   };
 
+  // Undo re-creates a free or routine session only; success is said once the rows are back.
+  const restoreDeleted = async (target: Workout, full: Workout | null) => {
+    if (!user) return;
+    const { error: restoreError } = await supabase.from('workouts').insert({
+      id: target.id,
+      user_id: user.id,
+      name: target.name,
+      date: target.date,
+      duration_seconds: target.duration_seconds,
+      notes: target.notes,
+      completed: target.completed,
+      routine_id: target.routine_id ?? null,
+      session_started_at: target.session_started_at ?? null,
+    });
+    if (restoreError) {
+      toast(t('workout.restoreFailed'), 'error');
+      return;
+    }
+    let complete = true;
+    for (const ex of full?.exercises ?? []) {
+      if (!(await restoreExercise(target.id, ex))) complete = false;
+    }
+    await fetchWorkouts(user.id);
+    toast(t(complete ? 'workout.restored' : 'workout.restoreFailed'), complete ? 'success' : 'error');
+  };
+
   const handleDelete = async (id: string) => {
     const targetWorkout = workouts.find(w => w.id === id);
     try {
@@ -146,37 +175,20 @@ export default function WorkoutPage() {
 
       await deleteWorkout(id);
 
-      if (targetWorkout) {
-        toastWithUndo(t('workout.deletedNamed', { name: targetWorkout.name }), async () => {
-          if (!user) return;
-          const { error: restoreError } = await supabase.from('workouts').insert({
-            id: targetWorkout.id,
-            user_id: user.id,
-            name: targetWorkout.name,
-            date: targetWorkout.date,
-            duration_seconds: targetWorkout.duration_seconds,
-            notes: targetWorkout.notes,
-            completed: targetWorkout.completed,
-            routine_id: targetWorkout.routine_id,
-            program_day_id: targetWorkout.program_day_id ?? null,
-            program_assignment_id: targetWorkout.program_assignment_id ?? null,
-            program_phase_id: targetWorkout.program_phase_id ?? null,
-            program_id: targetWorkout.program_id ?? null,
-          });
-          const restoredId = restoreError ? null : targetWorkout.id;
-          if (restoredId && fullWorkout?.exercises?.length) {
-            for (const ex of fullWorkout.exercises) {
-              await restoreExercise(restoredId, ex);
-            }
-          }
-          toast(t('workout.restored'), 'success');
-        });
+      if (targetWorkout && canUndoWorkoutDelete(targetWorkout)) {
+        toastWithUndo(t('workout.deletedNamed', { name: targetWorkout.name }), () => restoreDeleted(targetWorkout, fullWorkout));
       } else {
         toast(t('workout.deleted'), 'info');
       }
     } catch {
       toast(t('workout.deleteFailed'), 'error');
     }
+  };
+
+  // A program session cannot be undone: it is deleted only after an explicit yes.
+  const requestDelete = (w: Workout) => {
+    if (canUndoWorkoutDelete(w)) void handleDelete(w.id);
+    else setConfirmDelete(w);
   };
 
   const startProgramDay = async (day: ProgramDay) => {
@@ -245,9 +257,10 @@ export default function WorkoutPage() {
           aria-label={t('soloAsk.label')}
           aria-expanded={askOpen}
           onClick={() => setAskOpen(v => !v)}
-          className={`min-h-11 min-w-11 shrink-0 rounded-xl flex items-center justify-center ${askOpen ? 'bg-blue-600/20 text-blue-300' : 'text-neutral-300 hover:bg-neutral-800'}`}
+          className={`min-h-11 shrink-0 rounded-xl flex items-center justify-center gap-1.5 px-3 text-sm font-medium ${askOpen ? 'bg-blue-600/20 text-blue-300' : 'text-neutral-300 hover:bg-neutral-800'}`}
         >
-          <Sparkles size={18} aria-hidden="true" />
+          <Sparkles size={16} aria-hidden="true" />
+          <span aria-hidden="true">{t('soloAsk.short')}</span>
         </button>
         <Button
           onClick={() => navigate('/workout/new', { state: isProgramDayDue(gymCard) ? { offPlan: true } : undefined })}
@@ -499,7 +512,7 @@ export default function WorkoutPage() {
               <button
                 type="button"
                 aria-label={t('common.delete')}
-                onClick={(e) => { e.stopPropagation(); void handleDelete(w.id); }}
+                onClick={(e) => { e.stopPropagation(); requestDelete(w); }}
                 className="min-h-11 min-w-11 rounded-lg text-neutral-500 hover:text-red-400"
               >
                 <Trash2 size={16} className="mx-auto" />
@@ -524,7 +537,27 @@ export default function WorkoutPage() {
         </div>
       )}
 
-
+      <Modal open={!!confirmDelete} onClose={() => setConfirmDelete(null)} title={t('common.delete')}>
+        <p className="text-sm text-neutral-300 mb-6">
+          {t('workout.deleteConfirm', { name: confirmDelete?.name || t('workout.unnamed') })}
+        </p>
+        <div className="flex gap-3">
+          <Button variant="secondary" onClick={() => setConfirmDelete(null)} className="flex-1">
+            {t('common.cancel')}
+          </Button>
+          <Button
+            variant="danger"
+            className="flex-1"
+            onClick={() => {
+              const target = confirmDelete;
+              setConfirmDelete(null);
+              if (target) void handleDelete(target.id);
+            }}
+          >
+            {t('common.delete')}
+          </Button>
+        </div>
+      </Modal>
     </div>
     </PageTransition>
   );

@@ -383,9 +383,7 @@ test('Dashboard leads with the gym card; logging uses tracking vars; PR 34/35 st
   assert.match(auth, /pressOnly/);
 
   const layout = src('src/app/layout/AppLayout.tsx');
-  assert.match(layout, /hideFab/);
-  assert.match(layout, /startsWith\('\/messages'\)/);
-  assert.match(layout, /startsWith\('\/checkin'\)/);
+  assert.match(layout, /hideFab = isCoach \|\| !quickAddVisible\(location\.pathname\)/);
 
   const fab = src('src/app/layout/FAB.tsx');
   assert.match(fab, /quickAddActions\(tracking\)/);

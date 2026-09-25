@@ -2,6 +2,12 @@ const nutrition = {
 
   nutrition: {
     title: 'Nutrition',
+    // One way to write energy and macros everywhere: kcal, and P / C / F in English.
+    kcalValue: '{{value}} kcal',
+    kcalPer100g: '{{value}} kcal / 100 g',
+    macrosShort: 'P {{p}} g · C {{c}} g · F {{f}} g',
+    macrosPer100g: 'P {{p}} g · C {{c}} g · F {{f}} g / 100 g',
+    totalLine: 'Total {{cal}} kcal · P {{p}} g · C {{c}} g · F {{f}} g',
     today: 'Today',
     add: 'Add',
     addFood: 'Food',

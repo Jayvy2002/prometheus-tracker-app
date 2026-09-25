@@ -6,6 +6,7 @@ export type OptionGroup =
   | 'allergies'
   | 'meals'
   | 'setTypes'
+  | 'setTypeShort'
   | 'trainingExperience'
   | 'trainingFocus'
   | 'activity'

@@ -89,6 +89,7 @@ const marketplace = {
     request_closed: 'Cette demande a déjà reçu une réponse. Recharge la page pour voir son état.',
     session_changed: 'Le compte connecté a changé. Recharge la page.',
     noRequests: 'Aucune demande pour le moment.',
+    noReceivedRequests: 'Aucune demande reçue pour le moment. Les athlètes te trouvent quand ton profil est publié et ouvert aux demandes.',
     viewCoach: 'Voir le profil du coach',
     whyThisCoach: 'Pourquoi ce coach ?',
     compatible: '{{n}} % compatible',

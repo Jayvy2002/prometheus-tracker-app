@@ -594,7 +594,7 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-white truncate">{p.name}</p>
                     <p className="text-xs text-neutral-500">
-                      {p.calories_per_100g} kcal · P:{p.protein_per_100g}g · C:{p.carbs_per_100g}g · F:{p.fat_per_100g}g / 100g
+                      {t('nutrition.kcalPer100g', { value: Math.round(p.calories_per_100g) })} · {t('nutrition.macrosPer100g', { p: Math.round(p.protein_per_100g), c: Math.round(p.carbs_per_100g), f: Math.round(p.fat_per_100g) })}
                     </p>
                   </div>
                   <ChevronRight size={14} className="text-neutral-600 shrink-0" />
@@ -710,7 +710,7 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-white truncate">{p.name}</p>
                   <p className="text-xs text-neutral-500">
-                    {p.calories_per_100g} kcal · P:{p.protein_per_100g}g · C:{p.carbs_per_100g}g · F:{p.fat_per_100g}g / 100g
+                    {t('nutrition.kcalPer100g', { value: Math.round(p.calories_per_100g) })} · {t('nutrition.macrosPer100g', { p: Math.round(p.protein_per_100g), c: Math.round(p.carbs_per_100g), f: Math.round(p.fat_per_100g) })}
                   </p>
                 </div>
               </button>

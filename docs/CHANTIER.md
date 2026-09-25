@@ -32,7 +32,7 @@ Prometheus dispose déjà d’un socle important :
 
 Le travail restant n’est pas une reconstruction. Le principal enjeu est désormais de **faire converger les contrats métier et l’architecture vers la Vision de référence**.
 
-> **CURRENT IMPLEMENTATION GATE — P5, passage d’audit, audit 2 et P6.1 mergés et déployés en production ; prochaine sous-tâche : P6.2 — bêta bypass, sur une branche dédiée et uniquement avec le feu vert de Jean-Vincent.** Production/lock **154** (dernière version `20260924205000_p6_entitlements`). Une seule migration reste dans `supabase/migrations.pending.json` : `20260924210000_constraint_backfill_quiet`, appliquée par l’intégration GitHub Supabase au merge de la PR `#237`, à transférer dans le lock au prochain rafraîchissement vérifié. Action manuelle restante : le secret `ACCOUNT_PURGE_CRON_SECRET` (voir « Déploiement de l’audit 2 et de P6.1 »). Jobs actifs : `coach-import-preview-purge` (`15 * * * *`), `account-deletion-purge` (`40 * * * *`). Watch n’applique pas.
+> **CURRENT IMPLEMENTATION GATE — P5, passage d’audit, audit 2 et P6.1 mergés et déployés en production ; audit 3 frontend en revue (PR empilées `p5-20` à `p5-25`, section « Audit 3 ») ; ensuite P6.2 — bêta bypass, sur une branche dédiée et uniquement avec le feu vert de Jean-Vincent.** Production/lock **154** (dernière version `20260924205000_p6_entitlements`). Une seule migration reste dans `supabase/migrations.pending.json` : `20260924210000_constraint_backfill_quiet`, appliquée par l’intégration GitHub Supabase au merge de la PR `#237`, à transférer dans le lock au prochain rafraîchissement vérifié. Action manuelle restante : le secret `ACCOUNT_PURGE_CRON_SECRET` (voir « Déploiement de l’audit 2 et de P6.1 »). Jobs actifs : `coach-import-preview-purge` (`15 * * * *`), `account-deletion-purge` (`40 * * * *`). Watch n’applique pas.
 >
 > Watch reste une surface d’observation, d’explicabilité, de correction de contexte et de décision humaine. Accepter, modifier ou refuser depuis Watch n’applique pas automatiquement une cible ou un programme. `commit_solo_weekly_review_decision` et `apply_intervention` restent les chemins d’effet durable. Aucune auto-application. Aucune réécriture des mesures sources. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
 
@@ -932,6 +932,20 @@ Suite de l’audit 2 du 23 septembre (parcours non visités + sections Vision no
 **Modération (§31)** — « bloquer » distinct de « signaler ».
 
 **Technique** — `start_workout_from_template` ne lit pas encore `catalog_exercise_id` ; remplacement global des couleurs par les tokens du design system (sans bénéfice fonctionnel, non prioritaire).
+
+## Audit 3 — ergonomie frontend (PR empilées `p5-20` à `p5-25`)
+
+Audit purement frontend du 24 septembre 2026 : rendre l’app la plus simple possible sans rien retirer du service. Aucune migration, aucune Edge Function. Six PR empilées, chacune mergeable seule dans l’ordre.
+
+| Sous-tâche | Capacité | Statut |
+|---|---|---|
+| `p5-20` Confiance et langage | Un démarrage refusé le dit toujours ; icône « modifier » du poids ; « Annuler » une suppression de séance ne ment plus (une séance de programme se supprime après confirmation, sans annulation impossible) ; demandes de coaching vues du bon côté (Coach / athlète) ; bouton + seulement là où il sert (jamais sur un formulaire ni une page qui a son action) ; stats sans verdict sur la journée en cours ni sur moins de 3 jours, écarts en neutre ; bilan 2 semaines lisible ; types de série en français (É = échauffement) ; kcal et P / G / L partout ; une seule IA nommée Prometheus, icône toujours légendée ; jargon remplacé (logs, Perf, Stagnation, Adhérence, déficit calorique…) ; axe du poids en nombres ronds | En revue |
+
+Décisions de cette passe :
+
+- « Dashboard » reste le nom de la page : c’est le terme de `docs/VISION.md` (§12, §15.1).
+- Les champs date restent natifs : ils suivent la langue du téléphone et restent les plus accessibles ; un sélecteur maison ferait perdre plus qu’il ne gagne.
+- Les textes des notifications envoyées par les Edge Functions (« séances non loggées ») ne changent pas dans cette passe frontend.
 
 ---
 

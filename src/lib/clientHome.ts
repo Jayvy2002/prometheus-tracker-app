@@ -80,10 +80,24 @@ export function averageLoggedValue<K extends string>(
   return { avg: logged.reduce((sum, d) => sum + d[key], 0) / logged.length, hasLogs: true };
 }
 
+/**
+ * A « you eat X % below/above » sentence needs a few whole days: one day, or
+ * the day still in progress, says nothing about a habit (absent ≠ faute).
+ */
+export const MIN_LOGGED_DAYS_FOR_GAP = 3;
+
+/** Days before `today`: the current day is still being logged. */
+export function completedNutritionDays<T extends { date: string }>(days: T[], today: string): T[] {
+  return days.filter(d => d.date < today);
+}
+
 export function statsCalorieSummary(input: {
   days: Array<{ calories: number }>;
   calorieTarget: number;
+  minLoggedDays?: number;
 }): { kind: CalorieGapKind; pct: number } | null {
+  const logged = input.days.filter(d => Number.isFinite(d.calories) && d.calories > 0).length;
+  if (logged < (input.minLoggedDays ?? MIN_LOGGED_DAYS_FOR_GAP)) return null;
   const { avg, hasLogs } = averageLoggedCalories(input.days);
   const pct = calorieGapPct(avg, input.calorieTarget, hasLogs);
   const kind = calorieGapKind(pct);

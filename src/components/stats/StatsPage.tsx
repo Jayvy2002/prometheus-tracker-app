@@ -13,7 +13,7 @@ import CardLink from '../ui/CardLink';
 import PageTransition from '../ui/PageTransition';
 import { useClientTracking } from '../../lib/useClientTracking';
 import { showModule, showNutritionField } from '../../lib/clientTracking';
-import { averageLoggedCalories, averageLoggedValue, statsCalorieSummary } from '../../lib/clientHome';
+import { averageLoggedCalories, averageLoggedValue, completedNutritionDays, statsCalorieSummary } from '../../lib/clientHome';
 import { correctNutritionLogEnergy } from '../../lib/foodEnergy';
 import { responsesHaveError } from '../../lib/progressSearch';
 
@@ -59,9 +59,9 @@ function getPrevPeriodDates(period: Period): { start: string; end: string } {
 function TrendBadge({ value }: { value: number | null }) {
   if (value === null || value === 0) return null;
   const isUp = value > 0;
+  // Neutral either way: more or less than last period is information, not a grade.
   return (
-    <span className={`inline-flex items-center gap-0.5 text-[11px] font-semibold px-1.5 py-0.5 rounded-md
-      ${isUp ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
+    <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold px-1.5 py-0.5 rounded-md bg-neutral-800 text-neutral-300">
       {isUp ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
       {Math.abs(value)}%
     </span>
@@ -192,12 +192,15 @@ export default function StatsPage({ embedded = false }: { embedded?: boolean }) 
   const rangeKey = `${start}|${end}`;
   const statsReady = appliedRange === rangeKey;
 
-  // Computed stats — kcal average ignores water-only zeros so we never invent a fake deficit
-  const calorieStats = averageLoggedCalories(nutrition);
+  // Computed stats — kcal average ignores water-only zeros so we never invent a fake deficit.
+  // The day in progress is left out: a half-logged day is not a low day.
+  const todayCivil = toLocalDateStr(new Date());
+  const completedDays = completedNutritionDays(nutrition, todayCivil);
+  const calorieStats = averageLoggedCalories(completedDays);
   const avgCalories = calorieStats.avg;
   // Absent ≠ 0: a day without protein or water logs is not a 0 g / 0 L day.
-  const proteinStats = averageLoggedValue(nutrition, 'protein');
-  const waterStats = averageLoggedValue(nutrition, 'water_ml');
+  const proteinStats = averageLoggedValue(completedDays, 'protein');
+  const waterStats = averageLoggedValue(completedDays, 'water_ml');
   const avgProtein = Math.round(proteinStats.avg);
   const avgWater = Math.round(waterStats.avg);
   const totalWorkouts = workoutDates.length;
@@ -259,10 +262,10 @@ export default function StatsPage({ embedded = false }: { embedded?: boolean }) 
 
   // Natural language summary
   function buildSummary(): string {
-    if (!calorieStats.hasLogs && totalWorkouts === 0) return t('stats.summaryEmpty');
+    if (!calorieStats.hasLogs && totalWorkouts === 0) return t(nutrition.length > 0 ? 'stats.summaryDayInProgress' : 'stats.summaryEmpty');
     const parts: string[] = [];
     if (showNutritionField(tracking, 'calories')) {
-      const gap = statsCalorieSummary({ days: nutrition, calorieTarget });
+      const gap = statsCalorieSummary({ days: completedDays, calorieTarget });
       if (gap?.kind === 'on_target') parts.push(t('stats.summaryCaloriesOnTarget'));
       else if (gap?.kind === 'above') parts.push(t('stats.summaryCaloriesAbove', { pct: gap.pct }));
       else if (gap?.kind === 'below') parts.push(t('stats.summaryCaloriesBelow', { pct: gap.pct }));

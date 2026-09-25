@@ -15,6 +15,7 @@ import {
   pickTodayReminder,
   shouldShowDaysSinceReminder,
   statsCalorieSummary,
+  completedNutritionDays,
 } from './clientHome';
 import { i18nLocaleSource } from './i18nLocaleSource';
 
@@ -84,6 +85,7 @@ test('water-only zeros must not dilute a real day into a fake deficit', () => {
     { calories: 0 },
     { calories: 2000 },
     { calories: 2000 },
+    { calories: 2000 },
   ];
   assert.deepEqual(averageLoggedCalories(mixed), { avg: 2000, hasLogs: true });
   const padded = statsCalorieSummary({ days: mixed, calorieTarget: 2000 });
@@ -93,8 +95,11 @@ test('water-only zeros must not dilute a real day into a fake deficit', () => {
 test('real under-eating (580 vs 2000) is −71%, only when there are logs', () => {
   assert.equal(calorieGapPct(580, 2000, true), -71);
   assert.equal(calorieGapKind(-71), 'below');
-  const summary = statsCalorieSummary({ days: [{ calories: 580 }], calorieTarget: 2000 });
+  const summary = statsCalorieSummary({ days: [{ calories: 580 }, { calories: 580 }, { calories: 580 }], calorieTarget: 2000 });
   assert.deepEqual(summary, { kind: 'below', pct: 71 });
+  // One or two logged days are not a habit: no percentage sentence.
+  assert.equal(statsCalorieSummary({ days: [{ calories: 580 }], calorieTarget: 2000 }), null);
+  assert.equal(statsCalorieSummary({ days: [{ calories: 580 }, { calories: 580 }], calorieTarget: 2000 }), null);
   assert.equal(calorieGapPct(580, 2000, false), null);
 });
 
@@ -181,6 +186,19 @@ test('client home copy is FR tutoiement; Dashboard never uses a 999 sentinel', (
 
   const stats = src('src/components/stats/StatsPage.tsx');
   assert.match(stats, /statsCalorieSummary/);
+  // The day in progress never feeds an average or a verdict.
+  assert.match(stats, /completedNutritionDays\(nutrition, todayCivil\)/);
+  assert.doesNotMatch(stats, /bg-rose-500\/10 text-rose-400/);
+});
+
+test('the day in progress is left out of nutrition averages', () => {
+  const days = [
+    { date: '2026-08-28', calories: 2100 },
+    { date: '2026-08-29', calories: 1900 },
+    { date: '2026-08-30', calories: 400 },
+  ];
+  assert.deepEqual(completedNutritionDays(days, '2026-08-30').map(d => d.date), ['2026-08-28', '2026-08-29']);
+  assert.deepEqual(completedNutritionDays(days, '2026-08-31').length, 3);
 });
 
 test('Today shows at most one reminder, in a fixed urgency order', () => {
