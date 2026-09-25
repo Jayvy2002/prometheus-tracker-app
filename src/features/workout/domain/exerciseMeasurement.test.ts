@@ -75,5 +75,9 @@ test('the measurement migration is additive and pending', () => {
   assert.match(migration, /CHECK \(measurement IN \('reps', 'time'\)\)/);
   assert.match(migration, /WHERE name = 'Plank'/);
   assert.doesNotMatch(migration, /workout_sets|program_day_exercises/);
-  assert.match(src('supabase/migrations.pending.json'), /"20260925100000"/);
+  // Pending until production is verified, then in the lock (applied 2026-09-25).
+  assert.match(
+    src('supabase/migrations.pending.json') + src('supabase/schema_migrations.lock.json'),
+    /"20260925100000"/,
+  );
 });

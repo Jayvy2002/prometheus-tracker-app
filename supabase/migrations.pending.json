@@ -1,18 +1,6 @@
 {
   "pending": [
     {
-      "version": "20260924210000",
-      "name": "constraint_backfill_quiet"
-    },
-    {
-      "version": "20260925090000",
-      "name": "performance_goal_energy_basis"
-    },
-    {
-      "version": "20260925100000",
-      "name": "exercise_measurement"
-    },
-    {
       "version": "20260925110000",
       "name": "start_workout_catalog_link"
     }
