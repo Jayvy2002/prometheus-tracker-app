@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Flag, MessageCircle } from 'lucide-react';
 import Button from '../ui/Button';
+import DateField from '../ui/DateField';
 import ErrorState from '../ui/ErrorState';
 import { toast } from '../ui/Toast';
 import { useGoals } from '../../features/goals/hooks/useGoals';
@@ -172,7 +173,7 @@ export default function GoalPanel({
             </div>
             <div>
               <label htmlFor="goal-date" className="block text-xs text-neutral-400 mb-1">{t('goals.targetDateLabel')}</label>
-              <input id="goal-date" type="date" className={inputClass} value={date} onChange={e => setDate(e.target.value)} />
+              <DateField id="goal-date" value={date} onChange={setDate} />
             </div>
           </div>
           {targetInvalid && <p className="text-xs text-amber-300">{t('goals.errors.targetWeight')}</p>}

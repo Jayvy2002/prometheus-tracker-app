@@ -37,7 +37,8 @@ Lot **18** livré : le dossier canonique est `shared/ui/`. `src/components/ui/` 
 | `Button.tsx` | `primary` / `secondary` / `ghost` / `danger` — tokens `primary`, `surface`, `ink`, `danger` |
 | `IconButton.tsx` | Action 44 px |
 | `Card.tsx`, `CardLink.tsx` | Conteneurs |
-| `Input.tsx`, `Select.tsx`, `DateInput.tsx` | Champs |
+| `Input.tsx`, `Select.tsx` | Champs |
+| `DateField.tsx` | Date dans la langue de l’app (FR jj/mm/aaaa, EN mm/dd/yyyy), pas celle du téléphone ; bouton calendrier 44 px qui ouvre le sélecteur natif ; échange toujours l’ISO `YYYY-MM-DD` ; date impossible ou hors bornes = erreur, jamais envoyée. Aucun `<input type="date">` visible ailleurs. `DateInput.tsx` = le même champ pour la date de séance du logger (horodatage à midi local) |
 | `Modal.tsx` | Dialogue |
 | `PageHeader.tsx` | Titre de page |
 | `EmptyState.tsx`, `ErrorState.tsx` | Vide / erreur (une erreur ≠ écran blanc) |

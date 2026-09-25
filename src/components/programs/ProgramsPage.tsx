@@ -13,6 +13,7 @@ import type { Program, ProgramDay } from '../../lib/types';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import Input from '../ui/Input';
+import DateField from '../ui/DateField';
 import Modal from '../ui/Modal';
 import PageTransition from '../ui/PageTransition';
 import OverflowMenu from '../ui/OverflowMenu';
@@ -301,11 +302,10 @@ export default function ProgramsPage() {
               <option key={c.id} value={c.id}>{c.full_name || c.email}</option>
             ))}
           </select>
-          <input
-            type="date"
+          <DateField
+            label={t('programs.assignStartLabel')}
             value={assignDate}
-            onChange={e => setAssignDate(e.target.value)}
-            className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white"
+            onChange={setAssignDate}
           />
           {assignClient && assigningId && (
             <p className="text-sm text-neutral-300">

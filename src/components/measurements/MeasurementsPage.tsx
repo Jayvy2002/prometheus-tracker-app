@@ -6,6 +6,7 @@ import Card from '../ui/Card';
 import EmptyState from '../ui/EmptyState';
 import ErrorState from '../ui/ErrorState';
 import Input from '../ui/Input';
+import DateField from '../ui/DateField';
 import Modal from '../ui/Modal';
 import Sparkline from '../ui/Sparkline';
 import { toast } from '../ui/Toast';
@@ -183,7 +184,7 @@ export default function MeasurementsPage({
       {canWrite && (
         <Modal open={open} onClose={() => setOpen(false)} title={t(dayHasValues ? 'measurements.editTitle' : 'measurements.addTitle')}>
           <div className="space-y-4">
-            <Input label={t('measurements.date')} type="date" value={day} max={todayStr()} onChange={e => changeDay(e.target.value)} />
+            <DateField label={t('measurements.date')} value={day} max={todayStr()} onChange={changeDay} />
             <p className="text-xs text-neutral-400">{t('measurements.howTo')}</p>
             <div className="grid grid-cols-2 gap-3">
               {MEASUREMENT_SITES.map(site => (

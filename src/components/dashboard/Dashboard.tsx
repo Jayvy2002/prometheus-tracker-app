@@ -315,8 +315,11 @@ export default function Dashboard() {
           {/* The avatar opens the profile — the same avatar the coached athlete finds on every main page. */}
           <ProfileAvatarLink />
           <div className="flex-1">
+            {/* The page is « Aujourd’hui » (tab, menu, window title); the hero already
+                says it, so the header shows the date only — the name stays for screen readers. */}
+            <h1 className="sr-only">{t('nav.today')}</h1>
             <p className="text-neutral-400 text-xs">
-              {t('nav.today')} · {formatWeekdayDate(new Date(), i18n.language)}
+              {formatWeekdayDate(new Date(), i18n.language)}
             </p>
             <p className="text-sm font-medium text-white leading-snug">{greeting}</p>
           </div>

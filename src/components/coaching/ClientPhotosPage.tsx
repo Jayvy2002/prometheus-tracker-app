@@ -7,6 +7,7 @@ import { todayStr } from '../../lib/utils';
 import type { ProgressPhoto, ProgressPhotoKind } from '../../lib/types';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
+import DateField from '../ui/DateField';
 import PageTransition from '../ui/PageTransition';
 import ProgressPhotoCompare from './ProgressPhotoCompare';
 import EmptyState from '../ui/EmptyState';
@@ -175,11 +176,10 @@ export default function ClientPhotosPage() {
               </button>
             ))}
           </div>
-          <input
-            type="date"
+          <DateField
+            label={t('coaching.photos.dateLabel')}
             value={takenAt}
-            onChange={e => setTakenAt(e.target.value)}
-            className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white"
+            onChange={setTakenAt}
           />
           <input
             value={notes}

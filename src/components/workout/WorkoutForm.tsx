@@ -746,6 +746,7 @@ function WorkoutFormInner() {
       <div className="mb-4">
         <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-1.5 px-1">{t('workout.sessionDate')}</p>
         <DateInput
+          aria-label={t('workout.sessionDate')}
           value={workoutDate}
           onChange={dateStr => setWorkoutDate(dateStr)}
         />

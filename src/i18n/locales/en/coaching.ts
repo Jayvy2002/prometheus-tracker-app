@@ -390,7 +390,7 @@ const coaching = {
       notes: 'Notes',
     },
     command: {
-      title: 'Dashboard',
+      title: 'Today',
       subtitle: 'Who needs your attention and why. Open a client file only when needed.',
       prospectsWaiting_one: '{{count}} coaching request',
       prospectsWaiting_other: '{{count}} coaching requests',
@@ -837,7 +837,7 @@ const coaching = {
       nudges: 'Sent nudges',
       nudgesEmpty: 'No nudges sent yet.',
       threads: 'Threads',
-      threadsEmpty: 'No threads yet. Nudge from the Dashboard or the client file.',
+      threadsEmpty: 'No threads yet. Nudge from Today or the client file.',
       toHandle: 'To handle',
     },
     messages: {
@@ -894,6 +894,7 @@ const coaching = {
       compare: 'Compare',
       firstDate: 'First: {{date}}',
       lastDate: 'Latest: {{date}}',
+      dateLabel: 'Photo date',
       emptyCoach: 'This client has not uploaded photos yet.',
       emptyCoachRelance: 'No photos yet. You can send the client a follow-up.',
       compareTitle: 'Before / after',

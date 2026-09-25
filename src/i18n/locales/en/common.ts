@@ -73,6 +73,14 @@ const common = {
     off: 'Off',
   },
 
+  dateField: {
+    placeholder: 'mm/dd/yyyy',
+    openPicker: 'Open calendar',
+    invalid: 'Invalid date. Use the {{format}} format.',
+    beforeMin: 'Pick a date on or after {{date}}.',
+    afterMax: 'Pick a date on or before {{date}}.',
+  },
+
   accountSpaces: {
     label: 'Workspace',
     personal: 'Personal',

@@ -390,7 +390,7 @@ const coaching = {
       notes: 'Notes',
     },
     command: {
-      title: 'Dashboard',
+      title: 'Aujourd’hui',
       subtitle: 'Qui mérite ton attention et pourquoi. Ouvre la fiche seulement si nécessaire.',
       prospectsWaiting_one: '{{count}} demande de coaching',
       prospectsWaiting_other: '{{count}} demandes de coaching',
@@ -837,7 +837,7 @@ const coaching = {
       nudges: 'Relances envoyées',
       nudgesEmpty: 'Aucune relance envoyée pour l’instant.',
       threads: 'Conversations',
-      threadsEmpty: 'Aucun fil pour l’instant. Relance depuis le Dashboard ou la fiche client.',
+      threadsEmpty: 'Aucun fil pour l’instant. Relance depuis Aujourd’hui ou la fiche client.',
       toHandle: 'À traiter',
     },
     messages: {
@@ -894,6 +894,7 @@ const coaching = {
       compare: 'Comparer',
       firstDate: 'Première : {{date}}',
       lastDate: 'Dernière : {{date}}',
+      dateLabel: 'Date de la photo',
       emptyCoach: 'Le client n’a encore ajouté aucune photo.',
       emptyCoachRelance: 'Aucune photo pour le moment. Tu peux envoyer une relance au client.',
       compareTitle: 'Avant / après',

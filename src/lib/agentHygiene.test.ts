@@ -125,6 +125,7 @@ test('19: listed primitives use semantic tokens, not blue-600 / neutral-* / rose
     'src/shared/ui/ErrorState.tsx',
     'src/shared/ui/TabList.tsx',
     'src/shared/ui/IconButton.tsx',
+    'src/shared/ui/DateField.tsx',
   ];
   const banned = /\b(?:bg|text|border|ring|shadow|placeholder|hover:bg|hover:text|hover:border|focus:ring|focus:border)-(?:blue|neutral|rose)-/;
   for (const rel of primitives) {

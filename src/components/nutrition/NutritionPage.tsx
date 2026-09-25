@@ -18,6 +18,7 @@ import WaterTracker from './WaterTracker';
 import PageTransition from '../ui/PageTransition';
 import Button from '../ui/Button';
 import Modal from '../ui/Modal';
+import DateField from '../ui/DateField';
 import { useClientTracking } from '../../lib/useClientTracking';
 import { showNutritionField } from '../../lib/clientTracking';
 import { optionLabel } from '../../lib/optionLabels';
@@ -366,14 +367,15 @@ export default function NutritionPage() {
 
       <Modal open={reuseOpen} onClose={() => setReuseOpen(false)} title={t('nutrition.reuseMeal')}>
         <p className="text-sm text-neutral-400 mb-3">{t('nutrition.reuseFromDate')}</p>
-        <input
-          type="date"
-          data-reuse-date="true"
-          max={selectedDate}
-          value={reuseDate}
-          onChange={e => setReuseDate(e.target.value)}
-          className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white mb-3"
-        />
+        <div className="mb-3">
+          <DateField
+            aria-label={t('nutrition.reuseFromDate')}
+            data-reuse-date="true"
+            max={selectedDate}
+            value={reuseDate}
+            onChange={setReuseDate}
+          />
+        </div>
         <Button
           type="button"
           className="w-full mb-2"

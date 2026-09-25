@@ -73,6 +73,14 @@ const common = {
     off: 'Désactivé',
   },
 
+  dateField: {
+    placeholder: 'jj/mm/aaaa',
+    openPicker: 'Ouvrir le calendrier',
+    invalid: 'Date invalide. Écris-la au format {{format}}.',
+    beforeMin: 'Choisis une date à partir du {{date}}.',
+    afterMax: 'Choisis une date au plus tard le {{date}}.',
+  },
+
   accountSpaces: {
     label: 'Espace',
     personal: 'Personnel',

@@ -15,6 +15,7 @@ import Card from '../ui/Card';
 import Button from '../ui/Button';
 import Modal from '../ui/Modal';
 import Input from '../ui/Input';
+import DateField from '../ui/DateField';
 import PageTransition from '../ui/PageTransition';
 import EmptyState from '../ui/EmptyState';
 import { useClientTracking } from '../../lib/useClientTracking';
@@ -272,7 +273,7 @@ export default function WeightPage() {
             value={weight}
             onChange={e => setWeight(e.target.value)}
           />
-          <Input label={t('weight.date')} type="date" value={date} onChange={e => setDate(e.target.value)} />
+          <DateField label={t('weight.date')} value={date} onChange={setDate} />
           <Button onClick={handleSubmit} className="w-full">{editId ? t('common.update') : t('common.save')}</Button>
         </div>
       </Modal>
