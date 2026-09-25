@@ -6,7 +6,7 @@ const navigation = {
     stats: 'Stats',
     nutrition: 'Nutrition',
     profile: 'Profil',
-    dashboard: 'Tableau de bord',
+    dashboard: 'Aujourd’hui',
     workouts: 'Entraînements',
     sessions: 'Séances',
     exerciseProgress: 'Progression',
@@ -32,7 +32,7 @@ const navigation = {
     photos: 'Photos',
     measurements: 'Mensurations',
     recipes: 'Recettes',
-    today: 'Dashboard',
+    today: 'Aujourd’hui',
     messages: 'Messages',
     messagesUnread: '{{count}} messages non lus',
     prometheus: 'Prometheus',
@@ -53,7 +53,7 @@ const navigation = {
   },
 
   pages: {
-    today: 'Dashboard',
+    today: 'Aujourd’hui',
     workout: 'Entraînement',
     nutrition: 'Nutrition',
     progress: 'Progression',

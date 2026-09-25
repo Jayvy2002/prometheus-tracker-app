@@ -125,8 +125,8 @@ export function tracksBody(tracking: NavTracking): boolean {
 
 /**
  * Pas de 6ᵉ onglet : cinq au plus, jamais un « Plus ».
- * Solo : Dashboard · Entraînement · Corps · Suivi · Profil.
- * Coaché : Dashboard · Entraînement · Corps · Suivi · Messages — le Calendrier est une
+ * Solo : Aujourd’hui · Entraînement · Corps · Suivi · Profil.
+ * Coaché : Aujourd’hui · Entraînement · Corps · Suivi · Messages — le Calendrier est une
  * page principale pour le Coaché aussi (Vision §13) ; le Profil s'ouvre depuis
  * l'avatar, en haut à gauche de chaque page principale (profileShortcutVisible).
  * Corps existe toujours : les photos de progression y vivent, quel que soit le suivi.
@@ -214,7 +214,7 @@ export function hubRedirectPath(items: NavItemDef[], requestedView: string | nul
 
 /**
  * Desktop mirrors the mobile tabs: the same groups, names and sub-pages
- * (Dashboard · Entraînement · Corps · Suivi · Messages/Profil). Only the
+ * (Aujourd’hui · Entraînement · Corps · Suivi · Messages/Profil). Only the
  * discreet « Trouver un coach » is desktop-only for a Solo; on mobile it lives
  * in the Profil tab. The coaching workspace keeps its own map.
  */

@@ -29,6 +29,7 @@ import {
 } from '../../features/account/domain/soloOnboarding';
 import PersonalModulesPicker from '../profile/PersonalModulesPicker';
 import Button from '../ui/Button';
+import DateField from '../ui/DateField';
 import { toast } from '../ui/Toast';
 
 // The three body goals plus performance (maintenance calories, goal kept in the goal cycle).
@@ -261,16 +262,13 @@ function StepMeasures({ form, setForm }: { form: SoloOnboardingForm; setForm: Se
       </div>
       <div>
         <label htmlFor="onboarding-dob" className={labelClass}>{t('onboarding.fields.dateOfBirth')}</label>
-        <input
+        <DateField
           id="onboarding-dob"
-          type="date"
           max={todayStr()}
           value={form.date_of_birth}
-          onChange={e => setForm({ ...form, date_of_birth: e.target.value })}
-          aria-invalid={errors.includes('dateOfBirth') || undefined}
-          className={inputClass}
+          onChange={date_of_birth => setForm({ ...form, date_of_birth })}
+          error={errors.includes('dateOfBirth') ? t('onboarding.errors.dobInvalid') : undefined}
         />
-        {errors.includes('dateOfBirth') && <p className="mt-1 text-xs text-amber-300">{t('onboarding.errors.dobInvalid')}</p>}
       </div>
       {numberField('onboarding-height', t('onboarding.fields.height'), 'height_cm', errors.includes('height'), 'cm')}
       {numberField('onboarding-weight', t('onboarding.fields.currentWeight'), 'weight', errors.includes('weight'), unit === 'kg' ? 'kg' : 'lb')}

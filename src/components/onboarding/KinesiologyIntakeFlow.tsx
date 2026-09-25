@@ -49,6 +49,7 @@ import {
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import Input from '../ui/Input';
+import DateField from '../ui/DateField';
 
 function useOriginalLabel() {
   const { i18n } = useTranslation();
@@ -265,11 +266,10 @@ function ScreenObjectif({
         value={intake.extras.poidsViseKg}
         onChange={e => setIntake({ ...intake, extras: { ...intake.extras, poidsViseKg: e.target.value } })}
       />
-      <Input
+      <DateField
         label={`${t('intake.extras.dateCible')} · ${t('intake.optional')}`}
-        type="date"
         value={intake.extras.dateCible}
-        onChange={e => setIntake({ ...intake, extras: { ...intake.extras, dateCible: e.target.value } })}
+        onChange={dateCible => setIntake({ ...intake, extras: { ...intake.extras, dateCible } })}
       />
       <div>
         <FieldLabel optional>{label('depuisCombienDeTemps')}</FieldLabel>

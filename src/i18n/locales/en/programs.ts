@@ -50,6 +50,7 @@ const programs = {
     duplicateFailed: 'Could not duplicate the program. Try again.',
     assignToClient: 'Assign a program',
     assignRecap: '{{program}} will be assigned to {{client}} starting {{date}}.',
+    assignStartLabel: 'Start date',
     pickProgram: 'Choose a program',
     assigned: 'Program assigned',
     selfAssigned: 'Program started',

@@ -5,6 +5,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
+import DateField from '../ui/DateField';
 import { toast } from '../ui/Toast';
 import { optionLabel } from '../../lib/optionLabels';
 
@@ -62,7 +63,7 @@ export default function PersonalInfoForm({ onBack, inline }: { onBack: () => voi
             ))}
           </div>
         </div>
-        <Input label={t('profile.personalInfo.dateOfBirth')} type="date" value={dob} onChange={e => setDob(e.target.value)} />
+        <DateField label={t('profile.personalInfo.dateOfBirth')} value={dob} onChange={setDob} />
         <Input label={t('profile.personalInfo.heightCm')} type="number" value={height} onChange={e => setHeight(e.target.value)} />
         <Button onClick={handleSave} loading={saving} className="w-full">{t('common.saveChanges')}</Button>
       </div>

@@ -18,6 +18,8 @@ import {
   tabIndexForPath,
 } from './navConfig';
 import { scrollHints, scrollOffsetToReveal } from './scrollHints';
+import fr from '../../i18n/locales/fr';
+import en from '../../i18n/locales/en';
 
 const src = (rel: string) => readFileSync(resolve(process.cwd(), rel), 'utf8');
 
@@ -109,7 +111,7 @@ test('desktop mirrors the mobile tabs: same groups, names and sub-pages (Solo an
     const sections = desktopSections(persona, trackingOn);
     const byId = (id: string) => sections.find(section => section.id === id);
     const paths = (id: string) => byId(id)?.items.map(item => item.path);
-    // Sections follow the tab order: Dashboard · Entraînement · Corps · Suivi.
+    // Sections follow the tab order: Aujourd’hui · Entraînement · Corps · Suivi.
     assert.deepEqual(sections.slice(0, 4).map(section => section.id), ['today', 'train', 'body', 'suivi'], persona);
     // Each section is named like its mobile tab.
     const tabs = mobileTabs(persona, trackingOn);
@@ -302,4 +304,21 @@ test('quick add floats only where it is the natural way to log, never over a pag
   ]) {
     assert.equal(quickAddVisible(path), false, path);
   }
+});
+
+test('the home page is named « Aujourd’hui » / « Today » everywhere, never « Dashboard »', () => {
+  // Vision: Dashboard = today's priority and overview. The route stays /dashboard.
+  assert.equal(fr.nav.today, 'Aujourd’hui');
+  assert.equal(fr.pages.today, 'Aujourd’hui');
+  assert.equal(fr.coaching.command.title, 'Aujourd’hui');
+  assert.equal(en.nav.today, 'Today');
+  assert.equal(en.pages.today, 'Today');
+  assert.equal(en.coaching.command.title, 'Today');
+  for (const [lang, source] of [['fr', src('src/i18n/locales/fr/navigation.ts') + src('src/i18n/locales/fr/coaching.ts')], ['en', src('src/i18n/locales/en/navigation.ts') + src('src/i18n/locales/en/coaching.ts')]] as const) {
+    assert.doesNotMatch(source, /:\s*'[^']*Dashboard/, lang);
+  }
+  // The hero already says « Aujourd’hui »: the header shows the date, the name stays for screen readers.
+  const dashboard = src('src/components/dashboard/Dashboard.tsx');
+  assert.doesNotMatch(dashboard, /\{t\('nav\.today'\)\} ·/);
+  assert.match(dashboard, /<h1 className="sr-only">\{t\('nav\.today'\)\}<\/h1>/);
 });

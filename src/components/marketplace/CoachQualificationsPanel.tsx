@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
+import DateField from '../ui/DateField';
 import { marketRpc, removeQualificationProof, uploadQualificationProof } from '../../lib/marketplaceApi';
 import {
   QUALIFICATION_TYPES,
@@ -108,7 +109,7 @@ export default function CoachQualificationsPanel({ owner, rows, busy, onChange, 
         <Input required maxLength={160} label={t('marketplace.qualTitle')} value={title} onChange={e => setTitle(e.target.value)} />
         <label className="block space-y-2">{t('marketplace.qualType')}<select className={fieldStyle} value={type} onChange={e => setType(e.target.value as typeof type)}>{QUALIFICATION_TYPES.map(value => <option key={value} value={value}>{t(`marketplace.qualType_${value}`)}</option>)}</select></label>
         <Input required maxLength={160} label={t('marketplace.qualIssuer')} value={issuer} onChange={e => setIssuer(e.target.value)} />
-        <Input type="date" label={t('marketplace.qualExpiresOn')} value={expiresOn} onChange={e => setExpiresOn(e.target.value)} />
+        <DateField label={t('marketplace.qualExpiresOn')} value={expiresOn} onChange={setExpiresOn} />
         <Button type="submit" loading={saving} disabled={busy}>{t('marketplace.qualDeclare')}</Button>
       </form>
     </section>

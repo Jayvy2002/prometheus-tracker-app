@@ -12,6 +12,7 @@ import ProgramSessionEditor from '../coaching/ProgramSessionEditor';
 import ProgramRevisionHistory from './ProgramRevisionHistory';
 import FixedActionBar from '../coaching/FixedActionBar';
 import Button from '../ui/Button';
+import DateField from '../ui/DateField';
 import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
 import { mapProgramWriteError } from '../../lib/programWrite';
@@ -294,17 +295,15 @@ export default function ProgramEditorPage() {
                 {t('programs.versionScheduledOn', { n: scheduledRevisionNo, date: scheduledActivatesOn })}
               </p>
             )}
-            <label className="block mt-3 text-[11px] text-neutral-500">
-              {t('programs.versionActivateOn')}
-              <input
-                type="date"
+            <div className="mt-3">
+              <DateField
+                label={t('programs.versionActivateOn')}
                 min={programClock.today}
                 data-testid="program-version-activate-on"
                 value={activateOn}
-                onChange={e => setActivateOn(e.target.value)}
-                className="mt-1 w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white"
+                onChange={setActivateOn}
               />
-            </label>
+            </div>
             <Button
               type="button"
               variant="secondary"
