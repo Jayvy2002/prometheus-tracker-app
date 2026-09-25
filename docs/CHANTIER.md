@@ -940,6 +940,7 @@ Audit purement frontend du 24 septembre 2026 : rendre l’app la plus simple pos
 | Sous-tâche | Capacité | Statut |
 |---|---|---|
 | `p5-20` Confiance et langage | Un démarrage refusé le dit toujours ; icône « modifier » du poids ; « Annuler » une suppression de séance ne ment plus (une séance de programme se supprime après confirmation, sans annulation impossible) ; demandes de coaching vues du bon côté (Coach / athlète) ; bouton + seulement là où il sert (jamais sur un formulaire ni une page qui a son action) ; stats sans verdict sur la journée en cours ni sur moins de 3 jours, écarts en neutre ; bilan 2 semaines lisible ; types de série en français (É = échauffement) ; kcal et P / G / L partout ; une seule IA nommée Prometheus, icône toujours légendée ; jargon remplacé (logs, Perf, Stagnation, Adhérence, déficit calorique…) ; axe du poids en nombres ronds | En revue |
+| `p5-21` Séance guidée | Cases pré-remplies par la dernière séance puis la prescription (jamais « 0 », un tap n'enregistre qu'un vrai nombre) ; badge « 4 × 10 · repos 1 min 30 · RIR 0 » ; colonne Durée pour les séries isométriques (seul signal fiable, jamais le nom) ; bouton « Disques » explicite ; noms sur deux lignes ; légende compacte ; page Entraînement : prochaine routine du Solo avec Démarrer, explication des routines, dernière séance repliée, historique sans tonnage | En revue |
 
 Décisions de cette passe :
 
