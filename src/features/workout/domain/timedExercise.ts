@@ -3,8 +3,9 @@ import type { SetType } from '../../../lib/types';
 
 /**
  * A timed hold is known only from data: the set type « isometric », prescribed
- * by the plan (program set type) or chosen by the athlete. The exercise name is
- * never used to guess it: the same core exercise can be logged in reps by someone else.
+ * by the plan (program set type), chosen by the athlete, or given to new sets
+ * because the catalog measures the exercise in time. The exercise name is never
+ * used to guess it: the same core exercise can be logged in reps by someone else.
  */
 type SetLike = { set_type?: string | null; weight_kg?: number | null };
 
@@ -42,4 +43,17 @@ const KNOWN_SET_TYPES = new Set<string>(SET_TYPES.map(s => s.value));
 export function namedSetType(value: string | null | undefined): SetType | null {
   if (!value || value === 'working') return null;
   return KNOWN_SET_TYPES.has(value) ? (value as SetType) : null;
+}
+
+/**
+ * The set type of a new set: a timed hold stays timed (every set already is,
+ * or the catalog measures the exercise in time). Otherwise nothing is forced
+ * and the database default applies.
+ */
+export function newSetTypeFor(
+  sets: SetLike[] | null | undefined,
+  catalogMeasurement?: string | null,
+): 'isometric' | null {
+  if ((sets ?? []).length > 0) return isTimedExercise(sets) ? 'isometric' : null;
+  return catalogMeasurement === 'time' ? 'isometric' : null;
 }

@@ -16,6 +16,7 @@ import PageHeader from '../ui/PageHeader';
 import PageTransition from '../ui/PageTransition';
 import RoutineForm from './RoutineForm';
 import { startWorkoutFromTemplate } from '../../lib/startWorkout';
+import { routineStartExercises } from '../../features/workout/data/routineStart';
 import type { Routine } from '../../lib/types';
 
 /**
@@ -64,12 +65,7 @@ export default function RoutinesPage() {
         userId: user.id,
         name: routine.name,
         routineId,
-        exercises: (routine.exercises ?? []).map(ex => ({
-          name: ex.name,
-          default_sets: ex.default_sets,
-          default_reps: ex.default_reps,
-          order_index: ex.order_index,
-        })),
+        exercises: await routineStartExercises(routine.exercises),
       });
       // A refused start is said out loud: the button never silently does nothing.
       if (workoutId) navigate(`/workout/${workoutId}`);

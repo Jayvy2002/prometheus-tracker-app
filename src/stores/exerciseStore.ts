@@ -17,6 +17,10 @@ interface ExerciseState {
 
 let fetchGeneration = 0;
 
+const CATALOG_COLUMNS = 'id, name, name_fr, primary_muscles, secondary_muscles, category, equipment, verified, created_by, merged_into_id, instructions, tips, difficulty, video_url';
+// A frontend deployed before the measurement migration still loads the catalog.
+const UNDEFINED_COLUMN = '42703';
+
 export const useExerciseStore = create<ExerciseState>((set, get) => ({
   exercises: [],
   loading: false,
@@ -29,18 +33,28 @@ export const useExerciseStore = create<ExerciseState>((set, get) => ({
     set({ loading: true, loadError: false });
     const pageSize = 500;
     const rows: Exercise[] = [];
+    let columns = `${CATALOG_COLUMNS}, measurement`;
     for (let from = 0; from < 5000; from += pageSize) {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('exercises')
-        .select('id, name, name_fr, primary_muscles, secondary_muscles, category, equipment, verified, created_by, merged_into_id, instructions, tips, difficulty, video_url')
+        .select(columns)
         .order('name')
         .range(from, from + pageSize - 1);
       if (generation !== fetchGeneration) return;
+      if (error?.code === UNDEFINED_COLUMN && columns !== CATALOG_COLUMNS) {
+        columns = CATALOG_COLUMNS;
+        ({ data, error } = await supabase
+          .from('exercises')
+          .select(columns)
+          .order('name')
+          .range(from, from + pageSize - 1));
+        if (generation !== fetchGeneration) return;
+      }
       if (error) {
         set({ loading: false, fetched: false, loadError: true, exercises: [] });
         return;
       }
-      const page = ((data ?? []) as Exercise[]).filter(ex => !ex.merged_into_id);
+      const page = ((data ?? []) as unknown as Exercise[]).filter(ex => !ex.merged_into_id);
       rows.push(...page);
       if ((data ?? []).length < pageSize) break;
     }

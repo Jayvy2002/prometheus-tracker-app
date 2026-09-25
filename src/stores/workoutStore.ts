@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
-import type { Workout, WorkoutExercise, WorkoutSet } from '../lib/types';
+import type { SetType, Workout, WorkoutExercise, WorkoutSet } from '../lib/types';
 import { setCacheItem, getCacheItem, clearCacheItem, workoutCacheKey } from '../lib/offlineCache';
 import { getSessionOwner, createGeneration } from '../lib/sessionScope';
 import {
@@ -144,7 +144,8 @@ interface WorkoutState {
   }) => Promise<WorkoutExercise | null>;
   updateExercise: (id: string, data: Partial<WorkoutExercise>) => Promise<void>;
   deleteExercise: (id: string) => Promise<void>;
-  addSet: (exerciseId: string, orderIndex: number) => Promise<WorkoutSet | null>;
+  /** setType: the type of the new set when it must not be the default (a timed hold). */
+  addSet: (exerciseId: string, orderIndex: number, setType?: SetType | null) => Promise<WorkoutSet | null>;
   updateSet: (id: string, data: Partial<WorkoutSet>) => Promise<void>;
   deleteSet: (id: string) => Promise<void>;
   restoreSet: (exerciseId: string, setData: WorkoutSet) => Promise<void>;
@@ -539,12 +540,13 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
     );
   },
 
-  addSet: async (exerciseId, orderIndex) => {
+  addSet: async (exerciseId, orderIndex, setType) => {
     const owner = getSessionOwner();
-    const op = takeQueuedOp('set.add', { exerciseId, set: { order_index: orderIndex } }, owner);
+    const initial = { order_index: orderIndex, ...(setType ? { set_type: setType } : {}) };
+    const op = takeQueuedOp('set.add', { exerciseId, set: initial }, owner);
     const { data, error } = await supabase
       .from('workout_sets')
-      .insert({ exercise_id: exerciseId, order_index: orderIndex, client_op_id: op?.id ?? null })
+      .insert({ ...initial, exercise_id: exerciseId, client_op_id: op?.id ?? null })
       .select()
       .maybeSingle();
     if (!error && data) {
@@ -571,7 +573,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
       return null;
     }
     if (!op) return null;
-    const temp = { id: offlineTempId(op.id), exercise_id: exerciseId, order_index: orderIndex } as unknown as WorkoutSet;
+    const temp = { id: offlineTempId(op.id), exercise_id: exerciseId, ...initial } as unknown as WorkoutSet;
     set(s => {
       if (!s.currentWorkout) return s;
       const updated = {

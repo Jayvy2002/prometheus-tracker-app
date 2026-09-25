@@ -19,6 +19,7 @@ import { programRowCopy, showSoloStartHero } from '../../features/dashboard/doma
 import ProfileAvatarLink from '../../app/layout/ProfileAvatarLink';
 import { CardSkeleton } from '../ui/PageSkeleton';
 import { startWorkoutFromTemplate } from '../../lib/startWorkout';
+import { routineStartExercises } from '../../features/workout/data/routineStart';
 import { toWorkoutTemplateExercise } from '../../lib/programSetPrescription';
 import { toLocalDateStr, kgToLbs, programWeekNumber, formatWeekdayDate } from '../../lib/utils';
 import { rollingWeightTrend, weeklyAverageKg } from '../../lib/weeklyWeight';
@@ -295,12 +296,7 @@ export default function Dashboard() {
         userId: user.id,
         name: routine.name,
         routineId: nextRoutine.id,
-        exercises: (routine.exercises ?? []).map(ex => ({
-          name: ex.name,
-          default_sets: ex.default_sets,
-          default_reps: ex.default_reps,
-          order_index: ex.order_index,
-        })),
+        exercises: await routineStartExercises(routine.exercises),
       });
       if (workoutId) navigate(`/workout/${workoutId}`);
       else toast(t('workout.startRoutineFailed'), 'error');

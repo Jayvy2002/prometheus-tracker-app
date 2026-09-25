@@ -20,14 +20,38 @@ export function pickNextRoutine<T extends { scheduled_days?: string[] | null }>(
   return { routine: routines[0], scheduledToday: false };
 }
 
-/** Routine rows → session template, as the Dashboard and Routines page start them. */
+type RoutineRow = {
+  name: string;
+  default_sets: number;
+  default_reps: number;
+  order_index: number;
+  catalog_exercise_id?: string | null;
+};
+
+export type RoutineTemplateExercise = {
+  name: string;
+  default_sets: number;
+  default_reps: number;
+  order_index: number;
+  set_type?: 'isometric';
+};
+
+/**
+ * Routine rows → session template, as the Dashboard, Workout and Routines pages
+ * start them. An exercise the catalog measures in time starts as timed sets.
+ */
 export function routineTemplateExercises(
-  exercises: ReadonlyArray<{ name: string; default_sets: number; default_reps: number; order_index: number }> | null | undefined,
-): Array<{ name: string; default_sets: number; default_reps: number; order_index: number }> {
-  return (exercises ?? []).map(ex => ({
-    name: ex.name,
-    default_sets: ex.default_sets,
-    default_reps: ex.default_reps,
-    order_index: ex.order_index,
-  }));
+  exercises: ReadonlyArray<RoutineRow> | null | undefined,
+  measurementOf: (catalogExerciseId: string) => string | null | undefined = () => null,
+): RoutineTemplateExercise[] {
+  return (exercises ?? []).map(ex => {
+    const timed = ex.catalog_exercise_id ? measurementOf(ex.catalog_exercise_id) === 'time' : false;
+    return {
+      name: ex.name,
+      default_sets: ex.default_sets,
+      default_reps: ex.default_reps,
+      order_index: ex.order_index,
+      ...(timed ? { set_type: 'isometric' as const } : {}),
+    };
+  });
 }
