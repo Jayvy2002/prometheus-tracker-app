@@ -248,7 +248,7 @@ export default function MessageThread({
                   mine ? 'bg-blue-600 text-white' : 'bg-neutral-900 text-neutral-100 border border-neutral-800'
                 }`} data-testid="message-bubble">
                   {msg.reply_to_id ? (
-                    <p data-testid="message-reply-quote" className={`mb-1 border-l-2 pl-2 text-xs ${mine ? 'border-blue-200/60 text-blue-100' : 'border-[#525252] text-neutral-400'}`}>
+                    <p data-testid="message-reply-quote" className={`mb-1 border-l-2 pl-2 text-xs ${mine ? 'border-blue-200/60 text-blue-100' : 'border-line-strong text-neutral-400'}`}>
                       {replyExcerpt(byId.get(msg.reply_to_id), { attachment: t('messages.attachments.one'), missing: t('messages.reply.earlier') })}
                     </p>
                   ) : null}

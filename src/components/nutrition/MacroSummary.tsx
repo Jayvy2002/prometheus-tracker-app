@@ -39,7 +39,7 @@ export default function MacroSummary() {
             </div>
             <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
               <div
-                className={`h-full ${m.target == null ? 'bg-[#525252]' : m.bg} rounded-full transition-all duration-500`}
+                className={`h-full ${m.target == null ? 'bg-line-strong' : m.bg} rounded-full transition-all duration-500`}
                 style={{ width: `${m.target == null ? 0 : pct}%` }}
               />
             </div>

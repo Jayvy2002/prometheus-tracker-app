@@ -268,7 +268,7 @@ export default function ProfilePage() {
                 className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-all border
                   ${i18n.language === lang
                     ? 'bg-blue-600 text-white border-blue-500'
-                    : 'bg-neutral-800 text-neutral-400 border-neutral-700 hover:border-[#525252]'}`}
+                    : 'bg-neutral-800 text-neutral-400 border-neutral-700 hover:border-line-strong'}`}
               >
                 {t(`profile.language.${lang}`)}
               </button>

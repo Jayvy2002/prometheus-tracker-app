@@ -1,3 +1,5 @@
+import { useChartColors } from '../theme/chartColors';
+
 interface ProgressRingProps {
   progress: number;
   size?: number;
@@ -12,9 +14,10 @@ export default function ProgressRing({
   size = 80,
   strokeWidth = 6,
   color = '#2563eb',
-  bgColor = '#262626',
+  bgColor,
   children,
 }: ProgressRingProps) {
+  const chart = useChartColors();
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
   const offset = circumference - (Math.min(progress, 100) / 100) * circumference;
@@ -27,7 +30,7 @@ export default function ProgressRing({
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke={bgColor}
+          stroke={bgColor ?? chart.ringTrack}
           strokeWidth={strokeWidth}
         />
         <circle

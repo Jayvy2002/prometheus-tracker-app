@@ -158,7 +158,7 @@ export default function CoachMatchPage() {
         )}
         <div className="space-y-3">
           {matches.map(row => (
-            <article key={row.coach_id} className="relative space-y-3 rounded-2xl border border-neutral-800 bg-neutral-900/50 p-4 hover:border-[#525252]">
+            <article key={row.coach_id} className="relative space-y-3 rounded-2xl border border-neutral-800 bg-neutral-900/50 p-4 hover:border-line-strong">
               <h3 className="text-base font-semibold text-white">
                 <Link to={`/coaches/${row.coach_id}`} className="after:absolute after:inset-0 after:rounded-2xl">
                   {row.public_name || t('marketplace.coachUnavailableName')}

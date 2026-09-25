@@ -5,6 +5,7 @@ import Button from '../ui/Button';
 import IconButton from '../ui/IconButton';
 import Modal from '../ui/Modal';
 import { countdownEndAt, countdownRemaining } from '../../lib/restTimer';
+import { useChartColors } from '../../shared/theme/chartColors';
 
 const PRESETS = [
   { label: '30s', value: 30 },
@@ -61,6 +62,7 @@ export default function RestTimer({
   autoStart?: boolean;
 }) {
   const { t } = useTranslation();
+  const chart = useChartColors();
   const seed = initialSeconds && initialSeconds > 0 ? initialSeconds : 90;
   const [duration, setDuration] = useState(seed);
   const [remaining, setRemaining] = useState(seed);
@@ -188,10 +190,10 @@ export default function RestTimer({
       <div className="text-center">
         <div className="relative w-48 h-48 mx-auto mb-6 animate-fade-in-scale">
           <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
-            <circle cx="50" cy="50" r="45" fill="none" stroke="#0a0a0a" strokeWidth="6" />
+            <circle cx="50" cy="50" r="45" fill="none" stroke={chart.timerTrack} strokeWidth="6" />
             <circle
               cx="50" cy="50" r="45" fill="none"
-              stroke={isFinished ? '#10b981' : '#2563eb'}
+              stroke={isFinished ? chart.success : chart.primary}
               strokeWidth="6"
               strokeLinecap="round"
               strokeDasharray={`${2 * Math.PI * 45}`}

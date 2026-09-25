@@ -10,6 +10,7 @@ import { nutritionTargetsFromProfile } from '../../lib/nutritionTargets';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Area, AreaChart } from 'recharts';
 import Card from '../ui/Card';
 import CardLink from '../ui/CardLink';
+import { useChartColors } from '../../shared/theme/chartColors';
 import PageTransition from '../ui/PageTransition';
 import { useClientTracking } from '../../lib/useClientTracking';
 import { showModule, showNutritionField } from '../../lib/clientTracking';
@@ -70,6 +71,7 @@ function TrendBadge({ value }: { value: number | null }) {
 
 export default function StatsPage({ embedded = false }: { embedded?: boolean }) {
   const { t, i18n } = useTranslation();
+  const chart = useChartColors();
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { profile } = useProfileStore();
@@ -443,32 +445,32 @@ export default function StatsPage({ embedded = false }: { embedded?: boolean }) 
                   <ResponsiveContainer width="100%" height="100%">
                     {chartTab === 'calories' ? (
                       <BarChart data={calorieChartData} barSize={period === '3months' ? 4 : period === 'month' ? 8 : 16}>
-                        <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#949494' }} axisLine={false} tickLine={false}
+                        <XAxis dataKey="date" tick={{ fontSize: 10, fill: chart.tick }} axisLine={false} tickLine={false}
                           interval={period === '3months' ? 6 : period === 'month' ? 4 : 0} />
-                        <YAxis tick={{ fontSize: 10, fill: '#949494' }} axisLine={false} tickLine={false} width={32} />
-                        <Tooltip contentStyle={{ background: '#0a0a0a', border: '1px solid #262626', borderRadius: '12px', fontSize: 11 }} />
-                        <Bar dataKey="value" fill="#2563eb" radius={[3, 3, 0, 0]} />
+                        <YAxis tick={{ fontSize: 10, fill: chart.tick }} axisLine={false} tickLine={false} width={32} />
+                        <Tooltip contentStyle={{ background: chart.tooltipBg, border: `1px solid ${chart.tooltipBorder}`, borderRadius: '12px', fontSize: 11 }} />
+                        <Bar dataKey="value" fill={chart.primary} radius={[3, 3, 0, 0]} />
                       </BarChart>
                     ) : chartTab === 'weight' ? (
                       <AreaChart data={weightChartData}>
                         <defs>
                           <linearGradient id="weightGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#10b981" stopOpacity={0.3} />
-                            <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
+                            <stop offset="0%" stopColor={chart.success} stopOpacity={0.3} />
+                            <stop offset="100%" stopColor={chart.success} stopOpacity={0} />
                           </linearGradient>
                         </defs>
-                        <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#949494' }} axisLine={false} tickLine={false}
+                        <XAxis dataKey="date" tick={{ fontSize: 10, fill: chart.tick }} axisLine={false} tickLine={false}
                           interval={period === '3months' ? 6 : period === 'month' ? 4 : 0} />
-                        <YAxis domain={['dataMin - 1', 'dataMax + 1']} tick={{ fontSize: 10, fill: '#949494' }} axisLine={false} tickLine={false} width={35} />
-                        <Tooltip contentStyle={{ background: '#0a0a0a', border: '1px solid #262626', borderRadius: '12px', fontSize: 11 }} />
-                        <Area type="monotone" dataKey="value" stroke="#10b981" strokeWidth={2} fill="url(#weightGrad)" dot={{ r: 3, fill: '#10b981' }} />
+                        <YAxis domain={['dataMin - 1', 'dataMax + 1']} tick={{ fontSize: 10, fill: chart.tick }} axisLine={false} tickLine={false} width={35} />
+                        <Tooltip contentStyle={{ background: chart.tooltipBg, border: `1px solid ${chart.tooltipBorder}`, borderRadius: '12px', fontSize: 11 }} />
+                        <Area type="monotone" dataKey="value" stroke={chart.success} strokeWidth={2} fill="url(#weightGrad)" dot={{ r: 3, fill: chart.success }} />
                       </AreaChart>
                     ) : (
                       <BarChart data={workoutByWeek} barSize={24}>
-                        <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#949494' }} axisLine={false} tickLine={false} />
-                        <YAxis tick={{ fontSize: 10, fill: '#949494' }} axisLine={false} tickLine={false} width={20} allowDecimals={false} />
-                        <Tooltip contentStyle={{ background: '#0a0a0a', border: '1px solid #262626', borderRadius: '12px', fontSize: 11 }} />
-                        <Bar dataKey="value" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                        <XAxis dataKey="date" tick={{ fontSize: 10, fill: chart.tick }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fontSize: 10, fill: chart.tick }} axisLine={false} tickLine={false} width={20} allowDecimals={false} />
+                        <Tooltip contentStyle={{ background: chart.tooltipBg, border: `1px solid ${chart.tooltipBorder}`, borderRadius: '12px', fontSize: 11 }} />
+                        <Bar dataKey="value" fill={chart.primaryBar} radius={[4, 4, 0, 0]} />
                       </BarChart>
                     )}
                   </ResponsiveContainer>

@@ -1,54 +1,15 @@
+import plugin from 'tailwindcss/plugin';
+import { tailwindColors, themeBaseStyles } from './src/shared/theme/palette.ts';
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
-      colors: {
-        // Readable greys on the black app background (WCAG AA for small text):
-        // 500 ≈ 6.9:1 and 600 ≈ 5.7:1 on #000, ≥ 4.8:1 on the #171717 cards.
-        // Borders and fills that need the old darker greys use explicit values.
-        neutral: {
-          500: '#949494',
-          600: '#858585',
-        },
-        page: '#000000',
-        surface: {
-          DEFAULT: '#0a0a0a',
-          raised: '#171717',
-          hover: '#262626',
-          active: '#404040',
-        },
-        elevated: '#171717',
-        overlay: 'rgba(0,0,0,0.72)',
-        ink: {
-          DEFAULT: '#f8fafc',
-          secondary: '#a3a3a3',
-          muted: '#949494',
-          disabled: '#525252',
-        },
-        line: {
-          DEFAULT: '#262626',
-          subtle: '#1f1f1f',
-          focus: '#60a5fa',
-        },
-        primary: {
-          DEFAULT: '#2563eb',
-          hover: '#3b82f6',
-        },
-        success: {
-          DEFAULT: '#16a34a',
-          hover: '#22c55e',
-        },
-        warning: {
-          DEFAULT: '#d97706',
-          hover: '#f59e0b',
-        },
-        danger: {
-          DEFAULT: '#e11d48',
-          hover: '#f43f5e',
-          muted: '#fb7185',
-        },
-      },
+      // Every colour is a CSS variable (dark by default, light under
+      // html[data-theme="light"]). Values and contrast notes: src/shared/theme/palette.ts
+      // and docs/DESIGN_SYSTEM.md.
+      colors: tailwindColors(),
       keyframes: {
         'scan-line': {
           '0%, 100%': { transform: 'translateY(-24px)', opacity: '0.6' },
@@ -65,5 +26,9 @@ export default {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    plugin(({ addBase }) => {
+      addBase(themeBaseStyles());
+    }),
+  ],
 };

@@ -21,6 +21,7 @@ import EmptyState from '../ui/EmptyState';
 import { useClientTracking } from '../../lib/useClientTracking';
 import { showModule } from '../../lib/clientTracking';
 import { niceWeightAxis } from '../../lib/chartAxis';
+import { useChartColors } from '../../shared/theme/chartColors';
 
 type Period = '7d' | '30d' | '3m' | 'all';
 
@@ -38,6 +39,7 @@ function filterByPeriod(measurements: Array<{ weight_kg: number; measured_at: st
 
 export default function WeightPage() {
   const { t } = useTranslation();
+  const chart = useChartColors();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuthStore();
   const { profile } = useProfileStore();
@@ -200,33 +202,33 @@ export default function WeightPage() {
           <div className="h-44">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData}>
-                <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#949494' }} axisLine={false} tickLine={false} />
+                <XAxis dataKey="date" tick={{ fontSize: 10, fill: chart.tick }} axisLine={false} tickLine={false} />
                 {/* Even whole-number ticks in the app language (« 62 · 64 · 66 », never « 65.35 »). */}
                 <YAxis
                   domain={axis?.domain ?? ['dataMin - 1', 'dataMax + 1']}
                   ticks={axis?.ticks}
                   allowDecimals={false}
                   tickFormatter={(v: number) => formatNumber(v, { maxDigits: 0 })}
-                  tick={{ fontSize: 10, fill: '#949494' }}
+                  tick={{ fontSize: 10, fill: chart.tick }}
                   axisLine={false}
                   tickLine={false}
                   width={35}
                 />
                 <Tooltip
-                  contentStyle={{ background: '#0a0a0a', border: '1px solid #262626', borderRadius: '12px', fontSize: 12 }}
-                  labelStyle={{ color: '#94a3b8' }}
+                  contentStyle={{ background: chart.tooltipBg, border: `1px solid ${chart.tooltipBorder}`, borderRadius: '12px', fontSize: 12 }}
+                  labelStyle={{ color: chart.tooltipLabel }}
                   formatter={(value) => `${formatNumber(Number(value))} ${unit}`}
                 />
                 {targetKg > 0 && (
                   <ReferenceLine
                     y={weightInUnit(targetKg, unit)}
-                    stroke="#f59e0b"
+                    stroke={chart.goal}
                     strokeDasharray="4 4"
-                    label={{ value: t('weight.goalLine'), fill: '#f59e0b', fontSize: 10 }}
+                    label={{ value: t('weight.goalLine'), fill: chart.goalLabel, fontSize: 10 }}
                   />
                 )}
-                <Line type="monotone" dataKey="weight" name={t('weight.weighIn')} stroke="transparent" dot={{ r: 2.5, fill: '#64748b' }} isAnimationActive={false} />
-                <Line type="monotone" dataKey="trend" name={t('weight.trend')} stroke="#2563eb" strokeWidth={2.5} dot={false} />
+                <Line type="monotone" dataKey="weight" name={t('weight.weighIn')} stroke="transparent" dot={{ r: 2.5, fill: chart.neutralDot }} isAnimationActive={false} />
+                <Line type="monotone" dataKey="trend" name={t('weight.trend')} stroke={chart.primary} strokeWidth={2.5} dot={false} />
               </LineChart>
             </ResponsiveContainer>
           </div>

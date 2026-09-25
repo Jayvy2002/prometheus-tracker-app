@@ -592,7 +592,7 @@ export default function CalendarPage() {
                         className="h-full rounded-full transition-all"
                         style={{
                           width: `${Math.min(100, (daySummary.nutrition.totalCals / profile.daily_calorie_target) * 100)}%`,
-                          backgroundColor: daySummary.nutrition.totalCals > profile.daily_calorie_target ? '#f43f5e' : '#10b981',
+                          backgroundColor: daySummary.nutrition.totalCals > profile.daily_calorie_target ? 'rgb(var(--c-rose-500))' : 'rgb(var(--c-emerald-500))',
                         }}
                       />
                     </div>

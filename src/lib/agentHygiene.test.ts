@@ -133,7 +133,9 @@ test('19: listed primitives use semantic tokens, not blue-600 / neutral-* / rose
     assert.doesNotMatch(src, banned, `${rel} still uses a raw palette class`);
     assert.doesNotMatch(src, /\bbg-blue-600\b|\bbg-rose-600\b/);
   }
-  const theme = readFileSync(resolve(root, 'tailwind.config.js'), 'utf8');
+  // Tokens are declared in the theme palette (CSS variables), wired by tailwind.config.js.
+  assert.match(readFileSync(resolve(root, 'tailwind.config.js'), 'utf8'), /colors: tailwindColors\(\)/);
+  const theme = readFileSync(resolve(root, 'src/shared/theme/palette.ts'), 'utf8');
   assert.match(theme, /primary:/);
   assert.match(theme, /success:/);
   assert.match(theme, /warning:/);
