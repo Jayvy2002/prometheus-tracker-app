@@ -3,6 +3,7 @@ import type { Exercise } from '../../lib/types';
 import { exerciseVideoKind, youtubeEmbedUrl } from '../../lib/exerciseVideo';
 import { muscleLabel } from '../../lib/muscleLabels';
 import ExerciseMuscleMannequin from './ExerciseMuscleMannequin';
+import { localizedCatalogName } from '../../features/workout/domain/exerciseDisplayName';
 
 interface Props {
   exercise: Pick<Exercise, 'video_url' | 'primary_muscles' | 'secondary_muscles' | 'name' | 'name_fr'>;
@@ -20,7 +21,7 @@ export default function ExerciseMedia({ exercise, compact = false }: Props) {
       {kind === 'youtube' && embed && (
         <div className={`overflow-hidden rounded-xl border border-neutral-800 bg-black ${height}`}>
           <iframe
-            title={t('workout.exercisePicker.videoTitle', { name: exercise.name })}
+            title={t('workout.exercisePicker.videoTitle', { name: localizedCatalogName(exercise, i18n.language) })}
             src={embed}
             className="h-full w-full"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"

@@ -160,4 +160,6 @@ export interface WorkoutTemplateExercise {
   cluster_reps_per_burst?: number | null;
   myo_activation?: boolean;
   order_index: number;
+  /** Catalog link of the routine / program row; the server keeps it only for a readable catalog row. */
+  catalog_exercise_id?: string | null;
 }

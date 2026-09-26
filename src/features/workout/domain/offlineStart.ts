@@ -81,6 +81,7 @@ export function buildOfflineStartedWorkout(input: OfflineStartInput): Workout {
       prescribed_rest_seconds: template.default_rest_seconds ?? null,
       prescribed_weight_kg: template.default_weight_kg ?? null,
       prescription_source: input.programDayId ? 'program' : 'user',
+      catalog_exercise_id: template.catalog_exercise_id ?? null,
       sets,
       created_at: now,
     };

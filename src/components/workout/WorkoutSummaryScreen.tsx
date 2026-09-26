@@ -8,6 +8,7 @@ import { isCoachedAthlete } from '../../lib/coachRole';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { useSessionRecords } from '../../features/workout/hooks/useSessionRecords';
 import Button from '../ui/Button';
+import { useExerciseDisplayName } from '../../features/workout/hooks/useExerciseDisplayName';
 
 function StatCard({
   icon: Icon,
@@ -41,6 +42,7 @@ export default function WorkoutSummaryScreen({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
+  const exerciseName = useExerciseDisplayName();
   const coachingRole = useCoachingStore(s => s.coachingRole);
   const myCoach = useCoachingStore(s => s.myCoach);
   const showCoachSaw = isCoachedAthlete(coachingRole, myCoach);
@@ -155,7 +157,7 @@ export default function WorkoutSummaryScreen({
                   className="flex items-center justify-between bg-neutral-900/60 border border-neutral-800/40 rounded-xl px-4 py-3"
                 >
                   <span className="text-sm text-white font-medium truncate flex-1 mr-3">
-                    {ex.name}
+                    {exerciseName(ex.name)}
                   </span>
                   <div className="text-right shrink-0">
                     {ex.volume > 0 && (

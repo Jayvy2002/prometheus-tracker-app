@@ -585,6 +585,14 @@ jobs:
         run: |
           set -euo pipefail
           grep -F 'exercise measurement: plank timed, reps default, only reps/time, read-only for athletes' /tmp/exercise-measurement.txt
+      - name: Test start workout catalog link
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/start_workout_catalog_link.sql | tee /tmp/start-catalog-link.txt
+      - name: Confirm start workout catalog link echo
+        run: |
+          set -euo pipefail
+          grep -F 'start workout catalog link: program link carried, readable template link kept, merged redirected, invalid dropped' /tmp/start-catalog-link.txt
       - name: Test athlete constraints
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

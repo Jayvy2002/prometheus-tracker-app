@@ -30,7 +30,9 @@ test('a routine starts a timed catalog exercise as timed sets, by catalog link o
   assert.equal(rows[1].set_type, undefined);
   // No link: the name « Plank » is not used to guess.
   assert.equal(rows[2].set_type, undefined);
-  assert.deepEqual(Object.keys(rows[1]).sort(), ['default_reps', 'default_sets', 'name', 'order_index']);
+  // The routine's catalog link travels with the template (p5-30); no set type is forced on a reps exercise.
+  assert.deepEqual(Object.keys(rows[1]).sort(), ['catalog_exercise_id', 'default_reps', 'default_sets', 'name', 'order_index']);
+  assert.equal(rows[2].catalog_exercise_id, undefined);
 });
 
 test('the badge of a timed hold shows its sets, not a reps target', () => {

@@ -16,6 +16,7 @@ import { useProfileStore } from '../../stores/profileStore';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import { LiftLineChart } from './ProgressCharts';
+import { useExerciseDisplayName } from '../../features/workout/hooks/useExerciseDisplayName';
 
 export default function ClientLiftChart({
   lifts,
@@ -39,6 +40,7 @@ export default function ClientLiftChart({
   onOpenSeries?: (lift: ClientLiftProgress) => void;
 }) {
   const { t } = useTranslation();
+  const exerciseName = useExerciseDisplayName();
   const unit = useProfileStore(s => s.profile?.unit_weight === 'lbs' ? 'lbs' : 'kg');
   const navigate = useNavigate();
   const today = todayStr();
@@ -88,7 +90,7 @@ export default function ClientLiftChart({
             {t('coaching.trainingLift.title')}
           </p>
           {compact ? (
-            <p className="text-sm font-medium text-white truncate mt-0.5">{selected.displayName}</p>
+            <p className="text-sm font-medium text-white truncate mt-0.5">{exerciseName(selected.displayName)}</p>
           ) : (
             <label className="block mt-1">
               <span className="sr-only">{t('coaching.trainingLift.picker')}</span>
@@ -101,7 +103,7 @@ export default function ClientLiftChart({
                 className="mt-0.5 w-full max-w-xs bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1.5 text-sm text-white"
               >
                 {options.map(l => (
-                  <option key={l.exerciseName} value={l.displayName}>{l.displayName}</option>
+                  <option key={l.exerciseName} value={l.displayName}>{exerciseName(l.displayName)}</option>
                 ))}
               </select>
             </label>

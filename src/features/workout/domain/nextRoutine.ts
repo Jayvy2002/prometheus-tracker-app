@@ -34,6 +34,7 @@ export type RoutineTemplateExercise = {
   default_reps: number;
   order_index: number;
   set_type?: 'isometric';
+  catalog_exercise_id?: string | null;
 };
 
 /**
@@ -52,6 +53,8 @@ export function routineTemplateExercises(
       default_reps: ex.default_reps,
       order_index: ex.order_index,
       ...(timed ? { set_type: 'isometric' as const } : {}),
+      // The session keeps the routine's catalog link (name in the app language, history).
+      ...(ex.catalog_exercise_id ? { catalog_exercise_id: ex.catalog_exercise_id } : {}),
     };
   });
 }

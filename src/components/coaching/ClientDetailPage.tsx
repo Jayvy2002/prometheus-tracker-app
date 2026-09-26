@@ -96,6 +96,7 @@ import {
   medicalFlagIds,
   parseIntake,
 } from '../../lib/kinesiologyIntake';
+import { useExerciseDisplayName } from '../../features/workout/hooks/useExerciseDisplayName';
 
 function MedicalFlagsCard({ raw }: { raw: unknown }) {
   const { t, i18n } = useTranslation();
@@ -203,6 +204,7 @@ function Kpi({ label, value, tone }: { label: string; value: string; tone?: stri
 
 export default function ClientDetailPage() {
   const { t } = useTranslation();
+  const exerciseName = useExerciseDisplayName();
   const unit = useProfileStore(s => s.profile?.unit_weight === 'lbs' ? 'lbs' : 'kg');
   const lengthUnit = useProfileStore(s => s.profile?.unit_height === 'in' ? 'in' : 'cm');
   const { id } = useParams();
@@ -939,7 +941,7 @@ export default function ClientDetailPage() {
                           <p className="text-sm text-white">{day.name}</p>
                           {(day.exercises ?? []).length > 0 && (
                             <p className="text-xs text-neutral-500 truncate">
-                              {(day.exercises ?? []).map(ex => ex.name).join(' · ')}
+                              {(day.exercises ?? []).map(ex => exerciseName(ex.name, ex.catalog_exercise_id)).join(' · ')}
                             </p>
                           )}
                         </li>
