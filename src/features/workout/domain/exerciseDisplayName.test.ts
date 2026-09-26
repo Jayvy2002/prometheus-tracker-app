@@ -113,5 +113,9 @@ test('the start carries the catalog link through a new migration', () => {
   assert.match(migration, /prescription_source, catalog_exercise_id/);
   assert.match(migration, /x\.verified OR x\.created_by = v_user_id/);
   assert.match(migration, /GRANT EXECUTE ON FUNCTION public\.start_workout_from_template\(text, timestamptz, uuid, uuid, uuid, jsonb\)\s+TO authenticated/);
-  assert.match(src('supabase/migrations.pending.json'), /"20260925110000"/);
+  // Pending until production is verified, then in the lock (applied 2026-09-26).
+  assert.match(
+    src('supabase/migrations.pending.json') + src('supabase/schema_migrations.lock.json'),
+    /"20260925110000"/,
+  );
 });

@@ -1,7 +1,7 @@
 {
   "project_ref": "phyuijjekxtjvipjtdfv",
-  "captured_at": "2026-09-25T19:55:00Z",
-  "strategy": "Git migrations on new-JV, this lock, and Supabase production must contain the same ordered versions. Verified directly against production on 2026-09-25 after the merges of #237 and #238-#247 (audit 3): 157 versions, last 20260925100000_exercise_measurement. The Supabase GitHub integration applies migrations on merge to new-JV with the Git timestamp; P6.1 was renamed from 20260923140000 to 20260924205000 before it was applied because production already had 20260924200000. Never repair or restamp applied history. Never apply 20260919181919.",
+  "captured_at": "2026-09-26T08:00:00Z",
+  "strategy": "Git migrations on new-JV, this lock, and Supabase production must contain the same ordered versions. Verified directly against production on 2026-09-25 after the merges of #237, #238-#247 (audit 3) and #248: 158 versions, last 20260925110000_start_workout_catalog_link. The Supabase GitHub integration applies migrations on merge to new-JV with the Git timestamp; P6.1 was renamed from 20260923140000 to 20260924205000 before it was applied because production already had 20260924200000. Never repair or restamp applied history. Never apply 20260919181919.",
   "audit_range": {
     "from": "20260910044211",
     "to": "20260910064501",
@@ -635,6 +635,10 @@
     {
       "version": "20260925100000",
       "name": "exercise_measurement"
+    },
+    {
+      "version": "20260925110000",
+      "name": "start_workout_catalog_link"
     }
   ]
 }
