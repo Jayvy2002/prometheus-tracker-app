@@ -59,7 +59,7 @@ test('theme: "Automatique" follows the phone, explicit choices do not', () => {
   assert.equal(resolveTheme('dark', false), 'dark');
 });
 
-test('theme: applying sets data-theme, color-scheme (light only) and the browser chrome', () => {
+test('theme: applying sets data-theme, color-scheme and the browser chrome', () => {
   const { doc, attrs, metas, style } = fakeDocument();
   applyResolvedTheme('light', doc);
   assert.equal(attrs['data-theme'], 'light');
@@ -70,8 +70,8 @@ test('theme: applying sets data-theme, color-scheme (light only) and the browser
 
   applyResolvedTheme('dark', doc);
   assert.equal(attrs['data-theme'], 'dark');
-  // Dark keeps today's rendering: no color-scheme declared.
-  assert.equal(style.colorScheme, '');
+  // Native controls (date picker, selects, scrollbars) are dark in the dark theme too.
+  assert.equal(style.colorScheme, 'dark');
   assert.equal(metas['theme-color'], '#000000');
   assert.equal(metas['apple-mobile-web-app-status-bar-style'], 'black-translucent');
   assert.equal(currentTheme(doc), 'dark');
@@ -100,7 +100,7 @@ test('theme: index.html applies the saved theme before the first paint, like res
       try { parsed = JSON.parse(raw ?? '{}')?.theme; } catch { parsed = undefined; }
       const expected = resolveTheme(parseThemePreference(parsed), phoneLight);
       assert.equal(attrs['data-theme'], expected, `${raw} / phone light ${phoneLight}`);
-      assert.equal(style.colorScheme, expected === 'light' ? 'light' : '');
+      assert.equal(style.colorScheme, expected);
       assert.equal(metas['theme-color'], THEME_COLOR[expected]);
     }
   }
@@ -112,6 +112,42 @@ test('theme: the boot script survives a blocked localStorage and a missing match
   const localStorage = { getItem: () => { throw new Error('blocked'); } };
   new Function('localStorage', 'window', 'document', script)(localStorage, {}, doc);
   assert.equal(attrs['data-theme'], 'dark');
+});
+
+test('theme: the offline page follows the same saved theme as the app', () => {
+  const html = src('public/offline.html');
+  const script = /<script>\s*\(function \(\) \{([\s\S]*?)\}\)\(\);\s*<\/script>/.exec(html)?.[1];
+  assert.ok(script, 'offline theme script present');
+  assert.match(html, /html\[data-theme="light"\] body \{ background: #f5f5f5; color: #171717; \}/);
+  for (const raw of [null, '{"theme":"light"}', '{"theme":"system"}', '{"theme":"dark"}', 'not json']) {
+    for (const phoneLight of [true, false]) {
+      const { doc, attrs } = fakeDocument();
+      const localStorage = { getItem: () => raw };
+      const window = { matchMedia: (q: string) => ({ matches: q === '(prefers-color-scheme: light)' && phoneLight }) };
+      new Function('localStorage', 'window', 'document', script)(localStorage, window, doc);
+      let parsed: unknown;
+      try { parsed = JSON.parse(raw ?? '{}')?.theme; } catch { parsed = undefined; }
+      assert.equal(attrs['data-theme'], resolveTheme(parseThemePreference(parsed), phoneLight), `${raw} / ${phoneLight}`);
+    }
+  }
+  // The new offline page reaches phones that cached the old one.
+  assert.match(src('public/sw.js'), /const CACHE_NAME = 'prometheus-v5';/);
+});
+
+test('theme: the white logo turns ink-dark on a light page, everywhere it is shown', () => {
+  assert.match(src('src/index.css'), /html\[data-theme="light"\] \.logo-mark \{\s*filter: invert\(0\.91\);/);
+  assert.match(src('index.html'), /html\[data-theme="light"\] \.logo-mark\{filter:invert\(\.91\)\}/);
+  assert.match(src('index.html'), /<img class="logo-mark" src="\/logo\.svg"/);
+  for (const file of [
+    'src/main.tsx', 'src/app/router/AppRoutes.tsx', 'src/app/layout/SideNav.tsx', 'src/components/ErrorBoundary.tsx',
+    'src/components/auth/AuthPage.tsx', 'src/components/coaching/InvitePage.tsx',
+    'src/components/coaching/ProvisionalClaimPage.tsx', 'src/components/onboarding/EntryIntentionPage.tsx',
+  ]) {
+    const code = src(file);
+    const logos = code.match(/<img src="\/logo\.svg"[^>]*>/g) ?? [];
+    assert.ok(logos.length > 0, file);
+    for (const tag of logos) assert.match(tag, /className="logo-mark /, file);
+  }
 });
 
 test('theme: the choice lives in Profil › Unités & préférences, saved with the device prefs', () => {

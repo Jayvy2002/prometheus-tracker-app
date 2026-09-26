@@ -621,9 +621,9 @@ export default function ProgramSessionEditor({
                   <div className="px-3 pb-3 pt-3 space-y-3 border-t border-neutral-800/70">
                     <label className={`block ${labelClass}`}>
                       {t('programs.editor.exerciseName')}
-                      <input
-                        value={ex.name}
-                        onChange={e => updateExercise(ei, { name: e.target.value })}
+                      <ExerciseNameInput
+                        shown={exerciseName(ex.name, ex.catalog_exercise_id)}
+                        onChange={name => updateExercise(ei, { name })}
                         placeholder={t('coaching.interventions.liftName')}
                         className={fieldClass}
                       />
@@ -950,6 +950,32 @@ export default function ProgramSessionEditor({
         }}
       />
     </div>
+  );
+}
+
+/**
+ * The exercise name as the coach reads it (« Gainage », not the stored « Plank »).
+ * While typing, the field shows exactly what is typed and saves it; once left, it
+ * shows the name again in the app language (a renamed exercise stays as written).
+ */
+function ExerciseNameInput({ shown, onChange, placeholder, className }: {
+  shown: string;
+  onChange: (name: string) => void;
+  placeholder: string;
+  className: string;
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+  return (
+    <input
+      value={draft ?? shown}
+      onChange={e => {
+        setDraft(e.target.value);
+        onChange(e.target.value);
+      }}
+      onBlur={() => setDraft(null)}
+      placeholder={placeholder}
+      className={className}
+    />
   );
 }
 

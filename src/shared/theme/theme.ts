@@ -37,13 +37,14 @@ export function systemPrefersLight(win: Pick<Window, 'matchMedia'> | undefined =
 
 /**
  * Puts the theme on <html>: data-theme (drives the CSS variables), color-scheme
- * in light only (dark keeps today's native controls), and the browser chrome colours.
+ * (native controls — date picker, selects, checkboxes, scrollbars — follow the
+ * theme), and the browser chrome colours.
  */
 export function applyResolvedTheme(theme: ResolvedTheme, doc: Document | undefined = typeof document === 'undefined' ? undefined : document): void {
   if (!doc) return;
   const root = doc.documentElement;
   root.setAttribute('data-theme', theme);
-  root.style.colorScheme = theme === 'light' ? 'light' : '';
+  root.style.colorScheme = theme;
   doc.querySelector('meta[name="theme-color"]')?.setAttribute('content', THEME_COLOR[theme]);
   doc
     .querySelector('meta[name="apple-mobile-web-app-status-bar-style"]')

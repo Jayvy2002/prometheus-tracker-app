@@ -104,7 +104,7 @@ export default function InvitePage() {
     <div className="min-h-screen bg-black flex items-center justify-center px-6">
       <ToastContainer />
       <div className="w-full max-w-sm text-center">
-        <img src="/logo.svg" alt="" className="w-12 h-12 mx-auto mb-4" />
+        <img src="/logo.svg" alt="" className="logo-mark w-12 h-12 mx-auto mb-4" />
         {previewFailed ? (
           <div className="space-y-4">
             <p role="alert" className="text-sm text-neutral-300">{t('coaching.invite.previewError')}</p>

@@ -31,7 +31,7 @@ export default function SideNav() {
     <aside className="hidden md:flex flex-col fixed inset-y-0 left-0 w-64 bg-neutral-950 border-r border-neutral-800/60 z-40">
       <div className="flex items-center gap-3 px-5 py-5 border-b border-neutral-800/60 animate-fade-in-down">
         <div className="w-8 h-8 flex items-center justify-center">
-          <img src="/logo.svg" alt="Prometheus" className="w-8 h-8" />
+          <img src="/logo.svg" alt="Prometheus" className="logo-mark w-8 h-8" />
         </div>
         <span className="text-white font-bold text-lg tracking-tight">Prometheus</span>
       </div>

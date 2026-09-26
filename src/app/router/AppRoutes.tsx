@@ -141,7 +141,7 @@ export default function AppRoutes() {
   if (authLoading || !initialized) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
-        <img src="/logo.svg" alt="Prometheus" className="w-10 h-10 animate-pulse" />
+        <img src="/logo.svg" alt="Prometheus" className="logo-mark w-10 h-10 animate-pulse" />
       </div>
     );
   }

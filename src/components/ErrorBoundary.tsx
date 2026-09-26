@@ -27,7 +27,7 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center px-6 py-12">
-          <img src="/logo.svg" alt="Prometheus" className="w-14 h-14 mb-6" />
+          <img src="/logo.svg" alt="Prometheus" className="logo-mark w-14 h-14 mb-6" />
           <h1 className="text-2xl font-semibold text-center mb-2">{i18n.t('errors.renderError')}</h1>
           <p className="text-sm text-neutral-400 text-center mb-8 max-w-sm">{i18n.t('errors.dataSafe')}</p>
           <div className="flex flex-col sm:flex-row gap-3 w-full max-w-sm">

@@ -6,6 +6,7 @@
   <title>Prometheus</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { color-scheme: dark; }
     body {
       background: #000;
       color: #f8fafc;
@@ -32,7 +33,25 @@
       font-weight: 600;
       cursor: pointer;
     }
+    /* Same theme as the app (saved preference, or the phone for « Automatique »). */
+    html[data-theme="light"] { color-scheme: light; }
+    html[data-theme="light"] body { background: #f5f5f5; color: #171717; }
+    html[data-theme="light"] p { color: #525252; }
+    html[data-theme="light"] img { filter: invert(0.91); }
   </style>
+  <script>
+    (function () {
+      try {
+        var pref = 'dark';
+        try {
+          var saved = JSON.parse(localStorage.getItem('prometheus-prefs') || '{}');
+          if (saved && (saved.theme === 'light' || saved.theme === 'system')) pref = saved.theme;
+        } catch (e) {}
+        var light = pref === 'light' || (pref === 'system' && !!window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
+        document.documentElement.setAttribute('data-theme', light ? 'light' : 'dark');
+      } catch (e) {}
+    })();
+  </script>
 </head>
 <body>
   <img src="/logo.svg" alt="Prometheus" />
