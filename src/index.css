@@ -56,6 +56,11 @@ body {
   color: #737373;
 }
 
+/* The logo is drawn white: on a light page it turns ink-dark (≈ #171717). */
+html[data-theme="light"] .logo-mark {
+  filter: invert(0.91);
+}
+
 /* Light theme: full-screen translucent black layers are scrims (backdrops of
    sheets and dialogs), not surfaces — keep them a dark veil. */
 html[data-theme="light"] .fixed.inset-0[class*="bg-black/"] {

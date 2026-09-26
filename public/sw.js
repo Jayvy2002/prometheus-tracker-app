@@ -1,4 +1,4 @@
-const CACHE_NAME = 'prometheus-v4';
+const CACHE_NAME = 'prometheus-v5';
 
 const STATIC_ASSETS = [
   '/',

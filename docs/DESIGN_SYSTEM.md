@@ -36,7 +36,7 @@ Lot **19** livré : les primitives listées n’utilisent plus `blue-600` / `neu
 **Mécanique**
 
 - Toutes les couleurs Tailwind de l’app (`neutral`, `white`, `black`, les teintes `red`…`rose`, les tokens ci-dessus) valent `rgb(var(--c-…) / <alpha-value>)` : les opacités `/10`, `/50`… continuent de marcher. Les variables sombres sont sur `:root` (valeurs identiques à avant, vérifié au pixel), les claires sous `html[data-theme="light"]`.
-- Avant le premier rendu, le script inline `#theme-boot` d’`index.html` lit la préférence, pose `data-theme`, `color-scheme: light` (en clair seulement : le sombre garde le rendu natif actuel), `theme-color` (`#000000` / `#f5f5f5`) et la barre d’état iOS. Même logique que `src/shared/theme/theme.ts` (testé en exécutant le script).
+- Avant le premier rendu, le script inline `#theme-boot` d’`index.html` lit la préférence, pose `data-theme`, `color-scheme` (`light` ou `dark` : calendrier natif, listes, cases et barres de défilement suivent le thème), `theme-color` (`#000000` / `#f5f5f5`) et la barre d’état iOS. Même logique que `src/shared/theme/theme.ts` (testé en exécutant le script).
 - `startThemeSync()` (`src/app/bootstrap/themeSync.ts`) suit le changement clair/sombre du téléphone en mode Automatique.
 - **Îlots sombres** : un aplat saturé (`bg-primary`, `bg-danger`, `bg-success`, `bg-warning`, `bg-<teinte>-500/600/700`, y compris `!bg-…`) garde les variables sombres à l’intérieur ; `text-white` y reste blanc (bouton primaire, bulle de message, onglet actif). Classe `theme-dark` pour forcer un îlot (disques du calculateur : couleurs physiques). Les interrupteurs `role="switch"` gardent un bouton blanc.
 - Voiles : `bg-overlay` et tout `fixed inset-0 bg-black/…` restent un voile sombre en clair.
@@ -80,7 +80,9 @@ Lot **19** livré : les primitives listées n’utilisent plus `blue-600` / `neu
 
 Tokens texte sur blanc / page : `primary` 5,17 / 4,74 ; `success` 5,02 / 4,60 ; `warning` 5,02 / 4,61 ; `danger` 6,29 / 5,76. Focus clavier `#1d4ed8` : 6,70. Texte blanc sur `bg-blue-600` (îlot) : 5,17. Sombre inchangé : `neutral-500` 6,92 sur noir, 5,91 sur `#171717`.
 
-Limites connues : `color-scheme` n’est pas déclaré en sombre (le déclarer changerait les contrôles natifs) ; `manifest.json` garde `#000000` (écran de lancement PWA) ; la barre d’état iOS n’est relue qu’au lancement de la PWA ; `DateInput` garde une bordure focus `[#525252]` (champ en cours de refonte ailleurs), lisible dans les deux thèmes.
+Logo : `logo.svg` est blanc ; toute image du logo porte la classe `logo-mark`, qui l’assombrit en clair (`filter: invert(0.91)` ≈ `#171717`). La page `offline.html` applique la même préférence de thème que l’app.
+
+Limites connues : l’écran de lancement du système (avant que l’app ne s’affiche) vient de `manifest.json` (`#000000`), fixe par nature : il ne peut pas suivre un choix fait dans l’app, et reste noir comme le thème par défaut ; l’écran de chargement de l’app, lui, suit le thème. La barre d’état iOS n’est relue qu’au lancement de la PWA.
 
 ---
 

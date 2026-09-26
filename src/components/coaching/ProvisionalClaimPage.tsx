@@ -121,7 +121,7 @@ export default function ProvisionalClaimPage() {
     <div className="min-h-screen bg-black flex items-center justify-center px-4 py-10">
       <ToastContainer />
       <div className="w-full max-w-md">
-        <img src="/logo.svg" alt="" className="w-12 h-12 mx-auto mb-4" />
+        <img src="/logo.svg" alt="" className="logo-mark w-12 h-12 mx-auto mb-4" />
         {loading ? (
           <div className="flex justify-center" role="status" aria-label={t('coaching.provisional.claim.loading')}>
             <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full" />

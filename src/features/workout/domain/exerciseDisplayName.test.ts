@@ -101,6 +101,11 @@ test('every screen that shows an exercise name goes through the display name', (
     ['src/components/constraints/ConstraintsPanel.tsx', /exerciseName\(c\.exercise_name\)/],
   ];
   for (const [path, pattern] of screens) assert.match(src(path), pattern, path);
+  // The program editor's name field reads « Gainage » too; typing saves what is typed.
+  const editor = src('src/components/coaching/ProgramSessionEditor.tsx');
+  assert.match(editor, /<ExerciseNameInput\s+shown=\{exerciseName\(ex\.name, ex\.catalog_exercise_id\)\}/);
+  assert.match(editor, /value=\{draft \?\? shown\}/);
+  assert.match(editor, /onBlur=\{\(\) => setDraft\(null\)\}/);
   // Display only: what is written and matched on stays the stored name.
   const card = src('src/components/workout/ExerciseCard.tsx');
   assert.match(card, /useExerciseHistory\(exercise\.name, /);
